@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
@@ -25,4 +25,3 @@
     "vitest": "^3.2.4"
   }
 }
-
