@@ -121,6 +121,11 @@ src/
       audioEngine.ts
       scheduler.ts
       instruments.ts
+    storage/
+      storageTypes.ts
+      projectRepository.ts
+      preferencesRepository.ts
+      autosave.ts
   styles/
     tokens.css
     global.css
@@ -132,6 +137,7 @@ Architecture rules:
 - MIDI parsing should normalize into the app's internal `NoteEvent` model immediately.
 - Harmony generation should be deterministic and testable without React.
 - Audio scheduling should consume normalized project data, not raw MIDI structures.
+- Persistence should go through storage repositories, not direct `localStorage` or IndexedDB calls from UI components.
 
 ## 4. Core Data Model
 
@@ -435,7 +441,197 @@ State rules:
 - Chord selection updates only the inspector and timeline highlight.
 - Playback candidate cannot be missing from candidates.
 
-## 9. Error Handling
+## 9. Local Data Storage
+
+The MVP uses a local-first storage model. User music data should stay in the browser unless the user explicitly exports a file or a future backend feature is added.
+
+### 9.1 Storage Layers
+
+Use four storage layers:
+
+1. Runtime memory.
+2. `localStorage`.
+3. IndexedDB.
+4. User-initiated file export.
+
+### 9.2 Runtime Memory
+
+Runtime memory stores the active editing session.
+
+Data:
+
+- Current `AppState`.
+- Imported melody as normalized `NoteEvent[]`.
+- Generated harmony candidates.
+- Selected candidate and chord.
+- Playback state.
+- Temporary import and error state.
+
+Behavior:
+
+- Fastest source of truth while the app is open.
+- Lost on refresh unless autosaved.
+- Should remain serializable except for live audio objects.
+- Audio nodes, timers, and file handles must not be stored in app state.
+
+### 9.3 `localStorage`
+
+`localStorage` stores small preferences only.
+
+Allowed data:
+
+- Last selected key.
+- Last selected mode.
+- Last tempo.
+- Last time signature.
+- Last harmony density.
+- Last input mode.
+- UI preferences such as collapsed panels if added later.
+
+Disallowed data:
+
+- Raw MIDI files.
+- Full project snapshots.
+- Generated candidate arrays for real projects.
+- Audio data.
+
+Rationale:
+
+- `localStorage` is simple, synchronous, and small. It is suitable for preferences, not user compositions.
+
+Suggested key:
+
+```text
+harmony-auxiliary/preferences/v1
+```
+
+### 9.4 IndexedDB
+
+IndexedDB stores project drafts and import metadata.
+
+Use IndexedDB for:
+
+- Autosaved active project.
+- User-created project drafts.
+- Normalized melody notes.
+- Project settings.
+- Generated candidates if the user chooses to save or autosave them.
+- Original MIDI file metadata:
+  - file name.
+  - file size.
+  - last modified timestamp.
+  - selected track index.
+- Optional original MIDI blob if the user explicitly saves a project draft.
+
+Do not store:
+
+- Audio playback nodes.
+- Live Tone.js objects.
+- Unbounded history without quota control.
+
+Recommended database:
+
+```text
+harmony-auxiliary-db
+```
+
+Recommended object stores:
+
+- `projects`.
+- `autosaves`.
+- `imports`.
+
+### 9.5 Project Snapshot
+
+Persist projects as versioned snapshots.
+
+```ts
+type StoredProjectSnapshot = {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  settings: ProjectSettings;
+  melody: NoteEvent[];
+  candidates: HarmonyCandidate[];
+  selectedCandidateId: string | null;
+  selectedChordId: string | null;
+  sourceImport?: {
+    fileName: string;
+    fileSize: number;
+    lastModified: number;
+    selectedTrackIndex: number | null;
+    storedBlobId?: string;
+  };
+};
+```
+
+Rules:
+
+- Persist only plain JSON-compatible data in snapshots.
+- Include `schemaVersion` from the start.
+- Add migrations when the shape changes.
+- Treat generated candidates as reproducible cache. If the generation algorithm changes, candidates may be regenerated.
+
+### 9.6 Autosave
+
+MVP autosave should be conservative.
+
+Behavior:
+
+- Autosave active project after melody, settings, or candidate changes.
+- Debounce writes by 800-1500ms.
+- Keep one active autosave slot.
+- Show recovery prompt on next load if an autosave exists.
+
+Suggested key / store record:
+
+```text
+autosaves.active
+```
+
+Recovery behavior:
+
+1. App starts.
+2. Check for active autosave.
+3. If present, show inline recovery option in the empty state.
+4. User can restore or discard.
+
+### 9.7 Export as Durable Save
+
+MIDI export is the MVP's explicit durable save path.
+
+Export can include:
+
+- Melody track.
+- Harmony track.
+- Tempo.
+- Time signature if supported.
+
+This file belongs to the user and can be opened in a DAW or notation tool.
+
+### 9.8 Privacy and Data Control
+
+Privacy rules:
+
+- Do not upload MIDI files in MVP.
+- Do not send project snapshots to any server.
+- Do not use imported melodies for analytics.
+- Provide a "Clear local data" action before shipping beyond MVP.
+
+Future backend features must be opt-in and should clearly say when project data leaves the browser.
+
+### 9.9 Implementation Order
+
+Recommended build order:
+
+1. M2: runtime app state only.
+2. M2 late: `localStorage` for preferences.
+3. M4: IndexedDB for autosaved active project and import metadata.
+4. M5: saved project list and clear local data action if time allows.
+
+## 10. Error Handling
 
 Required error cases:
 
@@ -451,9 +647,9 @@ Errors should be actionable:
 - "This MIDI file has no note tracks. Try another file or enter notes manually."
 - "Audio can only start after pressing Play. Please try again."
 
-## 10. Testing Strategy
+## 11. Testing Strategy
 
-### 10.1 Unit Tests
+### 11.1 Unit Tests
 
 Must cover:
 
@@ -466,7 +662,7 @@ Must cover:
 - Candidate generation.
 - Explanation generation.
 
-### 10.2 Integration Tests
+### 11.2 Integration Tests
 
 Should cover:
 
@@ -474,8 +670,9 @@ Should cover:
 - Generate candidates from fixture notes.
 - Export selected candidate.
 - Audio scheduling data preparation without actually playing audio.
+- Save and restore a project snapshot through storage repositories.
 
-### 10.3 UI Tests
+### 11.3 UI Tests
 
 Should cover:
 
@@ -485,8 +682,9 @@ Should cover:
 - Candidate selection.
 - Inspector updates.
 - Playback button starts audio path.
+- Autosave recovery prompt when stored project data exists.
 
-### 10.4 Manual Audio QA
+### 11.4 Manual Audio QA
 
 Before shipping MVP:
 
@@ -496,7 +694,7 @@ Before shipping MVP:
 - Verify candidate switching stops old scheduled audio.
 - Verify exported MIDI opens in a common DAW or MIDI viewer.
 
-## 11. Performance
+## 12. Performance
 
 MVP targets:
 
@@ -511,8 +709,9 @@ Implementation guidance:
 - Memoize timeline layout calculations.
 - Store playback cursor separately from heavy project data.
 - Use SVG or canvas only if DOM rendering becomes slow.
+- Debounce storage writes and keep them off the playback-critical path.
 
-## 12. Build Milestones
+## 13. Build Milestones
 
 ### M1: Static Workspace
 
@@ -524,6 +723,8 @@ Implementation guidance:
 ### M2: Manual Melody and Harmony Engine
 
 - Add manual note input.
+- Add runtime project state model.
+- Persist lightweight preferences in `localStorage`.
 - Add major-key chord palette.
 - Segment melody.
 - Generate three deterministic candidates.
@@ -542,18 +743,21 @@ Implementation guidance:
 - Parse MIDI.
 - Select melody track.
 - Normalize notes.
+- Add IndexedDB autosave for active project and import metadata.
 - Generate candidates from imported melody.
 
 ### M5: MIDI Export and Polish
 
 - Export selected candidate.
+- Add saved project restore / discard flow.
+- Add clear local data action if time allows.
 - Add error states.
 - Add responsive refinements.
 - Add tests for theory and generation modules.
 
-## 13. Technical Risks
+## 14. Technical Risks
 
-### 13.1 Harmony Quality
+### 14.1 Harmony Quality
 
 Risk:
 
@@ -565,7 +769,7 @@ Mitigation:
 - Make explanations honest.
 - Allow chord replacement after MVP.
 
-### 13.2 MIDI Complexity
+### 14.2 MIDI Complexity
 
 Risk:
 
@@ -577,7 +781,7 @@ Mitigation:
 - Add normalization and quantization later.
 - Treat complex MIDI inference as future work.
 
-### 13.3 Browser Audio Timing
+### 14.3 Browser Audio Timing
 
 Risk:
 
@@ -589,7 +793,7 @@ Mitigation:
 - Cancel events aggressively on candidate switch.
 - Keep UI cursor driven by the same transport timing source.
 
-### 13.4 UI Density
+### 14.4 UI Density
 
 Risk:
 
@@ -601,7 +805,32 @@ Mitigation:
 - Keep advanced settings collapsed.
 - Prioritize timeline space.
 
-## 14. Source Notes
+### 14.5 Local Storage Drift
+
+Risk:
+
+- Stored project snapshots may become incompatible as the music data model evolves.
+
+Mitigation:
+
+- Version every snapshot.
+- Add migration functions.
+- Keep generated candidates regeneratable.
+- Keep original melody and settings as the durable core of each project.
+
+### 14.6 Browser Storage Quotas
+
+Risk:
+
+- Large MIDI blobs or too many autosaves can hit browser storage limits.
+
+Mitigation:
+
+- Store original MIDI blobs only when the user explicitly saves a draft.
+- Keep one active autosave slot in MVP.
+- Add a clear local data action.
+
+## 15. Source Notes
 
 These references informed the technical recommendations:
 
@@ -609,4 +838,3 @@ These references informed the technical recommendations:
 - Tone.js docs: https://tonejs.github.io/
 - `@tonejs/midi`: https://github.com/Tonejs/Midi
 - `midi-writer-js`: https://github.com/grimmdude/MidiWriterJS
-
