@@ -79,6 +79,8 @@ Acceptance criteria:
 
 Goal: generate explainable harmony candidates from manually entered notes.
 
+Status: Complete. M2 now has core music types, runtime app state, localStorage-backed preferences, major-key theory utilities, manual note entry, melody segmentation, chord scoring, deterministic candidate generation, and unit tests.
+
 ### M2.1 Core Music Types
 
 - Implement `NoteEvent`.

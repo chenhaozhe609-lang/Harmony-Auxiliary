@@ -237,6 +237,53 @@ button:disabled,
   gap: 8px;
 }
 
+.duration-select {
+  display: grid;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.duration-select select {
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0 10px;
+}
+
+.manual-input {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.manual-input button {
+  min-width: 42px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+}
+
+.manual-input .text-tool-button {
+  min-width: 62px;
+  color: var(--color-text-muted);
+  font-weight: 650;
+}
+
 .timeline-canvas {
   position: relative;
   overflow: hidden;
@@ -344,7 +391,7 @@ button:disabled,
   text-align: left;
 }
 
-.chord-block[data-selected="true"] {
+.chord-block.is-selected {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
 }
@@ -388,9 +435,13 @@ button:disabled,
   text-align: left;
 }
 
-.candidate[data-selected="true"] {
+.candidate.is-selected {
   border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: var(--color-surface);
+}
+
+.candidate.is-selected span {
+  color: var(--color-accent);
 }
 
 .candidate-loading {
@@ -464,6 +515,10 @@ button:disabled,
   line-height: 1.7;
 }
 
+.inspector .warning-copy {
+  color: var(--color-tension);
+}
+
 .inspector-empty {
   min-height: 420px;
 }
@@ -478,7 +533,8 @@ button:disabled,
   .secondary-button:hover,
   .transport button:not(:disabled):hover,
   .candidate:not(:disabled):hover,
-  .chord-block:hover {
+  .chord-block:hover,
+  .manual-input button:not(:disabled):hover {
     border-color: var(--color-focus);
   }
 }

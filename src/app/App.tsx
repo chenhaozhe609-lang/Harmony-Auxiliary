@@ -1,215 +1,134 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
+import { appReducer, createInitialState } from "./appState";
+import { loadPreferences, savePreferences } from "./preferencesRepository";
+import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
+import type { HarmonyCandidate, NoteEvent, PitchClass, PlacedChord } from "../music/types";
+import {
+  createNoteEventId,
+  midiToNoteName,
+  noteNameToPitchClass,
+  pitchClassToName,
+} from "../music/theory/pitches";
 import "./App.css";
 
-type ChordBlock = {
-  id: string;
-  symbol: string;
-  roman: string;
-  functionLabel: string;
-  melody: string;
-  explanation: string;
-};
+const NOTE_BUTTONS = ["C", "D", "E", "F", "G", "A", "B"] as const;
 
-type Candidate = {
-  id: string;
-  title: string;
-  subtitle: string;
-  status: string;
-  chords: ChordBlock[];
-  summary: string;
-};
+const DURATION_OPTIONS = [
+  { label: "Whole", value: 4 },
+  { label: "Half", value: 2 },
+  { label: "Quarter", value: 1 },
+  { label: "Eighth", value: 0.5 },
+] as const;
 
-const demoNotes = [
-  { id: "n1", label: "E4", start: 2, span: 2, y: -18 },
-  { id: "n2", label: "G4", start: 5, span: 1, y: -34 },
-  { id: "n3", label: "C5", start: 7, span: 3, y: -52 },
-  { id: "n4", label: "B4", start: 12, span: 2, y: -42 },
-  { id: "n5", label: "A4", start: 15, span: 2, y: -30 },
-];
+const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
 
-const candidates: Candidate[] = [
-  {
-    id: "stable",
-    title: "Stable Classical",
-    subtitle: "Clear function, plain cadence",
-    status: "Ready",
-    summary:
-      "A conservative pass that keeps the melody supported by tonic, predominant, and dominant movement.",
-    chords: [
-      {
-        id: "stable-c",
-        symbol: "Cmaj7",
-        roman: "Imaj7",
-        functionLabel: "Tonic",
-        melody: "E = third",
-        explanation:
-          "The melody note E is the third of Cmaj7, so the chord sounds stable and clearly establishes the key.",
-      },
-      {
-        id: "stable-f",
-        symbol: "F",
-        roman: "IV",
-        functionLabel: "Predominant",
-        melody: "C = fifth",
-        explanation:
-          "F supports C as a chord tone and gently moves the phrase away from tonic without adding sharp tension.",
-      },
-      {
-        id: "stable-g",
-        symbol: "G7",
-        roman: "V7",
-        functionLabel: "Dominant",
-        melody: "B = third",
-        explanation:
-          "G7 gives the phrase dominant pull. The B in the melody acts as the leading tone toward C.",
-      },
-      {
-        id: "stable-c2",
-        symbol: "C",
-        roman: "I",
-        functionLabel: "Tonic",
-        melody: "C = root",
-        explanation:
-          "The final C lands on the root of the tonic chord, giving the phrase a settled ending.",
-      },
-    ],
-  },
-  {
-    id: "pop",
-    title: "Pop / Songwriting",
-    subtitle: "Loop-friendly, smoother bass",
-    status: "Ready",
-    summary:
-      "A familiar songwriting loop with a stepwise bass color and softer harmonic pressure.",
-    chords: [
-      {
-        id: "pop-c",
-        symbol: "C",
-        roman: "I",
-        functionLabel: "Tonic",
-        melody: "E = third",
-        explanation:
-          "C gives the opening a direct tonic sound while keeping the melody note E inside the chord.",
-      },
-      {
-        id: "pop-gb",
-        symbol: "G/B",
-        roman: "V6",
-        functionLabel: "Dominant",
-        melody: "G = root",
-        explanation:
-          "G/B keeps dominant function but places B in the bass, creating a smoother descent into Am.",
-      },
-      {
-        id: "pop-am",
-        symbol: "Am",
-        roman: "vi",
-        functionLabel: "Tonic substitute",
-        melody: "C = third",
-        explanation:
-          "Am lets C become the third of the chord, changing the same melodic color into a softer tonic substitute.",
-      },
-      {
-        id: "pop-f",
-        symbol: "F",
-        roman: "IV",
-        functionLabel: "Predominant",
-        melody: "A = third",
-        explanation:
-          "F keeps the phrase open-ended and works naturally if the progression loops back to C.",
-      },
-    ],
-  },
-  {
-    id: "color",
-    title: "Color / Tension",
-    subtitle: "Borrowed color, brighter edges",
-    status: "Exploratory",
-    summary:
-      "A more expressive option that uses secondary dominant motion and a borrowed minor color.",
-    chords: [
-      {
-        id: "color-c",
-        symbol: "Cmaj9",
-        roman: "Imaj9",
-        functionLabel: "Tonic color",
-        melody: "E = third",
-        explanation:
-          "Cmaj9 keeps tonic stability while adding a more open color above the basic triad.",
-      },
-      {
-        id: "color-e7",
-        symbol: "E7",
-        roman: "V7/vi",
-        functionLabel: "Secondary dominant",
-        melody: "G# = third",
-        explanation:
-          "E7 points toward Am as a secondary dominant. This is a color choice rather than a plain diatonic step.",
-      },
-      {
-        id: "color-am9",
-        symbol: "Am9",
-        roman: "vi9",
-        functionLabel: "Tonic substitute",
-        melody: "C = third",
-        explanation:
-          "Am9 resolves the E7 pull while keeping the phrase warm and less final than returning directly to C.",
-      },
-      {
-        id: "color-fm6",
-        symbol: "Fm6",
-        roman: "iv6",
-        functionLabel: "Borrowed color",
-        melody: "Ab = third",
-        explanation:
-          "Fm6 is borrowed from the parallel minor, adding a darker color before the phrase returns home.",
-      },
-    ],
-  },
-];
+const demoMelody: NoteEvent[] = [
+  { midi: 64, startBeat: 0, durationBeats: 1.5 },
+  { midi: 67, startBeat: 2, durationBeats: 0.75 },
+  { midi: 72, startBeat: 3, durationBeats: 2 },
+  { midi: 71, startBeat: 6.25, durationBeats: 1.5 },
+  { midi: 69, startBeat: 7.75, durationBeats: 1.5 },
+].map((note, index) => ({
+  id: createNoteEventId("demo", index),
+  midi: note.midi,
+  pitchClass: (note.midi % 12) as PitchClass,
+  name: midiToNoteName(note.midi),
+  startBeat: note.startBeat,
+  durationBeats: note.durationBeats,
+  velocity: 0.82,
+  source: "demo",
+}));
+
+function getNextStartBeat(melody: NoteEvent[]): number {
+  if (melody.length === 0) return 0;
+  return Math.max(...melody.map((note) => note.startBeat + note.durationBeats));
+}
+
+function createManualNote(noteName: string, durationBeats: number, melody: NoteEvent[]): NoteEvent {
+  const pitchClass = noteNameToPitchClass(noteName);
+  const midi = 60 + pitchClass;
+  const index = melody.length;
+
+  return {
+    id: createNoteEventId("manual", index),
+    midi,
+    pitchClass,
+    name: midiToNoteName(midi),
+    startBeat: getNextStartBeat(melody),
+    durationBeats,
+    velocity: 0.8,
+    source: "manual",
+  };
+}
+
+function noteGridColumn(note: NoteEvent): string {
+  const start = Math.max(2, Math.round(note.startBeat * 2) + 2);
+  const span = Math.max(1, Math.round(note.durationBeats * 2));
+  return `${start} / span ${span}`;
+}
+
+function noteVerticalOffset(note: NoteEvent): number {
+  return Math.max(-58, Math.min(8, (64 - note.midi) * 4));
+}
+
+function selectedCandidateFrom(
+  candidates: HarmonyCandidate[],
+  selectedCandidateId: string | null,
+): HarmonyCandidate | null {
+  return candidates.find((candidate) => candidate.id === selectedCandidateId) ?? candidates[0] ?? null;
+}
+
+function selectedChordFrom(
+  candidate: HarmonyCandidate | null,
+  selectedChordId: string | null,
+): PlacedChord | null {
+  return candidate?.chords.find((chord) => chord.id === selectedChordId) ?? candidate?.chords[0] ?? null;
+}
 
 function App() {
-  const [hasMelody, setHasMelody] = useState(false);
-  const [showCandidates, setShowCandidates] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedCandidateId, setSelectedCandidateId] = useState(candidates[0].id);
-  const [selectedChordId, setSelectedChordId] = useState(candidates[0].chords[0].id);
-  const [inputMode, setInputMode] = useState<"midi" | "manual">("midi");
-
-  const selectedCandidate = useMemo(
-    () => candidates.find((candidate) => candidate.id === selectedCandidateId) ?? candidates[0],
-    [selectedCandidateId],
+  const [state, dispatch] = useReducer(appReducer, undefined, () =>
+    createInitialState(loadPreferences()),
   );
+  const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
+  const [isGenerating, setIsGenerating] = useState(false);
 
+  useEffect(() => {
+    savePreferences(state.settings);
+  }, [state.settings]);
+
+  const hasMelody = state.melody.length > 0;
+  const showCandidates = state.candidates.length > 0;
+  const selectedCandidate = useMemo(
+    () => selectedCandidateFrom(state.candidates, state.selectedCandidateId),
+    [state.candidates, state.selectedCandidateId],
+  );
   const selectedChord = useMemo(
-    () =>
-      selectedCandidate.chords.find((chord) => chord.id === selectedChordId) ??
-      selectedCandidate.chords[0],
-    [selectedCandidate, selectedChordId],
+    () => selectedChordFrom(selectedCandidate, state.selectedChordId),
+    [selectedCandidate, state.selectedChordId],
   );
 
   const handleLoadDemo = () => {
-    setHasMelody(true);
-    setShowCandidates(false);
-    setIsGenerating(false);
-    setSelectedCandidateId(candidates[0].id);
-    setSelectedChordId(candidates[0].chords[0].id);
+    dispatch({ type: "load-melody", melody: demoMelody });
   };
 
   const handleGenerate = () => {
     if (!hasMelody || isGenerating) return;
+
     setIsGenerating(true);
     window.setTimeout(() => {
-      setShowCandidates(true);
+      dispatch({
+        type: "set-candidates",
+        candidates: generateHarmonyCandidates(state.melody, state.settings),
+      });
       setIsGenerating(false);
-      setSelectedCandidateId(candidates[0].id);
-      setSelectedChordId(candidates[0].chords[0].id);
-    }, 650);
+    }, 400);
   };
 
-  const handleSelectCandidate = (candidate: Candidate) => {
-    setSelectedCandidateId(candidate.id);
-    setSelectedChordId(candidate.chords[0].id);
+  const handleAddNote = (noteName: string) => {
+    dispatch({
+      type: "add-note",
+      note: createManualNote(noteName, durationBeats, state.melody),
+    });
   };
 
   return (
@@ -227,15 +146,15 @@ function App() {
           <div className="segmented-control" aria-label="Input mode">
             <button
               type="button"
-              aria-pressed={inputMode === "midi"}
-              onClick={() => setInputMode("midi")}
+              aria-pressed={state.settings.inputMode === "midi"}
+              onClick={() => dispatch({ type: "set-input-mode", inputMode: "midi" })}
             >
               MIDI
             </button>
             <button
               type="button"
-              aria-pressed={inputMode === "manual"}
-              onClick={() => setInputMode("manual")}
+              aria-pressed={state.settings.inputMode === "manual"}
+              onClick={() => dispatch({ type: "set-input-mode", inputMode: "manual" })}
             >
               Manual
             </button>
@@ -245,32 +164,56 @@ function App() {
           </button>
           <label>
             Key
-            <select defaultValue="C">
-              <option>C</option>
-              <option>D</option>
-              <option>E</option>
-              <option>F</option>
-              <option>G</option>
-              <option>A</option>
-              <option>B</option>
+            <select
+              value={state.settings.keyTonic}
+              onChange={(event) =>
+                dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
+              }
+            >
+              {KEY_OPTIONS.map((pitchClass) => (
+                <option value={pitchClass} key={pitchClass}>
+                  {pitchClassToName(pitchClass)}
+                </option>
+              ))}
             </select>
           </label>
           <label>
             Mode
-            <select defaultValue="major">
+            <select
+              value={state.settings.mode}
+              onChange={(event) =>
+                dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
+              }
+            >
               <option value="major">Major</option>
-              <option value="minor">Minor</option>
+              <option value="minor" disabled>
+                Minor later
+              </option>
             </select>
           </label>
           <label>
             Tempo
-            <input type="number" defaultValue={92} min={40} max={220} />
+            <input
+              type="number"
+              value={state.settings.tempo}
+              min={40}
+              max={220}
+              onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
+            />
           </label>
           <label>
             Density
-            <select defaultValue="bar">
+            <select
+              value={state.settings.harmonyDensity}
+              onChange={(event) =>
+                dispatch({
+                  type: "set-density",
+                  harmonyDensity: event.target.value === "half-bar" ? "half-bar" : "bar",
+                })
+              }
+            >
               <option value="bar">1 / bar</option>
-              <option value="half">1 / half-bar</option>
+              <option value="half-bar">1 / half-bar</option>
             </select>
           </label>
           <button
@@ -289,7 +232,7 @@ function App() {
           <div className="timeline-header">
             <div>
               <span className="eyebrow">Timeline</span>
-              <h2>{hasMelody ? "Demo melody in C major" : "Start with a melody"}</h2>
+              <h2>{hasMelody ? "Active melody sketch" : "Start with a melody"}</h2>
             </div>
             <div className="transport" aria-label="Playback controls">
               <button type="button" aria-label="Restart demo playback" disabled={!showCandidates}>
@@ -308,22 +251,68 @@ function App() {
 
           <div className="input-dock" aria-label="Input actions">
             <div>
-              <strong>{inputMode === "midi" ? "MIDI import path" : "Manual note path"}</strong>
+              <strong>
+                {state.settings.inputMode === "midi" ? "MIDI import path" : "Manual note input"}
+              </strong>
               <span>
-                {inputMode === "midi"
-                  ? "Drop a sketch here later. For M1, load a demo melody to inspect the workspace."
-                  : "Manual note buttons arrive in M2. The workspace state is ready for them."}
+                {state.settings.inputMode === "midi"
+                  ? "MIDI parsing arrives in M4. For now, load the demo or switch to manual input."
+                  : "Click note names to append a melody. Generation uses the current key and density."}
               </span>
             </div>
             <div className="input-actions">
-              <button type="button" className="secondary-button">
-                {inputMode === "midi" ? "Choose File" : "Enter Notes"}
-              </button>
+              {state.settings.inputMode === "manual" ? (
+                <label className="duration-select">
+                  Duration
+                  <select
+                    value={durationBeats}
+                    onChange={(event) =>
+                      setDurationBeats(Number(event.target.value) as typeof durationBeats)
+                    }
+                  >
+                    {DURATION_OPTIONS.map((option) => (
+                      <option value={option.value} key={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <button type="button" className="secondary-button">
+                  Choose File
+                </button>
+              )}
               <button type="button" className="secondary-button" onClick={handleLoadDemo}>
                 Load Demo Melody
               </button>
             </div>
           </div>
+
+          {state.settings.inputMode === "manual" ? (
+            <div className="manual-input" aria-label="Manual note input">
+              {NOTE_BUTTONS.map((noteName) => (
+                <button type="button" key={noteName} onClick={() => handleAddNote(noteName)}>
+                  {noteName}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="text-tool-button"
+                disabled={!hasMelody}
+                onClick={() => dispatch({ type: "undo-note" })}
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                className="text-tool-button"
+                disabled={!hasMelody}
+                onClick={() => dispatch({ type: "clear-melody" })}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
 
           <div className="timeline-canvas" data-empty={!hasMelody}>
             <div className="bar-ruler" aria-hidden="true">
@@ -337,10 +326,10 @@ function App() {
             {!hasMelody ? (
               <div className="empty-state">
                 <span className="empty-kicker">No melody loaded</span>
-                <h3>Import MIDI or start from the demo phrase.</h3>
+                <h3>Import MIDI later, or start from manual notes now.</h3>
                 <p>
-                  M1 keeps the workspace static, but the layout already supports the full
-                  melody-to-harmony flow.
+                  M2 adds note entry and deterministic harmony generation while keeping all data
+                  local in your browser.
                 </p>
                 <button type="button" className="primary-button" onClick={handleLoadDemo}>
                   Load Demo Melody
@@ -350,34 +339,45 @@ function App() {
               <>
                 <div className="lane melody-lane">
                   <span className="lane-label">Melody</span>
-                  {demoNotes.map((note) => (
+                  {state.melody.map((note) => (
                     <button
                       type="button"
                       className="note"
                       key={note.id}
                       style={{
-                        gridColumn: `${note.start} / span ${note.span}`,
-                        transform: `translateY(${note.y}px)`,
+                        gridColumn: noteGridColumn(note),
+                        transform: `translateY(${noteVerticalOffset(note)}px)`,
                       }}
+                      title={`${note.name}, ${note.durationBeats} beat(s)`}
                     >
-                      {note.label}
+                      {note.name}
                     </button>
                   ))}
                 </div>
 
-                <div className="lane chord-lane">
+                <div
+                  className="lane chord-lane"
+                  style={
+                    selectedCandidate
+                      ? {
+                          gridTemplateColumns: `68px repeat(${selectedCandidate.chords.length}, minmax(120px, 1fr))`,
+                        }
+                      : undefined
+                  }
+                >
                   <span className="lane-label">Harmony</span>
-                  {showCandidates ? (
-                    selectedCandidate.chords.map((chord) => (
+                  {selectedCandidate && selectedChord ? (
+                    selectedCandidate.chords.map((placedChord) => (
                       <button
                         type="button"
-                        className="chord-block"
-                        data-selected={selectedChord.id === chord.id}
-                        key={chord.id}
-                        onClick={() => setSelectedChordId(chord.id)}
+                        className={`chord-block${
+                          selectedChord.id === placedChord.id ? " is-selected" : ""
+                        }`}
+                        key={placedChord.id}
+                        onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
                       >
-                        <strong>{chord.symbol}</strong>
-                        <span>{chord.roman}</span>
+                        <strong>{placedChord.chord.symbol}</strong>
+                        <span>{placedChord.chord.roman}</span>
                       </button>
                     ))
                   ) : (
@@ -392,55 +392,71 @@ function App() {
 
           <div className="candidate-strip" aria-label="Harmony candidates">
             {isGenerating
-              ? candidates.map((candidate) => (
-                  <div className="candidate candidate-loading" key={candidate.id}>
-                    <span>{candidate.title}</span>
+              ? ["Stable Classical", "Pop / Songwriting", "Color / Tension"].map((title) => (
+                  <div className="candidate candidate-loading" key={title}>
+                    <span>{title}</span>
                     <strong>Preparing candidate</strong>
                     <small>Scoring melody fit</small>
                   </div>
                 ))
-              : candidates.map((candidate) => (
-                  <button
-                    type="button"
-                    className="candidate"
-                    data-selected={showCandidates && selectedCandidate.id === candidate.id}
-                    disabled={!showCandidates}
-                    key={candidate.id}
-                    onClick={() => handleSelectCandidate(candidate)}
-                  >
-                    <span>{candidate.title}</span>
-                    <strong>
-                      {showCandidates
-                        ? candidate.chords.map((chord) => chord.symbol).join(" / ")
-                        : "Waiting for generation"}
-                    </strong>
-                    <small>{showCandidates ? candidate.subtitle : candidate.status}</small>
-                  </button>
-                ))}
+              : state.candidates.length > 0
+                ? state.candidates.map((candidate) => (
+                    <button
+                      type="button"
+                      className={`candidate${
+                        selectedCandidate?.id === candidate.id ? " is-selected" : ""
+                      }`}
+                      key={candidate.id}
+                      onClick={() =>
+                        dispatch({ type: "select-candidate", candidateId: candidate.id })
+                      }
+                    >
+                      <span>{candidate.title}</span>
+                      <strong>
+                        {candidate.chords.map((placedChord) => placedChord.chord.symbol).join(" / ")}
+                      </strong>
+                      <small>{candidate.subtitle}</small>
+                    </button>
+                  ))
+                : ["Stable Classical", "Pop / Songwriting", "Color / Tension"].map((title) => (
+                    <button type="button" className="candidate" disabled key={title}>
+                      <span>{title}</span>
+                      <strong>Waiting for generation</strong>
+                      <small>{hasMelody ? "Ready" : "Needs melody"}</small>
+                    </button>
+                  ))}
           </div>
         </section>
 
         <aside className="inspector" aria-label="Selected harmony details">
           <span className="eyebrow">Inspector</span>
-          {showCandidates ? (
+          {selectedCandidate && selectedChord ? (
             <>
-              <h2>{selectedChord.symbol}</h2>
+              <h2>{selectedChord.chord.symbol}</h2>
               <p className="candidate-summary">{selectedCandidate.summary}</p>
               <div className="inspector-rows">
                 <div>
                   <span>Roman</span>
-                  <strong>{selectedChord.roman}</strong>
+                  <strong>{selectedChord.chord.roman}</strong>
                 </div>
                 <div>
                   <span>Function</span>
-                  <strong>{selectedChord.functionLabel}</strong>
+                  <strong>{selectedChord.chord.functionLabel}</strong>
                 </div>
                 <div>
                   <span>Melody</span>
-                  <strong>{selectedChord.melody}</strong>
+                  <strong>
+                    {selectedChord.explanation.melodyRelationships[0]
+                      ? `${selectedChord.explanation.melodyRelationships[0].noteName} = ${selectedChord.explanation.melodyRelationships[0].relationship}`
+                      : "No note"}
+                  </strong>
                 </div>
               </div>
-              <p>{selectedChord.explanation}</p>
+              <p>{selectedChord.explanation.fitReason}</p>
+              <p>{selectedChord.explanation.functionReason}</p>
+              {selectedChord.explanation.warnings.length > 0 ? (
+                <p className="warning-copy">{selectedChord.explanation.warnings.join(" ")}</p>
+              ) : null}
               <div className="export-actions">
                 <button type="button" className="secondary-button">
                   Copy Progression
@@ -454,13 +470,13 @@ function App() {
             <div className="inspector-empty">
               <h2>No chord selected</h2>
               <p>
-                Load a melody and generate candidates. Selecting a candidate or chord will update
+                Add a melody and generate candidates. Selecting a candidate or chord will update
                 this inspector.
               </p>
               <div className="inspector-rows">
                 <div>
                   <span>Melody</span>
-                  <strong>{hasMelody ? "Ready" : "Empty"}</strong>
+                  <strong>{hasMelody ? `${state.melody.length} notes` : "Empty"}</strong>
                 </div>
                 <div>
                   <span>Generate</span>
