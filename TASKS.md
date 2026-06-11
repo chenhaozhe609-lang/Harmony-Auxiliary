@@ -278,6 +278,8 @@ Acceptance criteria:
 
 Goal: complete the MVP loop and harden the app.
 
+Status: Complete. M5 now exports melody plus harmony as MIDI, offers chord alternatives for the selected segment, supports replacing a chord before export, adds copy progression and clear-local-data actions, distinguishes status and error messages, improves keyboard focus and responsive polish, and expands tests for export, chord replacement, and app state reset.
+
 ### M5.1 MIDI Export
 
 - Add export writer using `@tonejs/midi` or `midi-writer-js`.

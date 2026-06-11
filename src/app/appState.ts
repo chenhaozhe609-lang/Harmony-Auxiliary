@@ -29,12 +29,21 @@ export type AppAction =
   | { type: "set-candidates"; candidates: HarmonyCandidate[] }
   | { type: "select-candidate"; candidateId: string }
   | { type: "select-chord"; chordId: string }
+  | {
+      type: "replace-chord";
+      candidateId: string;
+      chordId: string;
+      replacement: HarmonyCandidate["chords"][number];
+    }
   | { type: "set-playback-status"; status: AppState["playback"]["status"] }
   | { type: "set-current-beat"; currentBeat: number }
   | { type: "toggle-melody-muted" }
   | { type: "toggle-harmony-muted" }
   | { type: "reset-playback" }
   | { type: "restore-snapshot"; snapshot: StoredProjectSnapshot }
+  | { type: "reset-app"; settings: ProjectSettings }
+  | { type: "set-error"; id: string; message: string; tone?: "error" | "status" }
+  | { type: "clear-error"; id: string }
   | { type: "set-import-error"; message: string };
 
 export function createInitialState(settings = defaultPreferences): AppState {
@@ -160,6 +169,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         selectedChordId: action.chordId,
       };
+    case "replace-chord":
+      return {
+        ...state,
+        candidates: state.candidates.map((candidate) =>
+          candidate.id === action.candidateId
+            ? {
+                ...candidate,
+                chords: candidate.chords.map((placedChord) =>
+                  placedChord.id === action.chordId ? action.replacement : placedChord,
+                ),
+              }
+            : candidate,
+        ),
+        selectedCandidateId: action.candidateId,
+        selectedChordId: action.replacement.id,
+      };
     case "set-playback-status":
       return {
         ...state,
@@ -224,6 +249,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           currentBeat: 0,
         },
         errors: [],
+      };
+    case "reset-app":
+      return createInitialState(action.settings);
+    case "set-error":
+      return {
+        ...state,
+        errors: [
+          ...state.errors.filter((error) => error.id !== action.id),
+          { id: action.id, message: action.message, tone: action.tone ?? "error" },
+        ],
+      };
+    case "clear-error":
+      return {
+        ...state,
+        errors: state.errors.filter((error) => error.id !== action.id),
       };
     case "set-import-error":
       return {

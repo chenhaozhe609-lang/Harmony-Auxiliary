@@ -141,6 +141,7 @@ export type MidiImportResult = {
 export type AppError = {
   id: string;
   message: string;
+  tone?: "error" | "status";
 };
 
 export type StoredProjectSnapshot = {

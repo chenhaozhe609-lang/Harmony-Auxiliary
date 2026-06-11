@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { appReducer, createInitialState } from "./appState";
-import { loadPreferences, savePreferences } from "./preferencesRepository";
+import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
+import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
+import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
 import { parseMidiArrayBuffer } from "../music/midi/importMidi";
 import {
+  clearAllProjectData,
   clearActiveAutosave,
   createProjectSnapshot,
   loadActiveAutosave,
@@ -172,6 +175,15 @@ function App() {
     () => selectedChordFrom(selectedCandidate, state.selectedChordId),
     [selectedCandidate, state.selectedChordId],
   );
+  const chordAlternatives = useMemo(
+    () =>
+      selectedChord
+        ? getChordAlternatives(state.melody, state.settings, selectedChord).filter(
+            (alternative) => alternative.chord.id !== selectedChord.chord.id,
+          )
+        : [],
+    [selectedChord, state.melody, state.settings],
+  );
   const playbackEndBeat = useMemo(
     () => getPlaybackEndBeat(state.melody, selectedCandidate),
     [state.melody, selectedCandidate],
@@ -191,7 +203,11 @@ function App() {
   };
 
   const handleGenerate = () => {
-    if (!hasMelody || isGenerating) return;
+    if (!hasMelody) {
+      dispatch({ type: "set-error", id: "generate", message: "Add or import a melody before generating harmony." });
+      return;
+    }
+    if (isGenerating) return;
 
     stopPlayback();
     setIsGenerating(true);
@@ -209,6 +225,97 @@ function App() {
       type: "add-note",
       note: createManualNote(noteName, durationBeats, state.melody),
     });
+  };
+
+  const handleReplaceChord = (alternativeIndex: number) => {
+    if (!selectedCandidate || !selectedChord) return;
+    const alternative = chordAlternatives[alternativeIndex];
+    if (!alternative) return;
+    stopPlayback();
+    dispatch({
+      type: "replace-chord",
+      candidateId: selectedCandidate.id,
+      chordId: selectedChord.id,
+      replacement: makeReplacementPlacedChord(selectedChord, alternative),
+    });
+  };
+
+  const handleCopyProgression = async () => {
+    if (!selectedCandidate) {
+      dispatch({ type: "set-error", id: "copy", message: "Generate or select a harmony candidate before copying." });
+      return;
+    }
+
+    const progression = selectedCandidate.chords
+      .map((placedChord) => placedChord.chord.symbol)
+      .join(" / ");
+
+    try {
+      await navigator.clipboard.writeText(progression);
+      dispatch({
+        type: "set-error",
+        id: "copy",
+        message: "Progression copied to clipboard.",
+        tone: "status",
+      });
+      window.setTimeout(() => dispatch({ type: "clear-error", id: "copy" }), 1800);
+    } catch {
+      dispatch({ type: "set-error", id: "copy", message: "Could not copy progression in this browser." });
+    }
+  };
+
+  const handleExportMidi = () => {
+    if (!selectedCandidate) {
+      dispatch({ type: "set-error", id: "export", message: "Generate or select a harmony candidate before exporting MIDI." });
+      return;
+    }
+
+    try {
+      const bytes = exportCandidateToMidi(state.melody, selectedCandidate, state.settings);
+      const arrayBuffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: "audio/midi" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = createMidiFileName(state.importState.fileName);
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      dispatch({
+        type: "set-error",
+        id: "export",
+        message: "MIDI exported with melody and harmony tracks.",
+        tone: "status",
+      });
+      window.setTimeout(() => dispatch({ type: "clear-error", id: "export" }), 2200);
+    } catch {
+      dispatch({ type: "set-error", id: "export", message: "Could not export this MIDI file." });
+    }
+  };
+
+  const handleClearLocalData = async () => {
+    stopPlayback();
+    try {
+      await clearAllProjectData();
+      clearPreferences();
+      setRecoveredSnapshot(null);
+      setCurrentMidiFile(null);
+      setLastAutosaveAt(null);
+      dispatch({ type: "reset-app", settings: defaultPreferences });
+      dispatch({
+        type: "set-error",
+        id: "local-data",
+        message: "Local project data cleared from this browser.",
+        tone: "status",
+      });
+      window.setTimeout(() => dispatch({ type: "clear-error", id: "local-data" }), 2200);
+    } catch {
+      dispatch({ type: "set-error", id: "local-data", message: "Could not clear local project data." });
+    }
   };
 
   const applyMidiImport = (
@@ -320,6 +427,7 @@ function App() {
       dispatch({ type: "set-playback-status", status: "playing" });
     } catch {
       dispatch({ type: "reset-playback" });
+      dispatch({ type: "set-error", id: "audio", message: "Audio could not start. Try pressing Play again." });
     }
   };
 
@@ -344,6 +452,7 @@ function App() {
       dispatch({ type: "set-playback-status", status: "playing" });
     } catch {
       dispatch({ type: "reset-playback" });
+      dispatch({ type: "set-error", id: "audio", message: "Audio could not restart. Try pressing Play again." });
     }
   };
 
@@ -553,6 +662,9 @@ function App() {
               <button type="button" className="secondary-button" onClick={handleLoadDemo}>
                 Load Demo Melody
               </button>
+              <button type="button" className="secondary-button" onClick={() => void handleClearLocalData()}>
+                Clear Local Data
+              </button>
             </div>
           </div>
 
@@ -635,7 +747,11 @@ function App() {
           ) : null}
 
           {state.errors.length > 0 ? (
-            <div className="error-banner" role="alert">
+            <div
+              className="message-banner"
+              data-tone={state.errors.some((error) => error.tone !== "status") ? "error" : "status"}
+              role={state.errors.some((error) => error.tone !== "status") ? "alert" : "status"}
+            >
               {state.errors.map((error) => (
                 <span key={error.id}>{error.message}</span>
               ))}
@@ -789,11 +905,26 @@ function App() {
               {selectedChord.explanation.warnings.length > 0 ? (
                 <p className="warning-copy">{selectedChord.explanation.warnings.join(" ")}</p>
               ) : null}
+              <div className="alternative-chords" aria-label="Alternative chords">
+                <span>Alternative chords</span>
+                <div>
+                  {chordAlternatives.slice(0, 4).map((alternative, index) => (
+                    <button
+                      type="button"
+                      key={`${alternative.chord.id}-${index}`}
+                      onClick={() => handleReplaceChord(index)}
+                    >
+                      <strong>{alternative.chord.symbol}</strong>
+                      <small>{alternative.chord.roman}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="export-actions">
-                <button type="button" className="secondary-button">
+                <button type="button" className="secondary-button" onClick={() => void handleCopyProgression()}>
                   Copy Progression
                 </button>
-                <button type="button" className="secondary-button">
+                <button type="button" className="secondary-button" onClick={handleExportMidi}>
                   Export MIDI
                 </button>
               </div>

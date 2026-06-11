@@ -73,3 +73,7 @@ export function savePreferences(settings: ProjectSettings): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
 }
 
+export function clearPreferences(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_KEY);
+}

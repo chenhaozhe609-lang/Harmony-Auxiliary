@@ -99,3 +99,11 @@ export async function clearActiveAutosave(): Promise<void> {
   }
 }
 
+export function clearAllProjectData(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => resolve();
+  });
+}

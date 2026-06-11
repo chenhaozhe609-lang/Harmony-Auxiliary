@@ -305,7 +305,7 @@ button:disabled,
 
 .midi-track-panel,
 .recovery-banner,
-.error-banner {
+.message-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -346,12 +346,23 @@ button:disabled,
   gap: 3px;
 }
 
-.error-banner {
+.message-banner {
   align-items: flex-start;
-  border-color: var(--color-tension);
-  color: var(--color-tension);
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
   font-size: 13px;
   font-weight: 650;
+}
+
+.message-banner[data-tone="error"] {
+  border-color: var(--color-tension);
+  color: var(--color-tension);
+}
+
+.message-banner[data-tone="status"] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .timeline-canvas {
@@ -597,10 +608,55 @@ button:disabled,
   min-height: 420px;
 }
 
+.alternative-chords {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.alternative-chords > span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.alternative-chords > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.alternative-chords button {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  align-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 10px;
+}
+
+.alternative-chords small {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
 .export-actions {
   display: grid;
   gap: 10px;
   margin-top: 24px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) {
@@ -608,7 +664,8 @@ button:disabled,
   .transport button:not(:disabled):hover,
   .candidate:not(:disabled):hover,
   .chord-block:hover,
-  .manual-input button:not(:disabled):hover {
+  .manual-input button:not(:disabled):hover,
+  .alternative-chords button:hover {
     border-color: var(--color-focus);
   }
 }
@@ -639,7 +696,8 @@ button:disabled,
   }
 
   .midi-track-panel,
-  .recovery-banner {
+  .recovery-banner,
+  .message-banner {
     align-items: stretch;
     flex-direction: column;
   }
@@ -668,5 +726,9 @@ button:disabled,
 
   .timeline-canvas {
     overflow-x: auto;
+  }
+
+  .alternative-chords > div {
+    grid-template-columns: 1fr;
   }
 }
