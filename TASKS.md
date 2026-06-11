@@ -16,6 +16,8 @@ Each task should produce a visible or testable outcome. Keep implementation loca
 
 Goal: establish the app shell, visual system, and core workspace layout without real music logic.
 
+Status: Complete. The app shell, design tokens, workspace layout, empty state, static generation state, candidate selection, chord selection, and inspector updates are implemented.
+
 ### M1.1 Project Scaffold
 
 - Initialize Git repository.
@@ -303,4 +305,3 @@ Acceptance criteria:
 - Cloud projects.
 - AI-assisted reharmonization.
 - Collaboration.
-
