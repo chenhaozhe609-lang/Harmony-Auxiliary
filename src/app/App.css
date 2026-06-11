@@ -82,6 +82,10 @@
   width: 82px;
 }
 
+.file-input {
+  display: none;
+}
+
 .segmented-control {
   display: flex;
   align-items: center;
@@ -296,6 +300,57 @@ button:disabled,
 .manual-input .text-tool-button {
   min-width: 62px;
   color: var(--color-text-muted);
+  font-weight: 650;
+}
+
+.midi-track-panel,
+.recovery-banner,
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.midi-track-panel label {
+  display: grid;
+  min-width: 300px;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.midi-track-panel select {
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  padding: 0 10px;
+}
+
+.midi-track-panel span,
+.recovery-banner span {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.recovery-banner div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.error-banner {
+  align-items: flex-start;
+  border-color: var(--color-tension);
+  color: var(--color-tension);
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -581,6 +636,16 @@ button:disabled,
   .input-dock {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .midi-track-panel,
+  .recovery-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .midi-track-panel label {
+    min-width: 0;
   }
 }
 

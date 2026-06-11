@@ -2,9 +2,11 @@ import type {
   AppState,
   HarmonyCandidate,
   InputMode,
+  MidiImportState,
   NoteEvent,
   PitchClass,
   ProjectSettings,
+  StoredProjectSnapshot,
 } from "../music/types";
 import { defaultPreferences } from "./preferencesRepository";
 
@@ -18,6 +20,12 @@ export type AppAction =
   | { type: "load-melody"; melody: NoteEvent[] }
   | { type: "undo-note" }
   | { type: "clear-melody" }
+  | {
+      type: "set-midi-import";
+      importState: MidiImportState;
+      melody: NoteEvent[];
+      settings?: Partial<ProjectSettings>;
+    }
   | { type: "set-candidates"; candidates: HarmonyCandidate[] }
   | { type: "select-candidate"; candidateId: string }
   | { type: "select-chord"; chordId: string }
@@ -25,7 +33,9 @@ export type AppAction =
   | { type: "set-current-beat"; currentBeat: number }
   | { type: "toggle-melody-muted" }
   | { type: "toggle-harmony-muted" }
-  | { type: "reset-playback" };
+  | { type: "reset-playback" }
+  | { type: "restore-snapshot"; snapshot: StoredProjectSnapshot }
+  | { type: "set-import-error"; message: string };
 
 export function createInitialState(settings = defaultPreferences): AppState {
   return {
@@ -46,6 +56,14 @@ export function createInitialState(settings = defaultPreferences): AppState {
       selectedTrackIndex: null,
     },
     errors: [],
+  };
+}
+
+function createIdleImportState(): MidiImportState {
+  return {
+    status: "idle",
+    fileName: null,
+    selectedTrackIndex: null,
   };
 }
 
@@ -89,11 +107,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return resetGenerated({
         ...state,
         melody: [...state.melody, action.note],
+        importState: createIdleImportState(),
       });
     case "load-melody":
       return resetGenerated({
         ...state,
         melody: action.melody,
+        importState: createIdleImportState(),
       });
     case "undo-note":
       return resetGenerated({
@@ -104,6 +124,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return resetGenerated({
         ...state,
         melody: [],
+        importState: createIdleImportState(),
+      });
+    case "set-midi-import":
+      return resetGenerated({
+        ...state,
+        settings: {
+          ...state.settings,
+          ...action.settings,
+        },
+        melody: action.melody,
+        importState: action.importState,
+        errors: [],
       });
     case "set-candidates": {
       const firstCandidate = action.candidates[0] ?? null;
@@ -168,6 +200,42 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           status: "stopped",
           currentBeat: 0,
         },
+      };
+    case "restore-snapshot":
+      return {
+        ...state,
+        settings: action.snapshot.settings,
+        melody: action.snapshot.melody,
+        candidates: action.snapshot.candidates,
+        selectedCandidateId: action.snapshot.selectedCandidateId,
+        selectedChordId: action.snapshot.selectedChordId,
+        importState: action.snapshot.sourceImport
+          ? {
+              status: "ready",
+              fileName: action.snapshot.sourceImport.fileName,
+              selectedTrackIndex: action.snapshot.sourceImport.selectedTrackIndex,
+              fileSize: action.snapshot.sourceImport.fileSize,
+              lastModified: action.snapshot.sourceImport.lastModified,
+            }
+          : createIdleImportState(),
+        playback: {
+          ...state.playback,
+          status: "stopped",
+          currentBeat: 0,
+        },
+        errors: [],
+      };
+    case "set-import-error":
+      return {
+        ...state,
+        importState: {
+          ...state.importState,
+          status: "error",
+        },
+        errors: [
+          ...state.errors.filter((error) => error.id !== "import"),
+          { id: "import", message: action.message },
+        ],
       };
   }
 }

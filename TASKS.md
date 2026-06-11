@@ -216,6 +216,8 @@ Acceptance criteria:
 
 Goal: support MIDI-first creation workflow.
 
+Status: Complete. M4 now imports `.mid` / `.midi` files, normalizes selected track notes into beat-based melody events, reads tempo and meter metadata, lets users switch melody tracks while the original file is in memory, generates harmony from imported melodies, and autosaves/restores project snapshots in IndexedDB without saving the original MIDI file by default.
+
 ### M4.1 MIDI Parser Integration
 
 - Add `@tonejs/midi`.

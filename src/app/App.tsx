@@ -3,7 +3,21 @@ import { appReducer, createInitialState } from "./appState";
 import { loadPreferences, savePreferences } from "./preferencesRepository";
 import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
-import type { HarmonyCandidate, NoteEvent, PitchClass, PlacedChord } from "../music/types";
+import { parseMidiArrayBuffer } from "../music/midi/importMidi";
+import {
+  clearActiveAutosave,
+  createProjectSnapshot,
+  loadActiveAutosave,
+  saveActiveAutosave,
+} from "./projectRepository";
+import type {
+  HarmonyCandidate,
+  MidiImportResult,
+  NoteEvent,
+  PitchClass,
+  PlacedChord,
+  StoredProjectSnapshot,
+} from "../music/types";
 import {
   createNoteEventId,
   midiToNoteName,
@@ -92,7 +106,15 @@ function App() {
   );
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [recoveredSnapshot, setRecoveredSnapshot] = useState<StoredProjectSnapshot | null>(null);
+  const [lastAutosaveAt, setLastAutosaveAt] = useState<string | null>(null);
+  const [currentMidiFile, setCurrentMidiFile] = useState<{
+    file: File;
+    arrayBuffer: ArrayBuffer;
+  } | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     savePreferences(state.settings);
@@ -102,6 +124,43 @@ function App() {
     audioEngineRef.current = new AudioEngine();
     return () => audioEngineRef.current?.stop();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadActiveAutosave()
+      .then((snapshot) => {
+        if (!cancelled && snapshot && snapshot.melody.length > 0) {
+          setRecoveredSnapshot(snapshot);
+        }
+      })
+      .catch(() => {
+        // Recovery is best-effort; user-facing errors are reserved for direct actions.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state.melody.length === 0) return;
+
+    const timeout = window.setTimeout(() => {
+      saveActiveAutosave(createProjectSnapshot(state))
+        .then(() => setLastAutosaveAt(new Date().toLocaleTimeString()))
+        .catch(() => {
+          // Autosave failures should not interrupt editing or playback.
+        });
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    state.settings,
+    state.melody,
+    state.candidates,
+    state.selectedCandidateId,
+    state.selectedChordId,
+    state.importState,
+  ]);
 
   const hasMelody = state.melody.length > 0;
   const showCandidates = state.candidates.length > 0;
@@ -126,6 +185,8 @@ function App() {
     )?.id ?? null;
 
   const handleLoadDemo = () => {
+    stopPlayback();
+    setCurrentMidiFile(null);
     dispatch({ type: "load-melody", melody: demoMelody });
   };
 
@@ -148,6 +209,85 @@ function App() {
       type: "add-note",
       note: createManualNote(noteName, durationBeats, state.melody),
     });
+  };
+
+  const applyMidiImport = (
+    result: MidiImportResult,
+    file: File,
+    arrayBuffer: ArrayBuffer,
+  ) => {
+    stopPlayback();
+    setCurrentMidiFile({ file, arrayBuffer });
+    dispatch({
+      type: "set-midi-import",
+      melody: result.melody,
+      importState: {
+        status: "ready",
+        fileName: file.name,
+        fileSize: file.size,
+        lastModified: file.lastModified,
+        selectedTrackIndex: result.selectedTrackIndex,
+        tracks: result.tracks,
+      },
+      settings: {
+        ...(result.tempo ? { tempo: result.tempo } : {}),
+        ...(result.timeSignature
+          ? {
+              timeSignature: result.timeSignature,
+            }
+          : {}),
+        inputMode: "midi",
+      },
+    });
+  };
+
+  const handleFileSelected = async (file: File | null) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".mid") && !file.name.toLowerCase().endsWith(".midi")) {
+      dispatch({ type: "set-import-error", message: "Please choose a .mid or .midi file." });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = parseMidiArrayBuffer(arrayBuffer);
+      applyMidiImport(result, file, arrayBuffer);
+    } catch (error) {
+      dispatch({
+        type: "set-import-error",
+        message: error instanceof Error ? error.message : "Could not read this MIDI file.",
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleTrackChange = (trackIndex: number) => {
+    if (!currentMidiFile) return;
+    try {
+      const result = parseMidiArrayBuffer(currentMidiFile.arrayBuffer.slice(0), trackIndex);
+      applyMidiImport(result, currentMidiFile.file, currentMidiFile.arrayBuffer);
+    } catch (error) {
+      dispatch({
+        type: "set-import-error",
+        message: error instanceof Error ? error.message : "Could not switch MIDI tracks.",
+      });
+    }
+  };
+
+  const restoreAutosave = () => {
+    if (!recoveredSnapshot) return;
+    stopPlayback();
+    setCurrentMidiFile(null);
+    dispatch({ type: "restore-snapshot", snapshot: recoveredSnapshot });
+    setRecoveredSnapshot(null);
+  };
+
+  const discardAutosave = async () => {
+    await clearActiveAutosave();
+    setRecoveredSnapshot(null);
   };
 
   const stopPlayback = () => {
@@ -252,7 +392,19 @@ function App() {
               Manual
             </button>
           </div>
-          <button type="button" className="secondary-button">
+          <input
+            ref={fileInputRef}
+            className="file-input"
+            type="file"
+            accept=".mid,.midi,audio/midi"
+            onChange={(event) => void handleFileSelected(event.currentTarget.files?.[0] ?? null)}
+          />
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+          >
             Import MIDI
           </button>
           <label>
@@ -367,7 +519,7 @@ function App() {
               </strong>
               <span>
                 {state.settings.inputMode === "midi"
-                  ? "MIDI parsing arrives in M4. For now, load the demo or switch to manual input."
+                  ? "MIDI stays in this browser. The original file is not saved by default."
                   : "Click note names to append a melody. Generation uses the current key and density."}
               </span>
             </div>
@@ -389,8 +541,13 @@ function App() {
                   </select>
                 </label>
               ) : (
-                <button type="button" className="secondary-button">
-                  Choose File
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  {isImporting ? "Importing" : "Choose File"}
                 </button>
               )}
               <button type="button" className="secondary-button" onClick={handleLoadDemo}>
@@ -425,6 +582,66 @@ function App() {
             </div>
           ) : null}
 
+          {state.settings.inputMode === "midi" &&
+          (state.importState.tracks?.length || state.importState.fileName) ? (
+            <div className="midi-track-panel" aria-label="MIDI track selection">
+              {state.importState.tracks?.length ? (
+                <label>
+                  Melody track
+                  <select
+                    value={state.importState.selectedTrackIndex ?? ""}
+                    onChange={(event) => handleTrackChange(Number(event.target.value))}
+                    disabled={!currentMidiFile}
+                  >
+                    {state.importState.tracks.map((track) => (
+                      <option value={track.index} key={track.index}>
+                        {track.name} - {track.instrumentName} - {track.noteCount} notes
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <strong>Restored MIDI source</strong>
+              )}
+              <span>
+                {state.importState.fileName} imported
+                {state.importState.tracks?.length
+                  ? lastAutosaveAt
+                    ? ` - autosaved ${lastAutosaveAt}`
+                    : ""
+                  : " - re-import the file to switch tracks"}
+              </span>
+            </div>
+          ) : null}
+
+          {recoveredSnapshot ? (
+            <div className="recovery-banner" role="status">
+              <div>
+                <strong>Recovered local draft</strong>
+                <span>
+                  {recoveredSnapshot.title}, updated{" "}
+                  {new Date(recoveredSnapshot.updatedAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="input-actions">
+                <button type="button" className="secondary-button" onClick={restoreAutosave}>
+                  Restore
+                </button>
+                <button type="button" className="secondary-button" onClick={() => void discardAutosave()}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {state.errors.length > 0 ? (
+            <div className="error-banner" role="alert">
+              {state.errors.map((error) => (
+                <span key={error.id}>{error.message}</span>
+              ))}
+            </div>
+          ) : null}
+
           <div className="timeline-canvas" data-empty={!hasMelody}>
             <div className="bar-ruler" aria-hidden="true">
               <span>1</span>
@@ -445,8 +662,8 @@ function App() {
                 <span className="empty-kicker">No melody loaded</span>
                 <h3>Import MIDI later, or start from manual notes now.</h3>
                 <p>
-                  M2 adds note entry and deterministic harmony generation while keeping all data
-                  local in your browser.
+                  Choose a MIDI file, enter notes manually, or restore a local autosave. Project
+                  data stays in this browser.
                 </p>
                 <button type="button" className="primary-button" onClick={handleLoadDemo}>
                   Load Demo Melody

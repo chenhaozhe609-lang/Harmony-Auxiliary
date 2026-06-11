@@ -113,6 +113,29 @@ export type MidiImportState = {
   status: "idle" | "ready" | "error";
   fileName: string | null;
   selectedTrackIndex: number | null;
+  fileSize?: number;
+  lastModified?: number;
+  tracks?: MidiTrackSummary[];
+};
+
+export type MidiTrackSummary = {
+  index: number;
+  name: string;
+  instrumentName: string;
+  noteCount: number;
+  channel: number;
+  percussion: boolean;
+};
+
+export type MidiImportResult = {
+  melody: NoteEvent[];
+  tracks: MidiTrackSummary[];
+  selectedTrackIndex: number;
+  tempo?: number;
+  timeSignature?: {
+    numerator: number;
+    denominator: number;
+  };
 };
 
 export type AppError = {
