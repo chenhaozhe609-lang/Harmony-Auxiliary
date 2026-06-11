@@ -1,3 +1,4 @@
+import type { Language } from "./i18n";
 import type { HarmonyDensity, InputMode, Mode, PitchClass, ProjectSettings } from "../music/types";
 
 const STORAGE_KEY = "harmony-auxiliary/preferences/v1";
@@ -12,6 +13,7 @@ export type StoredPreferences = {
   };
   harmonyDensity: HarmonyDensity;
   inputMode: InputMode;
+  language: Language;
 };
 
 export const defaultPreferences: StoredPreferences = {
@@ -24,6 +26,7 @@ export const defaultPreferences: StoredPreferences = {
   },
   harmonyDensity: "bar",
   inputMode: "midi",
+  language: "zh",
 };
 
 function isPitchClass(value: unknown): value is PitchClass {
@@ -52,13 +55,14 @@ export function loadPreferences(): StoredPreferences {
       harmonyDensity:
         parsed.harmonyDensity === "half-bar" ? "half-bar" : defaultPreferences.harmonyDensity,
       inputMode: parsed.inputMode === "manual" ? "manual" : "midi",
+      language: parsed.language === "en" ? "en" : "zh",
     };
   } catch {
     return defaultPreferences;
   }
 }
 
-export function savePreferences(settings: ProjectSettings): void {
+export function savePreferences(settings: ProjectSettings, language = defaultPreferences.language): void {
   if (typeof window === "undefined") return;
 
   const preferences: StoredPreferences = {
@@ -68,6 +72,7 @@ export function savePreferences(settings: ProjectSettings): void {
     timeSignature: settings.timeSignature,
     harmonyDensity: settings.harmonyDensity,
     inputMode: settings.inputMode,
+    language,
   };
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));

@@ -21,17 +21,22 @@ The product should feel closer to a simplified Logic Pro, Apple Notes, Keynote, 
 
 ## 2. Product Register
 
-This is product UI. Design serves the task.
+This is primarily product UI. Design serves the task.
 
-The first screen must be the workspace itself:
+The deployed app now has two surfaces:
+
+- English-only public landing page.
+- Bilingual creative workspace.
+
+The landing page should be short and product-specific. It introduces the tool, shows a workspace preview, and sends users into the app. It should not become a long SaaS marketing site.
+
+The workspace remains the product center:
 
 - Import or enter melody.
 - Generate harmony.
 - Audition candidates.
 - Inspect explanations.
 - Export results.
-
-No landing-page hero is needed in the MVP.
 
 ## 3. Design Principles
 
@@ -70,6 +75,26 @@ Avoid visual systems that will age quickly or make every new feature fight the t
 - No generic SaaS card grids.
 
 ## 4. Layout
+
+### 4.0 Landing Page
+
+The landing page should use the same Apple-inspired minimalist direction, but with more editorial spacing than the workspace.
+
+Required first viewport:
+
+- Product name as the main headline.
+- One concise value proposition.
+- Primary CTA to enter the workspace.
+- Secondary note that MIDI remains local in the browser.
+- Product-relevant visual preview of the timeline, candidates, and inspector.
+
+Avoid:
+
+- Pricing blocks.
+- Account creation prompts.
+- Decorative hero illustrations unrelated to the product.
+- Generic feature-card grids.
+- Landing copy in Chinese.
 
 ### 4.1 Desktop Workspace
 
@@ -442,6 +467,11 @@ Layout:
 - Timeline becomes horizontally scrollable.
 - Inspector appears below selected segment.
 - Advanced controls can collapse.
+- Landing page hero stacks vertically with the product preview below the copy.
+- Workspace command controls become compact rows.
+- Candidate strip becomes a single-column list.
+- Export and alternative chord actions remain reachable without horizontal page overflow.
+- Minimum practical viewport target: 360px width.
 
 ## 9. Accessibility
 
@@ -483,29 +513,31 @@ Use short ease-out transitions.
 
 ## 11. Copy and Language
 
-Recommended MVP language:
+Recommended workspace language:
 
-- UI labels: English music terms where they are standard.
-- Explanations: Chinese by default, with chord symbols and Roman numerals preserved.
+- UI labels support Chinese and English.
+- Chinese is acceptable as the default workspace language for early users.
+- English remains available for standard music workflows and future public sharing.
+- Chord symbols, Roman numerals, MIDI filenames, exported filenames, and track names remain unchanged.
+- Workspace helper copy and error/status messages follow the active workspace language.
 
-Example:
+Landing page language:
 
-- Chord: Cmaj7.
-- Roman: Imaj7.
-- Function: Tonic.
-- Explanation: "旋律音 E 是 Cmaj7 的三音，因此这个和弦听起来稳定，并且清楚地指向主功能。"
+- English-only.
+- No language switcher is needed.
+- Keep copy compact and concrete.
 
-This keeps the product friendly to the Chinese-speaking user while preserving standard theory notation.
-
+This keeps the product friendly to Chinese-speaking users while preserving standard theory notation and a public English entry point.
 ## 12. Final Decisions
 
 - Visual direction: Apple-inspired minimalist music workspace.
 - Theme: light, warm neutral.
 - Surface style: flat, precise, low-shadow.
 - Primary layout: command bar + central timeline + right inspector.
+- Public entry: English-only landing page leading into the workspace.
+- Workspace language: Chinese / English toggle.
 - Primary color: system blue or refined indigo.
 - Main interaction: listen, compare, inspect, export.
 - No texture-based theme in MVP.
 - No medieval, fantasy, or ink style in MVP.
 - Desktop-first, with basic tablet/mobile adaptation.
-

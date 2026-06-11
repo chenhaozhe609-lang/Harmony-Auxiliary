@@ -389,9 +389,28 @@ Preferred tone:
 
 ## 10. UX Flow
 
-### First Screen
+### Public Landing Page
 
-The first screen should be the actual workspace, not a marketing landing page.
+The deployed product should open with a concise English-only landing page before entering the workspace.
+
+Purpose:
+
+- Explain the product value to first-time visitors.
+- Make the local-first privacy model visible before MIDI import.
+- Provide one primary path into the workspace.
+- Keep the product positioned as a creative harmony assistant, not a generic SaaS tool.
+
+Landing page requirements:
+
+- Copy is English-only and does not participate in the app language toggle.
+- Primary CTA: open the workspace.
+- Secondary cues: MIDI import, harmony candidates, audio playback, MIDI export.
+- Include a product-relevant visual preview of the harmony workspace.
+- Avoid long marketing sections, pricing, account prompts, and generic feature-card grids.
+
+### Workspace Screen
+
+After entering the app, the workspace remains the main product surface.
 
 Recommended layout:
 
@@ -427,6 +446,23 @@ Recommended layout:
 - Theory output should support listening, not bury it.
 - The interface should feel like a compact creative workspace.
 - Do not force users into notation-heavy workflows before they can hear results.
+- Mobile users should be able to preview, import or enter a short melody, generate, inspect, play, and export without layout overlap, though desktop remains the primary creation target.
+- The workspace should support Chinese and English UI copy. Music notation such as chord symbols and Roman numerals should remain language-neutral.
+
+### Language Behavior
+
+Workspace language support:
+
+- Chinese and English toggle inside the workspace command area.
+- Default language can be Chinese for the intended early users.
+- Persist the last selected workspace language in local preferences.
+- Keep chord symbols, Roman numerals, MIDI file names, candidate IDs, and exported MIDI content unchanged by language.
+- Error and status messages should use the active workspace language.
+
+Landing page language support:
+
+- Landing page remains English-only.
+- Landing page does not need a language switcher.
 
 ## 11. Technical Product Requirements
 
@@ -551,4 +587,3 @@ For the first build, use the following decisions unless changed later:
 - Architecture: frontend-first, local-only MVP.
 - Export: MIDI plus copyable chord progression.
 - Initial styles: stable classical, pop / songwriting, color / tension.
-

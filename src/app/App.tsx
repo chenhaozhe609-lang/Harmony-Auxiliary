@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
+import { translate, type Language } from "./i18n";
 import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
@@ -32,10 +33,10 @@ import "./App.css";
 const NOTE_BUTTONS = ["C", "D", "E", "F", "G", "A", "B"] as const;
 
 const DURATION_OPTIONS = [
-  { label: "Whole", value: 4 },
-  { label: "Half", value: 2 },
-  { label: "Quarter", value: 1 },
-  { label: "Eighth", value: 0.5 },
+  { labelKey: "duration.whole", value: 4 },
+  { labelKey: "duration.half", value: 2 },
+  { labelKey: "duration.quarter", value: 1 },
+  { labelKey: "duration.eighth", value: 0.5 },
 ] as const;
 
 const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
@@ -104,9 +105,12 @@ function selectedChordFrom(
 }
 
 function App() {
+  const initialPreferences = useMemo(() => loadPreferences(), []);
   const [state, dispatch] = useReducer(appReducer, undefined, () =>
-    createInitialState(loadPreferences()),
+    createInitialState(initialPreferences),
   );
+  const [screen, setScreen] = useState<"landing" | "workspace">("landing");
+  const [language, setLanguage] = useState<Language>(initialPreferences.language);
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -118,10 +122,11 @@ function App() {
   } | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const t = (key: string) => translate(language, key);
 
   useEffect(() => {
-    savePreferences(state.settings);
-  }, [state.settings]);
+    savePreferences(state.settings, language);
+  }, [state.settings, language]);
 
   useEffect(() => {
     audioEngineRef.current = new AudioEngine();
@@ -204,7 +209,7 @@ function App() {
 
   const handleGenerate = () => {
     if (!hasMelody) {
-      dispatch({ type: "set-error", id: "generate", message: "Add or import a melody before generating harmony." });
+      dispatch({ type: "set-error", id: "generate", message: t("message.generateNoMelody") });
       return;
     }
     if (isGenerating) return;
@@ -242,7 +247,7 @@ function App() {
 
   const handleCopyProgression = async () => {
     if (!selectedCandidate) {
-      dispatch({ type: "set-error", id: "copy", message: "Generate or select a harmony candidate before copying." });
+      dispatch({ type: "set-error", id: "copy", message: t("message.copyMissing") });
       return;
     }
 
@@ -255,18 +260,18 @@ function App() {
       dispatch({
         type: "set-error",
         id: "copy",
-        message: "Progression copied to clipboard.",
+        message: t("message.copySuccess"),
         tone: "status",
       });
       window.setTimeout(() => dispatch({ type: "clear-error", id: "copy" }), 1800);
     } catch {
-      dispatch({ type: "set-error", id: "copy", message: "Could not copy progression in this browser." });
+      dispatch({ type: "set-error", id: "copy", message: t("message.copyFailure") });
     }
   };
 
   const handleExportMidi = () => {
     if (!selectedCandidate) {
-      dispatch({ type: "set-error", id: "export", message: "Generate or select a harmony candidate before exporting MIDI." });
+      dispatch({ type: "set-error", id: "export", message: t("message.exportMissing") });
       return;
     }
 
@@ -288,12 +293,12 @@ function App() {
       dispatch({
         type: "set-error",
         id: "export",
-        message: "MIDI exported with melody and harmony tracks.",
+        message: t("message.exportSuccess"),
         tone: "status",
       });
       window.setTimeout(() => dispatch({ type: "clear-error", id: "export" }), 2200);
     } catch {
-      dispatch({ type: "set-error", id: "export", message: "Could not export this MIDI file." });
+      dispatch({ type: "set-error", id: "export", message: t("message.exportFailure") });
     }
   };
 
@@ -309,12 +314,12 @@ function App() {
       dispatch({
         type: "set-error",
         id: "local-data",
-        message: "Local project data cleared from this browser.",
+        message: t("message.clearSuccess"),
         tone: "status",
       });
       window.setTimeout(() => dispatch({ type: "clear-error", id: "local-data" }), 2200);
     } catch {
-      dispatch({ type: "set-error", id: "local-data", message: "Could not clear local project data." });
+      dispatch({ type: "set-error", id: "local-data", message: t("message.clearFailure") });
     }
   };
 
@@ -351,7 +356,7 @@ function App() {
   const handleFileSelected = async (file: File | null) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".mid") && !file.name.toLowerCase().endsWith(".midi")) {
-      dispatch({ type: "set-import-error", message: "Please choose a .mid or .midi file." });
+      dispatch({ type: "set-import-error", message: t("message.fileType") });
       return;
     }
 
@@ -363,7 +368,7 @@ function App() {
     } catch (error) {
       dispatch({
         type: "set-import-error",
-        message: error instanceof Error ? error.message : "Could not read this MIDI file.",
+        message: error instanceof Error ? error.message : t("message.readMidi"),
       });
     } finally {
       setIsImporting(false);
@@ -379,7 +384,7 @@ function App() {
     } catch (error) {
       dispatch({
         type: "set-import-error",
-        message: error instanceof Error ? error.message : "Could not switch MIDI tracks.",
+        message: error instanceof Error ? error.message : t("message.switchTrack"),
       });
     }
   };
@@ -427,7 +432,7 @@ function App() {
       dispatch({ type: "set-playback-status", status: "playing" });
     } catch {
       dispatch({ type: "reset-playback" });
-      dispatch({ type: "set-error", id: "audio", message: "Audio could not start. Try pressing Play again." });
+      dispatch({ type: "set-error", id: "audio", message: t("message.audioStart") });
     }
   };
 
@@ -452,7 +457,7 @@ function App() {
       dispatch({ type: "set-playback-status", status: "playing" });
     } catch {
       dispatch({ type: "reset-playback" });
-      dispatch({ type: "set-error", id: "audio", message: "Audio could not restart. Try pressing Play again." });
+      dispatch({ type: "set-error", id: "audio", message: t("message.audioRestart") });
     }
   };
 
@@ -473,6 +478,67 @@ function App() {
     dispatch({ type: "select-candidate", candidateId });
   };
 
+  if (screen === "landing") {
+    return (
+      <main className="landing-shell">
+        <header className="landing-nav" aria-label="Landing navigation">
+          <div className="brand-lockup">
+            <span className="brand-mark">H</span>
+            <div>
+              <h1>Harmony Auxiliary</h1>
+              <p>Local-first harmony assistant</p>
+            </div>
+          </div>
+          <button type="button" className="secondary-button" onClick={() => setScreen("workspace")}>
+            Open Workspace
+          </button>
+        </header>
+
+        <section className="landing-hero" aria-label="Product introduction">
+          <div className="landing-copy">
+            <span className="eyebrow">MIDI in, harmony out</span>
+            <h2>Hear three explainable harmonies before committing to one.</h2>
+            <p>
+              Import a melody sketch, compare classical, songwriting, and color-rich options,
+              then export the result as MIDI. Your files stay in this browser.
+            </p>
+            <div className="landing-actions">
+              <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
+                Start Harmonizing
+              </button>
+              <span>No account. No upload. No setup.</span>
+            </div>
+          </div>
+
+          <div className="landing-preview" aria-label="Workspace preview">
+            <div className="preview-topbar">
+              <span>Melody.mid</span>
+              <strong>C major · 92 BPM</strong>
+            </div>
+            <div className="preview-timeline">
+              <span className="preview-note" style={{ left: "8%", width: "16%", top: "22%" }}>E4</span>
+              <span className="preview-note" style={{ left: "30%", width: "12%", top: "34%" }}>G4</span>
+              <span className="preview-note" style={{ left: "48%", width: "20%", top: "18%" }}>C5</span>
+              <span className="preview-chord" style={{ left: "8%", width: "22%" }}>Cmaj7</span>
+              <span className="preview-chord" style={{ left: "36%", width: "22%" }}>F</span>
+              <span className="preview-chord" style={{ left: "64%", width: "24%" }}>G7</span>
+            </div>
+            <div className="preview-bottom">
+              <div>
+                <span>Stable Classical</span>
+                <strong>Cmaj7 / F / G7 / C</strong>
+              </div>
+              <div>
+                <span>Why it works</span>
+                <strong>E is the third of Cmaj7.</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="command-bar" aria-label="Main controls">
@@ -480,25 +546,33 @@ function App() {
           <span className="brand-mark">H</span>
           <div>
             <h1>Harmony Auxiliary</h1>
-            <p>Local-first harmony workspace</p>
+            <p>{t("brand.subtitle")}</p>
           </div>
         </div>
 
         <nav className="control-group" aria-label="Project settings">
+          <div className="segmented-control" aria-label="Workspace language">
+            <button type="button" aria-pressed={language === "zh"} onClick={() => setLanguage("zh")}>
+              中文
+            </button>
+            <button type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}>
+              EN
+            </button>
+          </div>
           <div className="segmented-control" aria-label="Input mode">
             <button
               type="button"
               aria-pressed={state.settings.inputMode === "midi"}
               onClick={() => dispatch({ type: "set-input-mode", inputMode: "midi" })}
             >
-              MIDI
+              {t("input.midi")}
             </button>
             <button
               type="button"
               aria-pressed={state.settings.inputMode === "manual"}
               onClick={() => dispatch({ type: "set-input-mode", inputMode: "manual" })}
             >
-              Manual
+              {t("input.manual")}
             </button>
           </div>
           <input
@@ -514,10 +588,10 @@ function App() {
             onClick={() => fileInputRef.current?.click()}
             disabled={isImporting}
           >
-            Import MIDI
+            {t("action.importMidi")}
           </button>
           <label>
-            Key
+            {t("settings.key")}
             <select
               value={state.settings.keyTonic}
               onChange={(event) =>
@@ -532,21 +606,21 @@ function App() {
             </select>
           </label>
           <label>
-            Mode
+            {t("settings.mode")}
             <select
               value={state.settings.mode}
               onChange={(event) =>
                 dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
               }
             >
-              <option value="major">Major</option>
+              <option value="major">{t("settings.major")}</option>
               <option value="minor" disabled>
-                Minor later
+                {t("settings.minorLater")}
               </option>
             </select>
           </label>
           <label>
-            Tempo
+            {t("settings.tempo")}
             <input
               type="number"
               value={state.settings.tempo}
@@ -556,7 +630,7 @@ function App() {
             />
           </label>
           <label>
-            Density
+            {t("settings.density")}
             <select
               value={state.settings.harmonyDensity}
               onChange={(event) =>
@@ -566,8 +640,8 @@ function App() {
                 })
               }
             >
-              <option value="bar">1 / bar</option>
-              <option value="half-bar">1 / half-bar</option>
+              <option value="bar">{t("settings.bar")}</option>
+              <option value="half-bar">{t("settings.halfBar")}</option>
             </select>
           </label>
           <button
@@ -576,7 +650,7 @@ function App() {
             disabled={!hasMelody || isGenerating}
             onClick={handleGenerate}
           >
-            {isGenerating ? "Generating" : "Generate"}
+            {isGenerating ? t("action.generating") : t("action.generate")}
           </button>
         </nav>
       </header>
@@ -585,13 +659,15 @@ function App() {
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
             <div>
-              <span className="eyebrow">Timeline</span>
-              <h2>{hasMelody ? "Active melody sketch" : "Start with a melody"}</h2>
+              <span className="eyebrow">{t("timeline.label")}</span>
+              <h2>{hasMelody ? t("timeline.active") : t("timeline.start")}</h2>
             </div>
             <div className="transport" aria-label="Playback controls">
-              <span className="beat-readout">{state.playback.currentBeat.toFixed(1)} beat</span>
+              <span className="beat-readout">
+                {state.playback.currentBeat.toFixed(1)} {t("timeline.beat")}
+              </span>
               <button type="button" aria-label="Restart playback" disabled={!showCandidates} onClick={handleRestart}>
-                Restart
+                {t("action.restart")}
               </button>
               <button
                 type="button"
@@ -600,7 +676,7 @@ function App() {
                 disabled={!showCandidates}
                 onClick={playSelectedCandidate}
               >
-                {state.playback.status === "playing" ? "Pause" : "Play"}
+                {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
               </button>
               <button
                 type="button"
@@ -608,7 +684,7 @@ function App() {
                 disabled={!showCandidates}
                 onClick={toggleMelodyMute}
               >
-                Melody
+                {t("transport.melody")}
               </button>
               <button
                 type="button"
@@ -616,7 +692,7 @@ function App() {
                 disabled={!showCandidates}
                 onClick={toggleHarmonyMute}
               >
-                Harmony
+                {t("transport.harmony")}
               </button>
             </div>
           </div>
@@ -624,18 +700,18 @@ function App() {
           <div className="input-dock" aria-label="Input actions">
             <div>
               <strong>
-                {state.settings.inputMode === "midi" ? "MIDI import path" : "Manual note input"}
+                {state.settings.inputMode === "midi" ? t("dock.midiTitle") : t("dock.manualTitle")}
               </strong>
               <span>
                 {state.settings.inputMode === "midi"
-                  ? "MIDI stays in this browser. The original file is not saved by default."
-                  : "Click note names to append a melody. Generation uses the current key and density."}
+                  ? t("dock.midiCopy")
+                  : t("dock.manualCopy")}
               </span>
             </div>
             <div className="input-actions">
               {state.settings.inputMode === "manual" ? (
                 <label className="duration-select">
-                  Duration
+                  {t("dock.duration")}
                   <select
                     value={durationBeats}
                     onChange={(event) =>
@@ -644,7 +720,7 @@ function App() {
                   >
                     {DURATION_OPTIONS.map((option) => (
                       <option value={option.value} key={option.value}>
-                        {option.label}
+                        {t(option.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -656,14 +732,14 @@ function App() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isImporting}
                 >
-                  {isImporting ? "Importing" : "Choose File"}
+                  {isImporting ? t("action.importing") : t("action.chooseFile")}
                 </button>
               )}
               <button type="button" className="secondary-button" onClick={handleLoadDemo}>
-                Load Demo Melody
+                {t("action.loadDemo")}
               </button>
               <button type="button" className="secondary-button" onClick={() => void handleClearLocalData()}>
-                Clear Local Data
+                {t("action.clearLocalData")}
               </button>
             </div>
           </div>
@@ -681,7 +757,7 @@ function App() {
                 disabled={!hasMelody}
                 onClick={() => dispatch({ type: "undo-note" })}
               >
-                Undo
+                {t("action.undo")}
               </button>
               <button
                 type="button"
@@ -689,7 +765,7 @@ function App() {
                 disabled={!hasMelody}
                 onClick={() => dispatch({ type: "clear-melody" })}
               >
-                Clear
+                {t("action.clear")}
               </button>
             </div>
           ) : null}
@@ -699,7 +775,7 @@ function App() {
             <div className="midi-track-panel" aria-label="MIDI track selection">
               {state.importState.tracks?.length ? (
                 <label>
-                  Melody track
+                  {t("midi.track")}
                   <select
                     value={state.importState.selectedTrackIndex ?? ""}
                     onChange={(event) => handleTrackChange(Number(event.target.value))}
@@ -713,15 +789,15 @@ function App() {
                   </select>
                 </label>
               ) : (
-                <strong>Restored MIDI source</strong>
+                <strong>{t("midi.restored")}</strong>
               )}
               <span>
-                {state.importState.fileName} imported
+                {state.importState.fileName} {t("midi.imported")}
                 {state.importState.tracks?.length
                   ? lastAutosaveAt
-                    ? ` - autosaved ${lastAutosaveAt}`
+                    ? ` - ${t("midi.autosaved")} ${lastAutosaveAt}`
                     : ""
-                  : " - re-import the file to switch tracks"}
+                  : ` - ${t("midi.reimport")}`}
               </span>
             </div>
           ) : null}
@@ -729,7 +805,7 @@ function App() {
           {recoveredSnapshot ? (
             <div className="recovery-banner" role="status">
               <div>
-                <strong>Recovered local draft</strong>
+                <strong>{t("recovery.title")}</strong>
                 <span>
                   {recoveredSnapshot.title}, updated{" "}
                   {new Date(recoveredSnapshot.updatedAt).toLocaleString()}
@@ -737,10 +813,10 @@ function App() {
               </div>
               <div className="input-actions">
                 <button type="button" className="secondary-button" onClick={restoreAutosave}>
-                  Restore
+                  {t("action.restore")}
                 </button>
                 <button type="button" className="secondary-button" onClick={() => void discardAutosave()}>
-                  Discard
+                  {t("action.discard")}
                 </button>
               </div>
             </div>
@@ -775,20 +851,17 @@ function App() {
 
             {!hasMelody ? (
               <div className="empty-state">
-                <span className="empty-kicker">No melody loaded</span>
-                <h3>Import MIDI later, or start from manual notes now.</h3>
-                <p>
-                  Choose a MIDI file, enter notes manually, or restore a local autosave. Project
-                  data stays in this browser.
-                </p>
+                <span className="empty-kicker">{t("empty.kicker")}</span>
+                <h3>{t("empty.title")}</h3>
+                <p>{t("empty.copy")}</p>
                 <button type="button" className="primary-button" onClick={handleLoadDemo}>
-                  Load Demo Melody
+                  {t("action.loadDemo")}
                 </button>
               </div>
             ) : (
               <>
                 <div className="lane melody-lane">
-                  <span className="lane-label">Melody</span>
+                  <span className="lane-label">{t("lane.melody")}</span>
                   {state.melody.map((note) => (
                     <button
                       type="button"
@@ -815,7 +888,7 @@ function App() {
                       : undefined
                   }
                 >
-                  <span className="lane-label">Harmony</span>
+                  <span className="lane-label">{t("lane.harmony")}</span>
                   {selectedCandidate && selectedChord ? (
                     selectedCandidate.chords.map((placedChord) => (
                       <button
@@ -832,7 +905,7 @@ function App() {
                     ))
                   ) : (
                     <div className="harmony-placeholder">
-                      {isGenerating ? "Scoring harmonic options" : "Generate to fill harmony lane"}
+                      {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
                     </div>
                   )}
                 </div>
@@ -842,11 +915,11 @@ function App() {
 
           <div className="candidate-strip" aria-label="Harmony candidates">
             {isGenerating
-              ? ["Stable Classical", "Pop / Songwriting", "Color / Tension"].map((title) => (
-                  <div className="candidate candidate-loading" key={title}>
-                    <span>{title}</span>
-                    <strong>Preparing candidate</strong>
-                    <small>Scoring melody fit</small>
+              ? ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
+                  <div className="candidate candidate-loading" key={mode}>
+                    <span>{t(`candidate.${mode}.title`)}</span>
+                    <strong>{t("candidate.loading")}</strong>
+                    <small>{t("candidate.scoring")}</small>
                   </div>
                 ))
               : state.candidates.length > 0
@@ -859,44 +932,44 @@ function App() {
                       key={candidate.id}
                       onClick={() => handleSelectCandidate(candidate.id)}
                     >
-                      <span>{candidate.title}</span>
+                      <span>{t(`candidate.${candidate.mode}.title`)}</span>
                       <strong>
                         {candidate.chords.map((placedChord) => placedChord.chord.symbol).join(" / ")}
                       </strong>
                       <small>{candidate.subtitle}</small>
                     </button>
                   ))
-                : ["Stable Classical", "Pop / Songwriting", "Color / Tension"].map((title) => (
-                    <button type="button" className="candidate" disabled key={title}>
-                      <span>{title}</span>
-                      <strong>Waiting for generation</strong>
-                      <small>{hasMelody ? "Ready" : "Needs melody"}</small>
+                : ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
+                    <button type="button" className="candidate" disabled key={mode}>
+                      <span>{t(`candidate.${mode}.title`)}</span>
+                      <strong>{t("candidate.waiting")}</strong>
+                      <small>{hasMelody ? t("candidate.ready") : t("candidate.needsMelody")}</small>
                     </button>
                   ))}
           </div>
         </section>
 
         <aside className="inspector" aria-label="Selected harmony details">
-          <span className="eyebrow">Inspector</span>
+          <span className="eyebrow">{t("inspector.label")}</span>
           {selectedCandidate && selectedChord ? (
             <>
               <h2>{selectedChord.chord.symbol}</h2>
               <p className="candidate-summary">{selectedCandidate.summary}</p>
               <div className="inspector-rows">
                 <div>
-                  <span>Roman</span>
+                  <span>{t("inspector.roman")}</span>
                   <strong>{selectedChord.chord.roman}</strong>
                 </div>
                 <div>
-                  <span>Function</span>
+                  <span>{t("inspector.function")}</span>
                   <strong>{selectedChord.chord.functionLabel}</strong>
                 </div>
                 <div>
-                  <span>Melody</span>
+                  <span>{t("inspector.melody")}</span>
                   <strong>
                     {selectedChord.explanation.melodyRelationships[0]
                       ? `${selectedChord.explanation.melodyRelationships[0].noteName} = ${selectedChord.explanation.melodyRelationships[0].relationship}`
-                      : "No note"}
+                      : t("inspector.noNote")}
                   </strong>
                 </div>
               </div>
@@ -906,7 +979,7 @@ function App() {
                 <p className="warning-copy">{selectedChord.explanation.warnings.join(" ")}</p>
               ) : null}
               <div className="alternative-chords" aria-label="Alternative chords">
-                <span>Alternative chords</span>
+                <span>{t("inspector.alternatives")}</span>
                 <div>
                   {chordAlternatives.slice(0, 4).map((alternative, index) => (
                     <button
@@ -922,28 +995,25 @@ function App() {
               </div>
               <div className="export-actions">
                 <button type="button" className="secondary-button" onClick={() => void handleCopyProgression()}>
-                  Copy Progression
+                  {t("action.copyProgression")}
                 </button>
                 <button type="button" className="secondary-button" onClick={handleExportMidi}>
-                  Export MIDI
+                  {t("action.exportMidi")}
                 </button>
               </div>
             </>
           ) : (
             <div className="inspector-empty">
-              <h2>No chord selected</h2>
-              <p>
-                Add a melody and generate candidates. Selecting a candidate or chord will update
-                this inspector.
-              </p>
+              <h2>{t("inspector.noChord")}</h2>
+              <p>{t("inspector.emptyCopy")}</p>
               <div className="inspector-rows">
                 <div>
-                  <span>Melody</span>
-                  <strong>{hasMelody ? `${state.melody.length} notes` : "Empty"}</strong>
+                  <span>{t("inspector.melody")}</span>
+                  <strong>{hasMelody ? `${state.melody.length} notes` : t("inspector.empty")}</strong>
                 </div>
                 <div>
-                  <span>Generate</span>
-                  <strong>{hasMelody ? "Available" : "Disabled"}</strong>
+                  <span>{t("inspector.generate")}</span>
+                  <strong>{hasMelody ? t("inspector.available") : t("inspector.disabled")}</strong>
                 </div>
               </div>
             </div>

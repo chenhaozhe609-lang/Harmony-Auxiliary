@@ -350,6 +350,53 @@ Acceptance criteria:
 
 - Test command runs in CI-like local environment.
 
+## M6: Landing, Mobile, and Bilingual Workspace
+
+Goal: make the MVP presentable as a deployed Vercel site and usable across common viewport sizes.
+
+Status: Complete. M6 now has an English-only landing page, a workspace entry flow, Chinese / English workspace language toggle with persisted preference, stronger 360px mobile layout behavior, and browser verification for landing-to-workspace, generation, language persistence, and page-level overflow.
+
+### M6.1 English Landing Page
+
+- Add a public landing page before the workspace.
+- Keep landing copy English-only.
+- Show product value, local-first privacy, and a visual workspace preview.
+- Provide a primary action to enter the workspace.
+
+Acceptance criteria:
+
+- First visit opens a clear English landing page.
+- User can enter the workspace without sign-in or setup.
+- Landing page does not introduce cloud storage, accounts, or pricing.
+
+### M6.2 Mobile Adaptation
+
+- Refine landing page mobile layout.
+- Refine command bar wrapping.
+- Keep timeline horizontally scrollable without page-level overflow.
+- Stack candidates and inspector cleanly.
+- Keep import, manual input, generate, play, inspect, export, and clear-data actions reachable.
+
+Acceptance criteria:
+
+- Layout remains usable at 360px width.
+- Text and buttons do not overlap.
+- Workspace remains functional for preview and short manual sketches.
+
+### M6.3 Workspace Language Toggle
+
+- Add Chinese / English toggle inside the workspace.
+- Persist selected workspace language in preferences.
+- Translate workspace UI labels, helper copy, status messages, and error messages.
+- Keep landing page English-only.
+- Keep music notation, chord symbols, Roman numerals, filenames, and exported MIDI unchanged.
+
+Acceptance criteria:
+
+- User can switch workspace UI between Chinese and English.
+- Refreshing the page keeps the selected workspace language.
+- Landing page remains English-only.
+
 ## Deferred Tasks
 
 - Full staff editing.

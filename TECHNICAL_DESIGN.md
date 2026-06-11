@@ -95,6 +95,7 @@ src/
   app/
     App.tsx
     appState.ts
+    i18n.ts
   components/
     CommandBar/
     Timeline/
@@ -138,6 +139,8 @@ Architecture rules:
 - Harmony generation should be deterministic and testable without React.
 - Audio scheduling should consume normalized project data, not raw MIDI structures.
 - Persistence should go through storage repositories, not direct `localStorage` or IndexedDB calls from UI components.
+- Public landing content should remain static and English-only.
+- Workspace copy should be read through a small i18n dictionary, not scattered string literals, for user-visible labels, actions, statuses, and errors.
 
 ## 4. Core Data Model
 
@@ -441,6 +444,38 @@ State rules:
 - Chord selection updates only the inspector and timeline highlight.
 - Playback candidate cannot be missing from candidates.
 
+### 8.1 Screen State
+
+The app can use a lightweight in-memory screen state rather than a router for the immediate enhancement:
+
+```ts
+type Screen = "landing" | "workspace";
+```
+
+Rules:
+
+- Initial screen is `landing`.
+- Landing page is English-only.
+- Workspace state is not destroyed when the user returns to the landing page in the same browser session.
+- A future router can replace this if separate URLs become necessary.
+
+### 8.2 Workspace i18n
+
+Use a dictionary-based i18n layer:
+
+```ts
+type Language = "zh" | "en";
+type TranslationKey = string;
+```
+
+Rules:
+
+- Persist language in `localStorage` with the rest of workspace preferences.
+- Translate only workspace UI, messages, and explanatory chrome.
+- Do not translate chord symbols, Roman numerals, imported file names, MIDI metadata, generated MIDI content, or exported filenames.
+- Landing page copy remains English literals.
+- Avoid runtime translation services. All MVP copy should be bundled in the app.
+
 ## 9. Local Data Storage
 
 The MVP uses a local-first storage model. User music data should stay in the browser unless the user explicitly exports a file or a future backend feature is added.
@@ -486,6 +521,7 @@ Allowed data:
 - Last time signature.
 - Last harmony density.
 - Last input mode.
+- Last workspace language.
 - UI preferences such as collapsed panels if added later.
 
 Disallowed data:
@@ -754,6 +790,15 @@ Implementation guidance:
 - Add error states.
 - Add responsive refinements.
 - Add tests for theory and generation modules.
+
+### M6: Landing, Mobile, and Bilingual Workspace
+
+- Add English-only landing page.
+- Add explicit workspace entry action.
+- Add Chinese / English workspace language toggle.
+- Persist workspace language preference.
+- Refine mobile layout for first-run, manual input, candidate comparison, inspector, and export.
+- Add smoke verification for landing-to-workspace and mobile viewport behavior.
 
 ## 14. Technical Risks
 

@@ -46,7 +46,7 @@ export type AppAction =
   | { type: "clear-error"; id: string }
   | { type: "set-import-error"; message: string };
 
-export function createInitialState(settings = defaultPreferences): AppState {
+export function createInitialState(settings: ProjectSettings = defaultPreferences): AppState {
   return {
     settings,
     melody: [],
