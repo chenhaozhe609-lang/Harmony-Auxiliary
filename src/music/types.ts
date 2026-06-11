@@ -105,6 +105,8 @@ export type HarmonyCandidate = {
 export type PlaybackState = {
   status: "stopped" | "starting" | "playing" | "paused";
   currentBeat: number;
+  melodyMuted: boolean;
+  harmonyMuted: boolean;
 };
 
 export type MidiImportState = {
@@ -148,4 +150,3 @@ export type AppState = {
   importState: MidiImportState;
   errors: AppError[];
 };
-

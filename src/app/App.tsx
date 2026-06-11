@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { appReducer, createInitialState } from "./appState";
 import { loadPreferences, savePreferences } from "./preferencesRepository";
+import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
 import type { HarmonyCandidate, NoteEvent, PitchClass, PlacedChord } from "../music/types";
 import {
@@ -91,10 +92,16 @@ function App() {
   );
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
+  const audioEngineRef = useRef<AudioEngine | null>(null);
 
   useEffect(() => {
     savePreferences(state.settings);
   }, [state.settings]);
+
+  useEffect(() => {
+    audioEngineRef.current = new AudioEngine();
+    return () => audioEngineRef.current?.stop();
+  }, []);
 
   const hasMelody = state.melody.length > 0;
   const showCandidates = state.candidates.length > 0;
@@ -106,6 +113,17 @@ function App() {
     () => selectedChordFrom(selectedCandidate, state.selectedChordId),
     [selectedCandidate, state.selectedChordId],
   );
+  const playbackEndBeat = useMemo(
+    () => getPlaybackEndBeat(state.melody, selectedCandidate),
+    [state.melody, selectedCandidate],
+  );
+  const playbackProgress = Math.min(1, state.playback.currentBeat / playbackEndBeat);
+  const activePlaybackChordId =
+    selectedCandidate?.chords.find(
+      (placedChord) =>
+        state.playback.currentBeat >= placedChord.startBeat &&
+        state.playback.currentBeat < placedChord.startBeat + placedChord.durationBeats,
+    )?.id ?? null;
 
   const handleLoadDemo = () => {
     dispatch({ type: "load-melody", melody: demoMelody });
@@ -114,6 +132,7 @@ function App() {
   const handleGenerate = () => {
     if (!hasMelody || isGenerating) return;
 
+    stopPlayback();
     setIsGenerating(true);
     window.setTimeout(() => {
       dispatch({
@@ -129,6 +148,80 @@ function App() {
       type: "add-note",
       note: createManualNote(noteName, durationBeats, state.melody),
     });
+  };
+
+  const stopPlayback = () => {
+    audioEngineRef.current?.stop();
+    dispatch({ type: "reset-playback" });
+  };
+
+  const playSelectedCandidate = async () => {
+    if (!selectedCandidate || state.playback.status === "starting") return;
+
+    if (state.playback.status === "playing") {
+      stopPlayback();
+      return;
+    }
+
+    dispatch({ type: "set-playback-status", status: "starting" });
+
+    try {
+      await audioEngineRef.current?.playCandidate(
+        state.melody,
+        selectedCandidate,
+        state.settings.tempo,
+        {
+          melodyMuted: state.playback.melodyMuted,
+          harmonyMuted: state.playback.harmonyMuted,
+        },
+        (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
+        () => dispatch({ type: "reset-playback" }),
+      );
+      dispatch({ type: "set-playback-status", status: "playing" });
+    } catch {
+      dispatch({ type: "reset-playback" });
+    }
+  };
+
+  const handleRestart = async () => {
+    if (!selectedCandidate) return;
+    audioEngineRef.current?.stop();
+    dispatch({ type: "set-current-beat", currentBeat: 0 });
+    dispatch({ type: "set-playback-status", status: "starting" });
+
+    try {
+      await audioEngineRef.current?.playCandidate(
+        state.melody,
+        selectedCandidate,
+        state.settings.tempo,
+        {
+          melodyMuted: state.playback.melodyMuted,
+          harmonyMuted: state.playback.harmonyMuted,
+        },
+        (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
+        () => dispatch({ type: "reset-playback" }),
+      );
+      dispatch({ type: "set-playback-status", status: "playing" });
+    } catch {
+      dispatch({ type: "reset-playback" });
+    }
+  };
+
+  const toggleMelodyMute = () => {
+    if (state.playback.status === "playing") stopPlayback();
+    dispatch({ type: "toggle-melody-muted" });
+  };
+
+  const toggleHarmonyMute = () => {
+    if (state.playback.status === "playing") stopPlayback();
+    dispatch({ type: "toggle-harmony-muted" });
+  };
+
+  const handleSelectCandidate = (candidateId: string) => {
+    if (state.playback.status === "playing" || state.playback.status === "starting") {
+      stopPlayback();
+    }
+    dispatch({ type: "select-candidate", candidateId });
   };
 
   return (
@@ -235,7 +328,8 @@ function App() {
               <h2>{hasMelody ? "Active melody sketch" : "Start with a melody"}</h2>
             </div>
             <div className="transport" aria-label="Playback controls">
-              <button type="button" aria-label="Restart demo playback" disabled={!showCandidates}>
+              <span className="beat-readout">{state.playback.currentBeat.toFixed(1)} beat</span>
+              <button type="button" aria-label="Restart playback" disabled={!showCandidates} onClick={handleRestart}>
                 Restart
               </button>
               <button
@@ -243,8 +337,25 @@ function App() {
                 className="play-button"
                 aria-label="Play selected candidate"
                 disabled={!showCandidates}
+                onClick={playSelectedCandidate}
               >
-                Play
+                {state.playback.status === "playing" ? "Pause" : "Play"}
+              </button>
+              <button
+                type="button"
+                aria-pressed={state.playback.melodyMuted}
+                disabled={!showCandidates}
+                onClick={toggleMelodyMute}
+              >
+                Melody
+              </button>
+              <button
+                type="button"
+                aria-pressed={state.playback.harmonyMuted}
+                disabled={!showCandidates}
+                onClick={toggleHarmonyMute}
+              >
+                Harmony
               </button>
             </div>
           </div>
@@ -321,7 +432,13 @@ function App() {
               <span>3</span>
               <span>4</span>
             </div>
-            {showCandidates ? <div className="playhead" aria-hidden="true" /> : null}
+            {showCandidates ? (
+              <div
+                className="playhead"
+                aria-hidden="true"
+                style={{ left: `${Math.max(8, Math.min(96, playbackProgress * 100))}%` }}
+              />
+            ) : null}
 
             {!hasMelody ? (
               <div className="empty-state">
@@ -372,7 +489,7 @@ function App() {
                         type="button"
                         className={`chord-block${
                           selectedChord.id === placedChord.id ? " is-selected" : ""
-                        }`}
+                        }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
                         key={placedChord.id}
                         onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
                       >
@@ -407,9 +524,7 @@ function App() {
                         selectedCandidate?.id === candidate.id ? " is-selected" : ""
                       }`}
                       key={candidate.id}
-                      onClick={() =>
-                        dispatch({ type: "select-candidate", candidateId: candidate.id })
-                      }
+                      onClick={() => handleSelectCandidate(candidate.id)}
                     >
                       <span>{candidate.title}</span>
                       <strong>

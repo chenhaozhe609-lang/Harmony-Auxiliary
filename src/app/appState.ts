@@ -20,7 +20,12 @@ export type AppAction =
   | { type: "clear-melody" }
   | { type: "set-candidates"; candidates: HarmonyCandidate[] }
   | { type: "select-candidate"; candidateId: string }
-  | { type: "select-chord"; chordId: string };
+  | { type: "select-chord"; chordId: string }
+  | { type: "set-playback-status"; status: AppState["playback"]["status"] }
+  | { type: "set-current-beat"; currentBeat: number }
+  | { type: "toggle-melody-muted" }
+  | { type: "toggle-harmony-muted" }
+  | { type: "reset-playback" };
 
 export function createInitialState(settings = defaultPreferences): AppState {
   return {
@@ -32,6 +37,8 @@ export function createInitialState(settings = defaultPreferences): AppState {
     playback: {
       status: "stopped",
       currentBeat: 0,
+      melodyMuted: false,
+      harmonyMuted: false,
     },
     importState: {
       status: "idle",
@@ -121,6 +128,46 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         selectedChordId: action.chordId,
       };
+    case "set-playback-status":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          status: action.status,
+        },
+      };
+    case "set-current-beat":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          currentBeat: Math.max(0, action.currentBeat),
+        },
+      };
+    case "toggle-melody-muted":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          melodyMuted: !state.playback.melodyMuted,
+        },
+      };
+    case "toggle-harmony-muted":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          harmonyMuted: !state.playback.harmonyMuted,
+        },
+      };
+    case "reset-playback":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          status: "stopped",
+          currentBeat: 0,
+        },
+      };
   }
 }
-

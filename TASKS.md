@@ -168,6 +168,8 @@ Acceptance criteria:
 
 Goal: make generated candidates audible in the browser.
 
+Status: Complete. M3 now has a Tone.js audio engine, melody and harmony scheduling, play/stop/restart controls, melody and harmony mute toggles, playback beat readout, playhead progress, active chord highlight, and candidate-switch schedule cancellation.
+
 ### M3.1 Audio Engine Wrapper
 
 - Add Tone.js dependency.

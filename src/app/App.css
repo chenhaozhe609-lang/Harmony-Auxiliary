@@ -191,6 +191,7 @@ button:disabled,
 
 .transport {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -199,10 +200,24 @@ button:disabled,
   padding: 0 12px;
 }
 
+.transport button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
 .transport .play-button {
   border-color: var(--color-accent);
   color: var(--color-accent);
   font-weight: 750;
+}
+
+.beat-readout {
+  min-width: 62px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
 }
 
 .input-dock {
@@ -394,6 +409,10 @@ button:disabled,
 .chord-block.is-selected {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
+}
+
+.chord-block.is-active {
+  color: var(--color-accent);
 }
 
 .chord-block strong {
