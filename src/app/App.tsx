@@ -495,19 +495,39 @@ function App() {
         </header>
 
         <section className="landing-hero" aria-label="Product introduction">
-          <div className="landing-copy">
-            <span className="eyebrow">MIDI in, harmony out</span>
-            <h2>Hear three explainable harmonies before committing to one.</h2>
-            <p>
-              Import a melody sketch, compare classical, songwriting, and color-rich options,
-              then export the result as MIDI. Your files stay in this browser.
-            </p>
-            <div className="landing-actions">
-              <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
-                Start Harmonizing
-              </button>
-              <span>No account. No upload. No setup.</span>
-            </div>
+          <div className="landing-poster">
+            <span className="landing-kicker">MIDI in. Harmony out.</span>
+            <h2>Compose harmony you can hear, question, and keep.</h2>
+            <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
+              Start Harmonizing
+            </button>
+          </div>
+          <div className="landing-notation" aria-hidden="true">
+            <span>Ⅰ</span>
+            <span>Ⅳ</span>
+            <span>Ⅴ7</span>
+            <span>Ⅰ</span>
+          </div>
+        </section>
+
+        <section className="landing-workflow" aria-label="Workflow introduction">
+          <div className="workflow-copy">
+            <span className="eyebrow">A compact music workflow</span>
+            <h3>Bring in a melody, compare harmonic paths, export the one that feels right.</h3>
+            <ol>
+              <li>
+                <strong>Import or sketch</strong>
+                <span>Use a MIDI melody or click note names for a short idea.</span>
+              </li>
+              <li>
+                <strong>Generate and listen</strong>
+                <span>Compare stable, songwriting, and color-rich candidates with playback.</span>
+              </li>
+              <li>
+                <strong>Inspect and keep</strong>
+                <span>Read the chord logic, replace a chord, copy the progression, or export MIDI.</span>
+              </li>
+            </ol>
           </div>
 
           <div className="landing-preview" aria-label="Workspace preview">

@@ -403,9 +403,9 @@ Purpose:
 Landing page requirements:
 
 - Copy is English-only and does not participate in the app language toggle.
-- Primary CTA: open the workspace.
-- Secondary cues: MIDI import, harmony candidates, audio playback, MIDI export.
-- Include a product-relevant visual preview of the harmony workspace.
+- First viewport contains only the core slogan and primary CTA, aside from minimal navigation.
+- Workflow explanation, MIDI import, candidate comparison, playback, and export details appear below the first viewport.
+- Include a product-relevant visual preview of the harmony workspace in the workflow section, not in the first hero screen.
 - Avoid long marketing sections, pricing, account prompts, and generic feature-card grids.
 
 ### Workspace Screen

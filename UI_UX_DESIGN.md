@@ -83,10 +83,16 @@ The landing page should use the same Apple-inspired minimalist direction, but wi
 Required first viewport:
 
 - Product name as the main headline.
-- One concise value proposition.
+- One large slogan or value proposition.
 - Primary CTA to enter the workspace.
-- Secondary note that MIDI remains local in the browser.
-- Product-relevant visual preview of the timeline, candidates, and inspector.
+- Minimal navigation only.
+- No workspace preview in the first viewport.
+
+Workflow section below the first viewport:
+
+- Explain the import, generate, inspect, export flow.
+- Pair the workflow copy with a product-relevant preview of the timeline, candidates, and inspector.
+- Keep the section flat and editorial, not a repeated SaaS feature-card grid.
 
 Avoid:
 
