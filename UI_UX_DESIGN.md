@@ -86,7 +86,6 @@ Required first viewport:
 - One short slogan or value proposition.
 - Primary CTA to enter the workspace.
 - Minimal navigation only.
-- One strong generated or custom visual asset is allowed in the first viewport if it behaves like a flat editorial poster element rather than a SaaS product card.
 - No workspace preview or workflow explanation in the first viewport.
 
 Workflow section below the first viewport:

@@ -403,7 +403,7 @@ Purpose:
 Landing page requirements:
 
 - Copy is English-only and does not participate in the app language toggle.
-- First viewport contains a short core slogan, primary CTA, minimal navigation, and a flat generated/custom visual asset if useful.
+- First viewport contains a short core slogan, primary CTA, and minimal navigation.
 - Workflow explanation, MIDI import, candidate comparison, playback, and export details appear below the first viewport across multiple sections.
 - Include a product-relevant visual preview of the harmony workspace in the workflow section, not as the main first-screen explanation.
 - Avoid long marketing sections, pricing, account prompts, and generic feature-card grids.

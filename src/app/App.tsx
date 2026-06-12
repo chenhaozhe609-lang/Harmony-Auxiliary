@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
-import heroArtUrl from "../assets/harmony-hero.svg";
 import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
@@ -505,9 +504,6 @@ function App() {
             <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
               Start Harmonizing
             </button>
-          </div>
-          <div className="landing-art" aria-hidden="true">
-            <img src={heroArtUrl} alt="" />
           </div>
         </section>
 
