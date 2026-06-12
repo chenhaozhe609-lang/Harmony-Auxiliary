@@ -83,16 +83,18 @@ The landing page should use the same Apple-inspired minimalist direction, but wi
 Required first viewport:
 
 - Product name as the main headline.
-- One large slogan or value proposition.
+- One short slogan or value proposition.
 - Primary CTA to enter the workspace.
 - Minimal navigation only.
-- No workspace preview in the first viewport.
+- One strong generated or custom visual asset is allowed in the first viewport if it behaves like a flat editorial poster element rather than a SaaS product card.
+- No workspace preview or workflow explanation in the first viewport.
 
 Workflow section below the first viewport:
 
 - Explain the import, generate, inspect, export flow.
 - Pair the workflow copy with a product-relevant preview of the timeline, candidates, and inspector.
-- Keep the section flat and editorial, not a repeated SaaS feature-card grid.
+- Split the flow into multiple sections so each step has room and the page has scroll rhythm.
+- Keep the sections flat and editorial, not repeated SaaS feature-card grids.
 
 Avoid:
 

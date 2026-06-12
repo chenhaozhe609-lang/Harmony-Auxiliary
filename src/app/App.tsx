@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
+import heroArtUrl from "../assets/harmony-hero.svg";
 import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
@@ -497,39 +498,30 @@ function App() {
         <section className="landing-hero" aria-label="Product introduction">
           <div className="landing-poster">
             <span className="landing-kicker">MIDI in. Harmony out.</span>
-            <h2>Compose harmony you can hear, question, and keep.</h2>
+            <h2>
+              <span>Harmony,</span>
+              <span>heard.</span>
+            </h2>
             <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
               Start Harmonizing
             </button>
           </div>
-          <div className="landing-notation" aria-hidden="true">
-            <span>Ⅰ</span>
-            <span>Ⅳ</span>
-            <span>Ⅴ7</span>
-            <span>Ⅰ</span>
+          <div className="landing-art" aria-hidden="true">
+            <img src={heroArtUrl} alt="" />
           </div>
         </section>
 
-        <section className="landing-workflow" aria-label="Workflow introduction">
-          <div className="workflow-copy">
-            <span className="eyebrow">A compact music workflow</span>
-            <h3>Bring in a melody, compare harmonic paths, export the one that feels right.</h3>
-            <ol>
-              <li>
-                <strong>Import or sketch</strong>
-                <span>Use a MIDI melody or click note names for a short idea.</span>
-              </li>
-              <li>
-                <strong>Generate and listen</strong>
-                <span>Compare stable, songwriting, and color-rich candidates with playback.</span>
-              </li>
-              <li>
-                <strong>Inspect and keep</strong>
-                <span>Read the chord logic, replace a chord, copy the progression, or export MIDI.</span>
-              </li>
-            </ol>
-          </div>
+        <section className="workflow-intro" aria-label="Workflow introduction">
+          <span className="eyebrow">A compact music workflow</span>
+          <h3>From sketch to playable harmony without leaving the browser.</h3>
+        </section>
 
+        <section className="workflow-section" aria-label="Import workflow">
+          <div className="workflow-copy">
+            <span>01</span>
+            <h4>Import or sketch</h4>
+            <p>Start from a MIDI melody, or click note names when the idea is still small.</p>
+          </div>
           <div className="landing-preview" aria-label="Workspace preview">
             <div className="preview-topbar">
               <span>Melody.mid</span>
@@ -553,6 +545,33 @@ function App() {
                 <strong>E is the third of Cmaj7.</strong>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="workflow-section workflow-section-reverse" aria-label="Generate workflow">
+          <div className="workflow-copy">
+            <span>02</span>
+            <h4>Generate and listen</h4>
+            <p>Compare classical, songwriting, and color-rich candidates with browser playback.</p>
+          </div>
+          <div className="workflow-rhythm" aria-hidden="true">
+            <span>Cmaj7</span>
+            <span>F</span>
+            <span>G7</span>
+            <span>C</span>
+          </div>
+        </section>
+
+        <section className="workflow-section" aria-label="Inspect workflow">
+          <div className="workflow-copy">
+            <span>03</span>
+            <h4>Inspect and keep</h4>
+            <p>Read the chord logic, replace a segment, copy the progression, or export MIDI.</p>
+          </div>
+          <div className="workflow-inspector" aria-hidden="true">
+            <span>Why it works</span>
+            <strong>E is the third of Cmaj7.</strong>
+            <p>Tonic color, stable fit, ready to export.</p>
           </div>
         </section>
       </main>
