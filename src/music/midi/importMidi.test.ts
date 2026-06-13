@@ -73,6 +73,29 @@ describe("parseMidiArrayBuffer", () => {
     expect(selectedResult.melody.map((note) => note.name)).toEqual(["C5"]);
   });
 
+  it("normalizes weak-beat and cross-bar MIDI timing into beats", () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    track.name = "Syncopated";
+    track.addNote({ midi: 62, ticks: 240, durationTicks: 240, velocity: 0.7 });
+    track.addNote({ midi: 65, ticks: 1680, durationTicks: 960, velocity: 0.7 });
+
+    const result = parseMidiArrayBuffer(toArrayBuffer(midi));
+
+    expect(result.melody).toEqual([
+      expect.objectContaining({
+        name: "D4",
+        startBeat: 0,
+        durationBeats: 0.5,
+      }),
+      expect.objectContaining({
+        name: "F4",
+        startBeat: 3,
+        durationBeats: 2,
+      }),
+    ]);
+  });
+
   it("throws a clear error when no tracks contain notes", () => {
     const midi = new Midi();
     midi.addTrack().name = "Empty";

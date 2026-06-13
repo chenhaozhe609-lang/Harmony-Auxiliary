@@ -1,5 +1,13 @@
 import type { Language } from "./i18n";
-import type { HarmonyDensity, InputMode, Mode, PitchClass, ProjectSettings } from "../music/types";
+import type {
+  HarmonyDensity,
+  HarmonyRhythmPattern,
+  InputMode,
+  Mode,
+  PitchClass,
+  ProjectSettings,
+} from "../music/types";
+import { legacyDensityToRhythm } from "../music/harmony/segmentMelody";
 
 const STORAGE_KEY = "harmony-auxiliary/preferences/v1";
 
@@ -11,7 +19,8 @@ export type StoredPreferences = {
     numerator: number;
     denominator: number;
   };
-  harmonyDensity: HarmonyDensity;
+  harmonyRhythm: HarmonyRhythmPattern;
+  harmonyDensity?: HarmonyDensity;
   inputMode: InputMode;
   language: Language;
 };
@@ -24,6 +33,7 @@ export const defaultPreferences: StoredPreferences = {
     numerator: 4,
     denominator: 4,
   },
+  harmonyRhythm: "bar",
   harmonyDensity: "bar",
   inputMode: "midi",
   language: "zh",
@@ -31,6 +41,16 @@ export const defaultPreferences: StoredPreferences = {
 
 function isPitchClass(value: unknown): value is PitchClass {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 11;
+}
+
+function isHarmonyRhythm(value: unknown): value is HarmonyRhythmPattern {
+  return (
+    value === "bar" ||
+    value === "strong-beats" ||
+    value === "every-beat" ||
+    value === "cadence-aware" ||
+    value === "sparse"
+  );
 }
 
 export function loadPreferences(): StoredPreferences {
@@ -41,6 +61,7 @@ export function loadPreferences(): StoredPreferences {
     if (!raw) return defaultPreferences;
 
     const parsed = JSON.parse(raw) as Partial<StoredPreferences>;
+    const legacyDensity = parsed.harmonyDensity === "half-bar" ? "half-bar" : "bar";
     return {
       keyTonic: isPitchClass(parsed.keyTonic) ? parsed.keyTonic : defaultPreferences.keyTonic,
       mode: parsed.mode === "minor" ? "minor" : "major",
@@ -52,8 +73,10 @@ export function loadPreferences(): StoredPreferences {
         parsed.timeSignature?.numerator === 3
           ? { numerator: 3, denominator: 4 }
           : defaultPreferences.timeSignature,
-      harmonyDensity:
-        parsed.harmonyDensity === "half-bar" ? "half-bar" : defaultPreferences.harmonyDensity,
+      harmonyRhythm: isHarmonyRhythm(parsed.harmonyRhythm)
+        ? parsed.harmonyRhythm
+        : legacyDensityToRhythm(legacyDensity),
+      harmonyDensity: legacyDensity,
       inputMode: parsed.inputMode === "manual" ? "manual" : "midi",
       language: parsed.language === "en" ? "en" : "zh",
     };
@@ -70,7 +93,8 @@ export function savePreferences(settings: ProjectSettings, language = defaultPre
     mode: settings.mode,
     tempo: settings.tempo,
     timeSignature: settings.timeSignature,
-    harmonyDensity: settings.harmonyDensity,
+    harmonyRhythm: settings.harmonyRhythm,
+    harmonyDensity: settings.harmonyRhythm === "strong-beats" ? "half-bar" : "bar",
     inputMode: settings.inputMode,
     language,
   };

@@ -9,7 +9,7 @@ import type {
 } from "../types";
 import { getColorChords, getMajorDiatonicChords, getPopLoopChords } from "../theory/chords";
 import { scoreChordForSegment } from "./scoreChords";
-import { segmentMelody } from "./segmentMelody";
+import { legacyDensityToRhythm, segmentMelody } from "./segmentMelody";
 
 const CANDIDATE_META: Record<CandidateMode, { title: string; subtitle: string; summary: string }> = {
   "stable-classical": {
@@ -87,7 +87,7 @@ export function generateHarmonyCandidates(
 ): HarmonyCandidate[] {
   const segments = segmentMelody(
     melody,
-    settings.harmonyDensity,
+    settings.harmonyRhythm ?? legacyDensityToRhythm(settings.harmonyDensity ?? "bar"),
     settings.timeSignature.numerator,
   );
 

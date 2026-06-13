@@ -8,7 +8,7 @@ const settings: ProjectSettings = {
   mode: "major",
   tempo: 92,
   timeSignature: { numerator: 4, denominator: 4 },
-  harmonyDensity: "bar",
+  harmonyRhythm: "bar",
   inputMode: "manual",
 };
 

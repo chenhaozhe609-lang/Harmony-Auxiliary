@@ -1,6 +1,7 @@
 import type {
   AppState,
   HarmonyCandidate,
+  HarmonyRhythmPattern,
   InputMode,
   MidiImportState,
   NoteEvent,
@@ -14,9 +15,12 @@ export type AppAction =
   | { type: "set-key"; keyTonic: PitchClass }
   | { type: "set-mode"; mode: ProjectSettings["mode"] }
   | { type: "set-tempo"; tempo: number }
-  | { type: "set-density"; harmonyDensity: ProjectSettings["harmonyDensity"] }
+  | { type: "set-harmony-rhythm"; harmonyRhythm: HarmonyRhythmPattern }
+  | { type: "set-density"; harmonyDensity: NonNullable<ProjectSettings["harmonyDensity"]> }
   | { type: "set-input-mode"; inputMode: InputMode }
   | { type: "add-note"; note: NoteEvent }
+  | { type: "update-note"; noteId: string; note: NoteEvent }
+  | { type: "delete-note"; noteId: string }
   | { type: "load-melody"; melody: NoteEvent[] }
   | { type: "undo-note" }
   | { type: "clear-melody" }
@@ -46,9 +50,17 @@ export type AppAction =
   | { type: "clear-error"; id: string }
   | { type: "set-import-error"; message: string };
 
+function normalizeSettings(settings: ProjectSettings): ProjectSettings {
+  if (settings.harmonyRhythm) return settings;
+  return {
+    ...settings,
+    harmonyRhythm: settings.harmonyDensity === "half-bar" ? "strong-beats" : "bar",
+  };
+}
+
 export function createInitialState(settings: ProjectSettings = defaultPreferences): AppState {
   return {
-    settings,
+    settings: normalizeSettings(settings),
     melody: [],
     candidates: [],
     selectedCandidateId: null,
@@ -105,7 +117,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "set-density":
       return resetGenerated({
         ...state,
-        settings: { ...state.settings, harmonyDensity: action.harmonyDensity },
+        settings: {
+          ...state.settings,
+          harmonyRhythm: action.harmonyDensity === "half-bar" ? "strong-beats" : "bar",
+          harmonyDensity: action.harmonyDensity,
+        },
+      });
+    case "set-harmony-rhythm":
+      return resetGenerated({
+        ...state,
+        settings: {
+          ...state.settings,
+          harmonyRhythm: action.harmonyRhythm,
+          harmonyDensity: action.harmonyRhythm === "strong-beats" ? "half-bar" : "bar",
+        },
       });
     case "set-input-mode":
       return {
@@ -116,6 +141,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return resetGenerated({
         ...state,
         melody: [...state.melody, action.note],
+        importState: createIdleImportState(),
+      });
+    case "update-note":
+      return resetGenerated({
+        ...state,
+        melody: state.melody.map((note) => (note.id === action.noteId ? action.note : note)),
+        importState: createIdleImportState(),
+      });
+    case "delete-note":
+      return resetGenerated({
+        ...state,
+        melody: state.melody.filter((note) => note.id !== action.noteId),
         importState: createIdleImportState(),
       });
     case "load-melody":
@@ -138,10 +175,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "set-midi-import":
       return resetGenerated({
         ...state,
-        settings: {
+        settings: normalizeSettings({
           ...state.settings,
           ...action.settings,
-        },
+        }),
         melody: action.melody,
         importState: action.importState,
         errors: [],
@@ -229,7 +266,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "restore-snapshot":
       return {
         ...state,
-        settings: action.snapshot.settings,
+        settings: normalizeSettings(action.snapshot.settings),
         melody: action.snapshot.melody,
         candidates: action.snapshot.candidates,
         selectedCandidateId: action.snapshot.selectedCandidateId,

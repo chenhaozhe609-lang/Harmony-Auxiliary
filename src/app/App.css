@@ -630,9 +630,7 @@ button:disabled,
   min-height: 282px;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background:
-    linear-gradient(to right, var(--color-border) 1px, transparent 1px) 0 0 / 25% 100%,
-    var(--color-surface-muted);
+  background: var(--color-surface-muted);
 }
 
 .timeline-canvas[data-empty="true"] {
@@ -642,11 +640,50 @@ button:disabled,
 
 .bar-ruler {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  padding: 10px 18px 8px 86px;
+  grid-template-columns: var(--timeline-grid-columns);
+  min-width: var(--timeline-content-width);
+  padding: 10px 0 8px;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+.bar-ruler span {
+  padding-left: 10px;
+}
+
+.timeline-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.timeline-grid {
+  position: relative;
+  width: var(--timeline-content-width);
+  min-width: 100%;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--timeline-measure-width) - 1px),
+      color-mix(in srgb, var(--color-text) 18%, transparent) calc(var(--timeline-measure-width) - 1px),
+      color-mix(in srgb, var(--color-text) 18%, transparent) var(--timeline-measure-width)
+    ) var(--timeline-label-width) 0 / var(--timeline-measure-width) 100%,
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--timeline-beat-width) - 1px),
+      color-mix(in srgb, var(--color-border) 90%, transparent) calc(var(--timeline-beat-width) - 1px),
+      color-mix(in srgb, var(--color-border) 90%, transparent) var(--timeline-beat-width)
+    ) var(--timeline-label-width) 0 / var(--timeline-beat-width) 100%,
+    repeating-linear-gradient(
+      to right,
+      transparent 0,
+      transparent calc(var(--timeline-subdivision-width) - 1px),
+      color-mix(in srgb, var(--color-border) 48%, transparent) calc(var(--timeline-subdivision-width) - 1px),
+      color-mix(in srgb, var(--color-border) 48%, transparent) var(--timeline-subdivision-width)
+    ) var(--timeline-label-width) 0 / var(--timeline-subdivision-width) 100%;
 }
 
 .playhead {
@@ -684,49 +721,197 @@ button:disabled,
 .lane {
   position: relative;
   display: grid;
-  grid-template-columns: 68px repeat(16, minmax(28px, 1fr));
+  grid-template-columns: var(--timeline-grid-columns);
+  width: var(--timeline-content-width);
+  min-width: 100%;
   min-height: 104px;
   align-items: center;
-  gap: 8px;
-  padding: 16px 18px;
+  column-gap: 0;
+  padding: 16px 0;
   border-top: 1px solid var(--color-border);
 }
 
 .lane-label {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  display: grid;
+  min-height: 100%;
+  align-items: center;
+  padding-left: 18px;
+  background: color-mix(in srgb, var(--color-surface-muted) 94%, transparent);
   color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 750;
 }
 
 .melody-lane {
-  align-items: end;
-  padding-top: 58px;
+  --pitch-row-height: 28px;
+  grid-template-rows: repeat(8, var(--pitch-row-height));
+  min-height: calc(var(--pitch-row-height) * 8);
+  align-items: center;
+  padding: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--pitch-row-height) - 1px),
+      color-mix(in srgb, var(--color-border) 74%, transparent) calc(var(--pitch-row-height) - 1px),
+      color-mix(in srgb, var(--color-border) 74%, transparent) var(--pitch-row-height)
+    );
+}
+
+.melody-lane[data-editable="true"] {
+  cursor: crosshair;
+}
+
+.melody-lane-label {
+  align-content: stretch;
+  gap: 4px;
+  padding: 7px 0 7px 12px;
+}
+
+.melody-lane-label > span {
+  align-self: start;
+}
+
+.pitch-labels {
+  display: grid;
+  grid-template-rows: repeat(8, 1fr);
+  align-items: center;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.pitch-labels span {
+  line-height: 1;
 }
 
 .note {
+  position: relative;
   display: grid;
+  grid-template-columns: 1fr;
   min-width: 0;
   height: 24px;
+  margin-inline: 3px;
   place-items: center;
   border-color: transparent;
   border-radius: 999px;
   background: var(--color-accent);
   color: var(--color-surface);
+  cursor: grab;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 750;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.note[data-editable="true"] {
+  grid-template-columns: 1fr 8px;
+}
+
+.note[data-editable="false"] {
+  cursor: default;
+}
+
+.note:active {
+  cursor: grabbing;
+}
+
+.note.is-selected {
+  border-color: color-mix(in srgb, var(--color-text) 22%, var(--color-accent));
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+
+.note-resize-handle {
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+}
+
+.note-resize-handle:hover {
+  background: var(--color-surface);
 }
 
 .chord-lane {
-  grid-template-columns: 68px repeat(4, minmax(120px, 1fr));
+  --harmony-row-height: 30px;
+  grid-template-rows: repeat(4, var(--harmony-row-height)) 54px;
+  min-height: calc(var(--harmony-row-height) * 4 + 54px);
+  align-items: center;
+  padding: 0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--harmony-row-height) - 1px),
+      color-mix(in srgb, var(--color-border) 70%, transparent) calc(var(--harmony-row-height) - 1px),
+      color-mix(in srgb, var(--color-border) 70%, transparent) var(--harmony-row-height)
+    );
+}
+
+.harmony-lane-label {
+  align-content: stretch;
+  gap: 4px;
+  padding: 7px 0 7px 12px;
+}
+
+.harmony-lane-label > span {
+  align-self: start;
+}
+
+.voice-labels {
+  display: grid;
+  grid-template-rows: repeat(4, var(--harmony-row-height)) 54px;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.voice-labels span {
+  line-height: 1;
+}
+
+.harmony-note {
+  display: grid;
+  min-width: 0;
+  height: 22px;
+  margin-inline: 5px;
+  place-items: center;
+  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--color-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--color-surface));
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 750;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.harmony-note.is-selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.harmony-note.is-active {
+  color: var(--color-accent);
 }
 
 .chord-block {
   display: grid;
-  height: 62px;
+  height: 42px;
   align-content: center;
-  gap: 4px;
-  padding: 0 14px;
+  gap: 3px;
+  margin-inline: 4px;
+  padding: 0 12px;
   text-align: left;
 }
 
@@ -740,7 +925,7 @@ button:disabled,
 }
 
 .chord-block strong {
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -752,6 +937,7 @@ button:disabled,
 
 .harmony-placeholder {
   grid-column: 2 / -1;
+  grid-row: 1 / -1;
   display: grid;
   min-height: 62px;
   place-items: center;

@@ -11,7 +11,7 @@ const settings: ProjectSettings = {
     numerator: 4,
     denominator: 4,
   },
-  harmonyDensity: "bar",
+  harmonyRhythm: "bar",
   inputMode: "manual",
 };
 
@@ -55,6 +55,27 @@ describe("melody segmentation", () => {
     expect(segments[0].melodyNotes.map((note) => note.name)).toEqual(["E4", "G4"]);
     expect(segments[1].melodyNotes.map((note) => note.name)).toEqual(["C5"]);
   });
+
+  it("segments strong beats at beat 1 and beat 3 in 4/4", () => {
+    const segments = segmentMelody(melody, "strong-beats", 4);
+
+    expect(segments.map((segment) => segment.startBeat)).toEqual([0, 2, 4]);
+    expect(segments.map((segment) => segment.durationBeats)).toEqual([2, 2, 2]);
+  });
+
+  it("segments every beat for dense harmonization", () => {
+    const segments = segmentMelody(melody, "every-beat", 4);
+
+    expect(segments.map((segment) => segment.startBeat)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(segments.every((segment) => segment.durationBeats === 1)).toBe(true);
+  });
+
+  it("adds a final half-bar segment for cadence-aware rhythm", () => {
+    const segments = segmentMelody(melody, "cadence-aware", 4);
+
+    expect(segments.map((segment) => segment.startBeat)).toEqual([0, 4, 5]);
+    expect(segments.map((segment) => segment.durationBeats)).toEqual([4, 1, 1]);
+  });
 });
 
 describe("candidate generation", () => {
@@ -70,4 +91,3 @@ describe("candidate generation", () => {
     expect(candidates[0].chords[0].explanation.fitReason).toContain("E4");
   });
 });
-

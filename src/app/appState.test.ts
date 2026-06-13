@@ -62,6 +62,57 @@ describe("app project editing state", () => {
     expect(updated.candidates[0].chords[0].id).toBe("replacement");
   });
 
+  it("updates a melody note and clears stale candidates", () => {
+    const candidates = generateHarmonyCandidates(melody, defaultPreferences);
+    const generated = appReducer(
+      appReducer(createInitialState(), { type: "load-melody", melody }),
+      { type: "set-candidates", candidates },
+    );
+    const editedNote = { ...melody[0], startBeat: 1.5, durationBeats: 0.5 };
+
+    const updated = appReducer(generated, {
+      type: "update-note",
+      noteId: melody[0].id,
+      note: editedNote,
+    });
+
+    expect(updated.melody[0].startBeat).toBe(1.5);
+    expect(updated.melody[0].durationBeats).toBe(0.5);
+    expect(updated.candidates).toEqual([]);
+    expect(updated.selectedCandidateId).toBeNull();
+  });
+
+  it("changes harmony rhythm and clears stale candidates", () => {
+    const candidates = generateHarmonyCandidates(melody, defaultPreferences);
+    const generated = appReducer(
+      appReducer(createInitialState(), { type: "load-melody", melody }),
+      { type: "set-candidates", candidates },
+    );
+
+    const updated = appReducer(generated, {
+      type: "set-harmony-rhythm",
+      harmonyRhythm: "strong-beats",
+    });
+
+    expect(updated.settings.harmonyRhythm).toBe("strong-beats");
+    expect(updated.settings.harmonyDensity).toBe("half-bar");
+    expect(updated.candidates).toEqual([]);
+  });
+
+  it("deletes a melody note and clears stale candidates", () => {
+    const candidates = generateHarmonyCandidates(melody, defaultPreferences);
+    const generated = appReducer(
+      appReducer(createInitialState(), { type: "load-melody", melody }),
+      { type: "set-candidates", candidates },
+    );
+
+    const updated = appReducer(generated, { type: "delete-note", noteId: melody[0].id });
+
+    expect(updated.melody).toEqual([]);
+    expect(updated.candidates).toEqual([]);
+    expect(updated.selectedChordId).toBeNull();
+  });
+
   it("resets the app with provided settings", () => {
     const state = appReducer(createInitialState(), { type: "load-melody", melody });
     const reset = appReducer(state, { type: "reset-app", settings: defaultPreferences });

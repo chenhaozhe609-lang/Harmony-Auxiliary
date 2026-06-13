@@ -1,7 +1,7 @@
 import { Midi } from "@tonejs/midi";
 import { describe, expect, it } from "vitest";
 import { generateHarmonyCandidates } from "../harmony/generateCandidates";
-import type { NoteEvent, PitchClass, ProjectSettings } from "../types";
+import type { HarmonyCandidate, NoteEvent, PitchClass, ProjectSettings } from "../types";
 import { exportCandidateToMidi, createMidiFileName } from "./exportMidi";
 
 const settings: ProjectSettings = {
@@ -9,7 +9,7 @@ const settings: ProjectSettings = {
   mode: "major",
   tempo: 108,
   timeSignature: { numerator: 4, denominator: 4 },
-  harmonyDensity: "bar",
+  harmonyRhythm: "bar",
   inputMode: "manual",
 };
 
@@ -53,6 +53,42 @@ describe("exportCandidateToMidi", () => {
     expect(parsed.tracks.map((track) => track.name)).toEqual(["Melody", "Harmony"]);
     expect(parsed.tracks[0].notes.map((note) => note.midi)).toEqual([60, 64]);
     expect(parsed.tracks[1].notes.length).toBeGreaterThan(0);
+  });
+
+  it("exports weak-beat and cross-bar timing with the same beat mapping", () => {
+    const timedMelody: NoteEvent[] = [
+      {
+        id: "weak",
+        midi: 62,
+        pitchClass: 2 as PitchClass,
+        name: "D4",
+        startBeat: 1.5,
+        durationBeats: 0.5,
+        velocity: 0.8,
+        source: "manual",
+      },
+      {
+        id: "cross-bar",
+        midi: 65,
+        pitchClass: 5 as PitchClass,
+        name: "F4",
+        startBeat: 3.5,
+        durationBeats: 2,
+        velocity: 0.8,
+        source: "manual",
+      },
+    ];
+    const candidate: HarmonyCandidate = generateHarmonyCandidates(timedMelody, {
+      ...settings,
+      harmonyRhythm: "strong-beats",
+    })[0];
+
+    const parsed = parseExport(exportCandidateToMidi(timedMelody, candidate, settings));
+
+    expect(parsed.tracks[0].notes.map((note) => note.ticks)).toEqual([720, 1680]);
+    expect(parsed.tracks[0].notes.map((note) => note.durationTicks)).toEqual([240, 960]);
+    expect(parsed.tracks[1].notes[0]?.ticks).toBe(0);
+    expect(parsed.tracks[1].notes[0]?.durationTicks).toBe(960);
   });
 
   it("creates stable filenames from source names", () => {

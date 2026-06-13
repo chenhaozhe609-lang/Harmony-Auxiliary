@@ -1,9 +1,18 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
-import { AudioEngine, getPlaybackEndBeat } from "../music/audio/audioEngine";
+import { AudioEngine } from "../music/audio/audioEngine";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
+import { getHarmonyVoiceRows, makeDisplayVoicing } from "../music/harmony/displayVoicing";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
 import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
 import { parseMidiArrayBuffer } from "../music/midi/importMidi";
@@ -16,6 +25,7 @@ import {
 } from "./projectRepository";
 import type {
   HarmonyCandidate,
+  HarmonyRhythmPattern,
   MidiImportResult,
   NoteEvent,
   PitchClass,
@@ -24,10 +34,22 @@ import type {
 } from "../music/types";
 import {
   createNoteEventId,
+  midiToPitchClass,
   midiToNoteName,
   noteNameToPitchClass,
   pitchClassToName,
 } from "../music/theory/pitches";
+import {
+  beatToGridColumn,
+  beatToPixel,
+  beatRangeToGridColumn,
+  createTimelineGridMetrics,
+  durationToGridSpan,
+  getTimelineEndBeat,
+  MIN_NOTE_DURATION_BEATS,
+  pixelDeltaToSnappedBeats,
+  pixelToSnappedBeat,
+} from "./timelineGrid";
 import "./App.css";
 
 const NOTE_BUTTONS = ["C", "D", "E", "F", "G", "A", "B"] as const;
@@ -40,6 +62,26 @@ const DURATION_OPTIONS = [
 ] as const;
 
 const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
+
+const PITCH_ROWS = [
+  { label: "C5", midi: 72 },
+  { label: "B4", midi: 71 },
+  { label: "A4", midi: 69 },
+  { label: "G4", midi: 67 },
+  { label: "F4", midi: 65 },
+  { label: "E4", midi: 64 },
+  { label: "D4", midi: 62 },
+  { label: "C4", midi: 60 },
+] as const;
+
+const HARMONY_VOICE_ROWS = getHarmonyVoiceRows();
+
+type NoteDragState = {
+  noteId: string;
+  mode: "move" | "resize";
+  originClientX: number;
+  originalNote: NoteEvent;
+};
 
 const demoMelody: NoteEvent[] = [
   { midi: 64, startBeat: 0, durationBeats: 1.5 },
@@ -67,13 +109,32 @@ function createManualNote(noteName: string, durationBeats: number, melody: NoteE
   const pitchClass = noteNameToPitchClass(noteName);
   const midi = 60 + pitchClass;
   const index = melody.length;
+  const startBeat = getNextStartBeat(melody);
 
   return {
-    id: createNoteEventId("manual", index),
+    id: `${createNoteEventId("manual", index)}-${Math.round(startBeat * 100)}-${midi}`,
     midi,
     pitchClass,
     name: midiToNoteName(midi),
-    startBeat: getNextStartBeat(melody),
+    startBeat,
+    durationBeats,
+    velocity: 0.8,
+    source: "manual",
+  };
+}
+
+function createManualGridNote(
+  midi: number,
+  startBeat: number,
+  durationBeats: number,
+  melody: NoteEvent[],
+): NoteEvent {
+  return {
+    id: `${createNoteEventId("manual", melody.length)}-${Math.round(startBeat * 100)}-${midi}`,
+    midi,
+    pitchClass: midiToPitchClass(midi),
+    name: midiToNoteName(midi),
+    startBeat,
     durationBeats,
     velocity: 0.8,
     source: "manual",
@@ -81,13 +142,34 @@ function createManualNote(noteName: string, durationBeats: number, melody: NoteE
 }
 
 function noteGridColumn(note: NoteEvent): string {
-  const start = Math.max(2, Math.round(note.startBeat * 2) + 2);
-  const span = Math.max(1, Math.round(note.durationBeats * 2));
-  return `${start} / span ${span}`;
+  return beatRangeToGridColumn(note.startBeat, note.durationBeats);
 }
 
-function noteVerticalOffset(note: NoteEvent): number {
-  return Math.max(-58, Math.min(8, (64 - note.midi) * 4));
+function placedChordGridColumn(placedChord: PlacedChord): string {
+  return beatRangeToGridColumn(placedChord.startBeat, placedChord.durationBeats);
+}
+
+function harmonyVoiceGridRow(voice: (typeof HARMONY_VOICE_ROWS)[number]): number {
+  return HARMONY_VOICE_ROWS.indexOf(voice) + 1;
+}
+
+function noteGridRow(note: NoteEvent): number {
+  const closestIndex = PITCH_ROWS.reduce(
+    (bestIndex, row, index) =>
+      Math.abs(row.midi - note.midi) < Math.abs(PITCH_ROWS[bestIndex].midi - note.midi)
+        ? index
+        : bestIndex,
+    0,
+  );
+  return closestIndex + 1;
+}
+
+function updateNoteTiming(note: NoteEvent, startBeat: number, durationBeats: number): NoteEvent {
+  return {
+    ...note,
+    startBeat,
+    durationBeats,
+  };
 }
 
 function selectedCandidateFrom(
@@ -114,6 +196,7 @@ function App() {
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [recoveredSnapshot, setRecoveredSnapshot] = useState<StoredProjectSnapshot | null>(null);
   const [lastAutosaveAt, setLastAutosaveAt] = useState<string | null>(null);
   const [currentMidiFile, setCurrentMidiFile] = useState<{
@@ -122,6 +205,7 @@ function App() {
   } | null>(null);
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const noteDragRef = useRef<NoteDragState | null>(null);
   const t = (key: string) => translate(language, key);
 
   useEffect(() => {
@@ -170,7 +254,14 @@ function App() {
     state.importState,
   ]);
 
+  useEffect(() => {
+    if (selectedNoteId && !state.melody.some((note) => note.id === selectedNoteId)) {
+      setSelectedNoteId(null);
+    }
+  }, [selectedNoteId, state.melody]);
+
   const hasMelody = state.melody.length > 0;
+  const showEditableGrid = hasMelody || state.settings.inputMode === "manual";
   const showCandidates = state.candidates.length > 0;
   const selectedCandidate = useMemo(
     () => selectedCandidateFrom(state.candidates, state.selectedCandidateId),
@@ -189,11 +280,23 @@ function App() {
         : [],
     [selectedChord, state.melody, state.settings],
   );
-  const playbackEndBeat = useMemo(
-    () => getPlaybackEndBeat(state.melody, selectedCandidate),
+  const timelineEndBeat = useMemo(
+    () => getTimelineEndBeat(state.melody, selectedCandidate),
     [state.melody, selectedCandidate],
   );
-  const playbackProgress = Math.min(1, state.playback.currentBeat / playbackEndBeat);
+  const timelineMetrics = useMemo(
+    () => createTimelineGridMetrics(timelineEndBeat, state.settings.timeSignature.numerator),
+    [timelineEndBeat, state.settings.timeSignature.numerator],
+  );
+  const timelineGridStyle = {
+    "--timeline-grid-columns": `${timelineMetrics.labelWidth}px repeat(${timelineMetrics.columnCount}, ${timelineMetrics.subdivisionWidth}px)`,
+    "--timeline-content-width": `${timelineMetrics.contentWidth}px`,
+    "--timeline-label-width": `${timelineMetrics.labelWidth}px`,
+    "--timeline-subdivision-width": `${timelineMetrics.subdivisionWidth}px`,
+    "--timeline-beat-width": `${timelineMetrics.beatWidth}px`,
+    "--timeline-measure-width": `${timelineMetrics.measureWidth}px`,
+  } as CSSProperties;
+  const playheadLeft = beatToPixel(state.playback.currentBeat, timelineMetrics);
   const activePlaybackChordId =
     selectedCandidate?.chords.find(
       (placedChord) =>
@@ -204,6 +307,7 @@ function App() {
   const handleLoadDemo = () => {
     stopPlayback();
     setCurrentMidiFile(null);
+    setSelectedNoteId(null);
     dispatch({ type: "load-melody", melody: demoMelody });
   };
 
@@ -226,10 +330,19 @@ function App() {
   };
 
   const handleAddNote = (noteName: string) => {
+    const note = createManualNote(noteName, durationBeats, state.melody);
     dispatch({
       type: "add-note",
-      note: createManualNote(noteName, durationBeats, state.melody),
+      note,
     });
+    setSelectedNoteId(note.id);
+  };
+
+  const handleDeleteSelectedNote = () => {
+    if (!selectedNoteId) return;
+    stopPlayback();
+    dispatch({ type: "delete-note", noteId: selectedNoteId });
+    setSelectedNoteId(null);
   };
 
   const handleReplaceChord = (alternativeIndex: number) => {
@@ -329,6 +442,7 @@ function App() {
     arrayBuffer: ArrayBuffer,
   ) => {
     stopPlayback();
+    setSelectedNoteId(null);
     setCurrentMidiFile({ file, arrayBuffer });
     dispatch({
       type: "set-midi-import",
@@ -389,9 +503,113 @@ function App() {
     }
   };
 
+  const beatFromPointer = (event: ReactPointerEvent<HTMLElement>): number => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return pixelToSnappedBeat(event.clientX - rect.left - timelineMetrics.labelWidth, timelineMetrics);
+  };
+
+  const pitchFromPointer = (event: ReactPointerEvent<HTMLElement>): (typeof PITCH_ROWS)[number] => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const rowHeight = rect.height / PITCH_ROWS.length;
+    const rowIndex = Math.max(
+      0,
+      Math.min(PITCH_ROWS.length - 1, Math.floor((event.clientY - rect.top) / rowHeight)),
+    );
+    return PITCH_ROWS[rowIndex];
+  };
+
+  const handleMelodyLanePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (state.settings.inputMode !== "manual" || event.button !== 0) return;
+    if ((event.target as HTMLElement).closest(".note")) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const startBeat = Math.min(
+      timelineMetrics.totalBeats - durationBeats,
+      beatFromPointer(event),
+    );
+    if (event.clientX - rect.left < timelineMetrics.labelWidth) return;
+
+    const pitch = pitchFromPointer(event);
+    const note = createManualGridNote(
+      pitch.midi,
+      Math.max(0, startBeat),
+      durationBeats,
+      state.melody,
+    );
+    stopPlayback();
+    dispatch({ type: "add-note", note });
+    setSelectedNoteId(note.id);
+  };
+
+  const handleNotePointerDown = (
+    event: ReactPointerEvent<HTMLElement>,
+    note: NoteEvent,
+    mode: NoteDragState["mode"],
+  ) => {
+    if (state.settings.inputMode !== "manual" || event.button !== 0) return;
+    event.stopPropagation();
+    setSelectedNoteId(note.id);
+    const captureTarget = event.currentTarget.closest(".note") as HTMLElement | null;
+    captureTarget?.setPointerCapture(event.pointerId);
+    noteDragRef.current = {
+      noteId: note.id,
+      mode,
+      originClientX: event.clientX,
+      originalNote: note,
+    };
+  };
+
+  const handleNotePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = noteDragRef.current;
+    if (!drag || state.settings.inputMode !== "manual") return;
+    event.stopPropagation();
+
+    const signedDeltaBeat = pixelDeltaToSnappedBeats(
+      event.clientX - drag.originClientX,
+      timelineMetrics,
+    );
+    const latestNote =
+      state.melody.find((note) => note.id === drag.noteId) ?? drag.originalNote;
+
+    const updatedNote =
+      drag.mode === "move"
+        ? updateNoteTiming(
+            latestNote,
+            Math.max(
+              0,
+              Math.min(
+                timelineMetrics.totalBeats - latestNote.durationBeats,
+                drag.originalNote.startBeat + signedDeltaBeat,
+              ),
+            ),
+            latestNote.durationBeats,
+          )
+        : updateNoteTiming(
+            latestNote,
+            latestNote.startBeat,
+            Math.max(
+              MIN_NOTE_DURATION_BEATS,
+              Math.min(
+                timelineMetrics.totalBeats - latestNote.startBeat,
+                drag.originalNote.durationBeats + signedDeltaBeat,
+              ),
+            ),
+          );
+
+    dispatch({ type: "update-note", noteId: drag.noteId, note: updatedNote });
+  };
+
+  const handleNotePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (noteDragRef.current && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    noteDragRef.current = null;
+  };
+
   const restoreAutosave = () => {
     if (!recoveredSnapshot) return;
     stopPlayback();
+    setSelectedNoteId(null);
     setCurrentMidiFile(null);
     dispatch({ type: "restore-snapshot", snapshot: recoveredSnapshot });
     setRecoveredSnapshot(null);
@@ -667,16 +885,19 @@ function App() {
           <label>
             {t("settings.density")}
             <select
-              value={state.settings.harmonyDensity}
+              value={state.settings.harmonyRhythm}
               onChange={(event) =>
                 dispatch({
-                  type: "set-density",
-                  harmonyDensity: event.target.value === "half-bar" ? "half-bar" : "bar",
+                  type: "set-harmony-rhythm",
+                  harmonyRhythm: event.target.value as HarmonyRhythmPattern,
                 })
               }
             >
               <option value="bar">{t("settings.bar")}</option>
-              <option value="half-bar">{t("settings.halfBar")}</option>
+              <option value="strong-beats">{t("settings.strongBeats")}</option>
+              <option value="every-beat">{t("settings.everyBeat")}</option>
+              <option value="cadence-aware">{t("settings.cadenceAware")}</option>
+              <option value="sparse">{t("settings.sparse")}</option>
             </select>
           </label>
           <button
@@ -789,8 +1010,19 @@ function App() {
               <button
                 type="button"
                 className="text-tool-button"
+                disabled={!selectedNoteId}
+                onClick={handleDeleteSelectedNote}
+              >
+                {t("action.deleteNote")}
+              </button>
+              <button
+                type="button"
+                className="text-tool-button"
                 disabled={!hasMelody}
-                onClick={() => dispatch({ type: "undo-note" })}
+                onClick={() => {
+                  dispatch({ type: "undo-note" });
+                  setSelectedNoteId(null);
+                }}
               >
                 {t("action.undo")}
               </button>
@@ -798,7 +1030,10 @@ function App() {
                 type="button"
                 className="text-tool-button"
                 disabled={!hasMelody}
-                onClick={() => dispatch({ type: "clear-melody" })}
+                onClick={() => {
+                  dispatch({ type: "clear-melody" });
+                  setSelectedNoteId(null);
+                }}
               >
                 {t("action.clear")}
               </button>
@@ -870,21 +1105,7 @@ function App() {
           ) : null}
 
           <div className="timeline-canvas" data-empty={!hasMelody}>
-            <div className="bar-ruler" aria-hidden="true">
-              <span>1</span>
-              <span>2</span>
-              <span>3</span>
-              <span>4</span>
-            </div>
-            {showCandidates ? (
-              <div
-                className="playhead"
-                aria-hidden="true"
-                style={{ left: `${Math.max(8, Math.min(96, playbackProgress * 100))}%` }}
-              />
-            ) : null}
-
-            {!hasMelody ? (
+            {!showEditableGrid ? (
               <div className="empty-state">
                 <span className="empty-kicker">{t("empty.kicker")}</span>
                 <h3>{t("empty.title")}</h3>
@@ -894,57 +1115,132 @@ function App() {
                 </button>
               </div>
             ) : (
-              <>
-                <div className="lane melody-lane">
-                  <span className="lane-label">{t("lane.melody")}</span>
-                  {state.melody.map((note) => (
-                    <button
-                      type="button"
-                      className="note"
-                      key={note.id}
-                      style={{
-                        gridColumn: noteGridColumn(note),
-                        transform: `translateY(${noteVerticalOffset(note)}px)`,
-                      }}
-                      title={`${note.name}, ${note.durationBeats} beat(s)`}
-                    >
-                      {note.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div
-                  className="lane chord-lane"
-                  style={
-                    selectedCandidate
-                      ? {
-                          gridTemplateColumns: `68px repeat(${selectedCandidate.chords.length}, minmax(120px, 1fr))`,
-                        }
-                      : undefined
-                  }
-                >
-                  <span className="lane-label">{t("lane.harmony")}</span>
-                  {selectedCandidate && selectedChord ? (
-                    selectedCandidate.chords.map((placedChord) => (
+              <div className="timeline-scroll" aria-label="Scrollable beat grid">
+                <div className="timeline-grid" style={timelineGridStyle}>
+                  <div className="bar-ruler" aria-hidden="true">
+                    {Array.from({ length: timelineMetrics.measureCount }, (_, index) => (
+                      <span
+                        key={`bar-${index + 1}`}
+                        style={{
+                          gridColumn: `${beatToGridColumn(
+                            index * timelineMetrics.beatsPerMeasure,
+                          )} / span ${durationToGridSpan(timelineMetrics.beatsPerMeasure)}`,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+                    ))}
+                  </div>
+                  {showCandidates ? (
+                    <div
+                      className="playhead"
+                      aria-hidden="true"
+                      style={{ left: `${playheadLeft}px` }}
+                    />
+                  ) : null}
+                  <div
+                    className="lane melody-lane"
+                    data-editable={state.settings.inputMode === "manual"}
+                    onPointerDown={handleMelodyLanePointerDown}
+                  >
+                    <div className="lane-label melody-lane-label">
+                      <span>{t("lane.melody")}</span>
+                      <div className="pitch-labels" aria-hidden="true">
+                        {PITCH_ROWS.map((row) => (
+                          <span key={row.label}>{row.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {state.melody.map((note) => (
                       <button
                         type="button"
-                        className={`chord-block${
-                          selectedChord.id === placedChord.id ? " is-selected" : ""
-                        }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
-                        key={placedChord.id}
-                        onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
+                        className={`note${selectedNoteId === note.id ? " is-selected" : ""}`}
+                        key={note.id}
+                        data-editable={state.settings.inputMode === "manual"}
+                        style={{
+                          gridColumn: noteGridColumn(note),
+                          gridRow: noteGridRow(note),
+                        }}
+                        aria-label={`${note.name}, ${note.durationBeats} beat(s)`}
+                        title={`${note.name}, ${note.durationBeats} beat(s)`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedNoteId(note.id);
+                        }}
+                        onPointerDown={(event) => handleNotePointerDown(event, note, "move")}
+                        onPointerMove={handleNotePointerMove}
+                        onPointerUp={handleNotePointerUp}
+                        onPointerCancel={handleNotePointerUp}
                       >
-                        <strong>{placedChord.chord.symbol}</strong>
-                        <span>{placedChord.chord.roman}</span>
+                        <span>{note.name}</span>
+                        {state.settings.inputMode === "manual" ? (
+                          <span
+                            className="note-resize-handle"
+                            aria-hidden="true"
+                            onPointerDown={(event) => handleNotePointerDown(event, note, "resize")}
+                          />
+                        ) : null}
                       </button>
-                    ))
-                  ) : (
-                    <div className="harmony-placeholder">
-                      {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
+                    ))}
+                  </div>
+
+                  <div className="lane chord-lane">
+                    <div className="lane-label harmony-lane-label">
+                      <span>{t("lane.harmony")}</span>
+                      <div className="voice-labels" aria-hidden="true">
+                        {HARMONY_VOICE_ROWS.map((voice) => (
+                          <span key={voice}>{voice}</span>
+                        ))}
+                        <span>Chord</span>
+                      </div>
                     </div>
-                  )}
+                    {selectedCandidate && selectedChord ? (
+                      <>
+                        {selectedCandidate.chords.flatMap((placedChord) =>
+                          makeDisplayVoicing(placedChord).map((voice) => (
+                            <button
+                              type="button"
+                              className={`harmony-note${
+                                selectedChord.id === placedChord.id ? " is-selected" : ""
+                              }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
+                              key={`${placedChord.id}-${voice.voice}`}
+                              style={{
+                                gridColumn: placedChordGridColumn(placedChord),
+                                gridRow: harmonyVoiceGridRow(voice.voice),
+                              }}
+                              title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
+                              onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
+                            >
+                              {voice.noteName}
+                            </button>
+                          )),
+                        )}
+                        {selectedCandidate.chords.map((placedChord) => (
+                          <button
+                            type="button"
+                            className={`chord-block${
+                              selectedChord.id === placedChord.id ? " is-selected" : ""
+                            }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
+                            key={placedChord.id}
+                            style={{
+                              gridColumn: placedChordGridColumn(placedChord),
+                              gridRow: HARMONY_VOICE_ROWS.length + 1,
+                            }}
+                            onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
+                          >
+                            <strong>{placedChord.chord.symbol}</strong>
+                            <span>{placedChord.chord.roman}</span>
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="harmony-placeholder">
+                        {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
 

@@ -4,6 +4,13 @@ export type Mode = "major" | "minor";
 
 export type HarmonyDensity = "bar" | "half-bar";
 
+export type HarmonyRhythmPattern =
+  | "bar"
+  | "strong-beats"
+  | "every-beat"
+  | "cadence-aware"
+  | "sparse";
+
 export type InputMode = "midi" | "manual";
 
 export type ChordQuality =
@@ -41,7 +48,8 @@ export type ProjectSettings = {
     numerator: number;
     denominator: number;
   };
-  harmonyDensity: HarmonyDensity;
+  harmonyRhythm: HarmonyRhythmPattern;
+  harmonyDensity?: HarmonyDensity;
   inputMode: InputMode;
 };
 
