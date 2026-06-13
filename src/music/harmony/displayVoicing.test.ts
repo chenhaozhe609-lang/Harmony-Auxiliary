@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlacedChord } from "../types";
-import { makeDisplayVoicing } from "./displayVoicing";
+import { getHarmonyVoiceRows, makeDisplayVoicing } from "./displayVoicing";
 import { getMajorDiatonicChords } from "../theory/chords";
 
 function placedChord(symbol: string): PlacedChord {
@@ -22,6 +22,10 @@ function placedChord(symbol: string): PlacedChord {
 }
 
 describe("makeDisplayVoicing", () => {
+  it("keeps harmony display lanes in stable score order", () => {
+    expect(getHarmonyVoiceRows()).toEqual(["Bass", "Lower", "Middle", "Upper"]);
+  });
+
   it("expands a triad into bass and upper voices", () => {
     const voices = makeDisplayVoicing(placedChord("F"));
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { longDemoMelody } from "../music/fixtures/demoMelodies";
 import type { HarmonyCandidate, NoteEvent } from "../music/types";
 import {
   beatToGridColumn,
@@ -97,5 +98,18 @@ describe("timeline grid metrics", () => {
     expect(metrics.measureCount).toBe(9);
     expect(metrics.totalBeats).toBe(36);
     expect(beatRangeToGridColumn(32, 1.5)).toBe("66 / span 3");
+  });
+
+  it("maps the long melody fixture through the same timeline grid", () => {
+    const endBeat = getTimelineEndBeat(longDemoMelody, null);
+    const metrics = createTimelineGridMetrics(endBeat, 4);
+    const lastNote = longDemoMelody.at(-1);
+
+    expect(endBeat).toBe(48);
+    expect(metrics.measureCount).toBe(12);
+    expect(metrics.totalBeats).toBe(48);
+    expect(lastNote).toBeDefined();
+    expect(beatRangeToGridColumn(lastNote!.startBeat, lastNote!.durationBeats)).toBe("94 / span 4");
+    expect(beatToPixel(48, metrics)).toBe(metrics.contentWidth);
   });
 });

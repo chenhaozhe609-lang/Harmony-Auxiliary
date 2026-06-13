@@ -1,5 +1,6 @@
 import { Midi } from "@tonejs/midi";
 import { describe, expect, it } from "vitest";
+import { longDemoMelody } from "../fixtures/demoMelodies";
 import { generateHarmonyCandidates } from "../harmony/generateCandidates";
 import type { HarmonyCandidate, NoteEvent, PitchClass, ProjectSettings } from "../types";
 import { exportCandidateToMidi, createMidiFileName } from "./exportMidi";
@@ -89,6 +90,22 @@ describe("exportCandidateToMidi", () => {
     expect(parsed.tracks[0].notes.map((note) => note.durationTicks)).toEqual([240, 960]);
     expect(parsed.tracks[1].notes[0]?.ticks).toBe(0);
     expect(parsed.tracks[1].notes[0]?.durationTicks).toBe(960);
+  });
+
+  it("exports the full long melody and harmony timeline", () => {
+    const candidate = generateHarmonyCandidates(longDemoMelody, settings)[0];
+    const parsed = parseExport(exportCandidateToMidi(longDemoMelody, candidate, settings));
+    const melodyNotes = parsed.tracks[0].notes;
+    const harmonyNotes = parsed.tracks[1].notes;
+    const lastMelodyNote = melodyNotes.at(-1);
+    const lastHarmonyNote = harmonyNotes.at(-1);
+
+    expect(candidate.chords).toHaveLength(12);
+    expect(melodyNotes).toHaveLength(longDemoMelody.length);
+    expect(lastMelodyNote?.ticks).toBe(46 * 480);
+    expect(lastMelodyNote?.durationTicks).toBe(2 * 480);
+    expect(lastHarmonyNote?.ticks).toBe(44 * 480);
+    expect(lastHarmonyNote?.durationTicks).toBe(4 * 480);
   });
 
   it("creates stable filenames from source names", () => {

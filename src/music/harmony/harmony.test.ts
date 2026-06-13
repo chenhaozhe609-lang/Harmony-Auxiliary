@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateHarmonyCandidates } from "./generateCandidates";
 import { segmentMelody } from "./segmentMelody";
+import { longDemoMelody } from "../fixtures/demoMelodies";
 import type { NoteEvent, ProjectSettings } from "../types";
 
 const settings: ProjectSettings = {
@@ -119,6 +120,19 @@ describe("melody segmentation", () => {
     expect(segments.map((segment) => segment.startBeat)).toEqual([0, 4, 5]);
     expect(segments.map((segment) => segment.durationBeats)).toEqual([4, 1, 1]);
   });
+
+  it("segments the long melody fixture across each harmony rhythm pattern", () => {
+    expect(segmentMelody(longDemoMelody, "bar", 4)).toHaveLength(12);
+    expect(segmentMelody(longDemoMelody, "strong-beats", 4)).toHaveLength(24);
+    expect(segmentMelody(longDemoMelody, "every-beat", 4)).toHaveLength(48);
+    expect(segmentMelody(longDemoMelody, "sparse", 4)).toHaveLength(6);
+
+    const cadenceAware = segmentMelody(longDemoMelody, "cadence-aware", 4);
+    expect(cadenceAware).toHaveLength(13);
+    expect(cadenceAware.at(-2)?.startBeat).toBe(44);
+    expect(cadenceAware.at(-1)?.startBeat).toBe(46);
+    expect(cadenceAware.at(-1)?.durationBeats).toBe(2);
+  });
 });
 
 describe("candidate generation", () => {
@@ -153,6 +167,21 @@ describe("candidate generation", () => {
     );
     expect(stable.chords[3].explanation.functionReason).toContain(
       "Classical motion: dominant resolves to tonic.",
+    );
+  });
+
+  it("generates a full 12-bar candidate progression for the long melody fixture", () => {
+    const stable = generateHarmonyCandidates(longDemoMelody, settings)[0];
+    const lastChord = stable.chords.at(-1);
+
+    expect(stable.chords).toHaveLength(12);
+    expect(stable.chords[0].startBeat).toBe(0);
+    expect(lastChord).toBeDefined();
+    expect(lastChord!.startBeat).toBe(44);
+    expect(lastChord!.durationBeats).toBe(4);
+    expect(lastChord!.startBeat + lastChord!.durationBeats).toBe(48);
+    expect(stable.chords.some((placedChord) => placedChord.explanation.melodyRelationships.length > 0)).toBe(
+      true,
     );
   });
 });
