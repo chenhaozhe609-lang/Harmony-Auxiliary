@@ -44,19 +44,142 @@ function scoreSegment(segment: HarmonySegment, chords: ReturnType<typeof getMajo
     .sort((a, b) => b.score - a.score);
 }
 
+function motionBonus(previous: ScoredChord | null, current: ScoredChord): number {
+  if (!previous) return current.chord.functionLabel === "T" ? 1 : 0;
+
+  const from = previous.chord.functionLabel;
+  const to = current.chord.functionLabel;
+
+  if (from === "T" && to === "PD") return 2.2;
+  if (from === "PD" && to === "D") return 2.4;
+  if (from === "D" && to === "T") return 3;
+  if (from === "T" && to === "T") return 0.7;
+  if (from === "PD" && to === "PD") return 0.4;
+  if (from === "D" && to === "D") return -0.9;
+  if (from === "D" && to === "PD") return -1.8;
+  if (from === "PD" && to === "T") return -0.7;
+  if (to === "Color") return -1.5;
+  return -0.2;
+}
+
+function cadenceBonus(
+  previous: ScoredChord | null,
+  current: ScoredChord,
+  index: number,
+  segmentCount: number,
+): number {
+  const remaining = segmentCount - index - 1;
+  const roman = current.chord.roman;
+
+  if (remaining === 0) {
+    let bonus = current.chord.functionLabel === "T" ? 2.6 : -1.6;
+    if (roman.startsWith("I")) bonus += 1.6;
+    if (previous?.chord.functionLabel === "D" && current.chord.functionLabel === "T") {
+      bonus += 2.2;
+    }
+    return bonus;
+  }
+
+  if (remaining === 1) {
+    if (roman.startsWith("V")) return 2.4;
+    return current.chord.functionLabel === "D" ? 1.2 : -0.6;
+  }
+
+  if (remaining === 2) {
+    if (roman === "ii" || roman === "IV") return 1.2;
+    return current.chord.functionLabel === "PD" ? 0.6 : 0;
+  }
+
+  return 0;
+}
+
+function strictNonChordPenalty(scored: ScoredChord): number {
+  const sustainedWarnings = scored.explanation.warnings.filter((warning) =>
+    warning.includes("sustained non-chord tone"),
+  ).length;
+  return sustainedWarnings * -1.4;
+}
+
+function classicalMotionReason(
+  previous: ScoredChord | null,
+  current: ScoredChord,
+  index: number,
+  segmentCount: number,
+): string {
+  const remaining = segmentCount - index - 1;
+  if (!previous) {
+    return current.chord.functionLabel === "T"
+      ? "Classical motion: the phrase opens from tonic stability."
+      : `Classical motion: the phrase opens with ${current.chord.functionLabel} function for preparation.`;
+  }
+
+  const motion = `${previous.chord.functionLabel} to ${current.chord.functionLabel}`;
+  if (previous.chord.functionLabel === "D" && current.chord.functionLabel === "T") {
+    return "Classical motion: dominant resolves to tonic.";
+  }
+  if (previous.chord.functionLabel === "PD" && current.chord.functionLabel === "D") {
+    return "Classical motion: predominant prepares dominant.";
+  }
+  if (previous.chord.functionLabel === "T" && current.chord.functionLabel === "PD") {
+    return "Classical motion: tonic moves toward predominant preparation.";
+  }
+  if (remaining === 0 && current.chord.functionLabel === "T") {
+    return "Classical motion: the phrase closes on tonic function.";
+  }
+  return `Classical motion: ${motion} keeps the progression explainable.`;
+}
+
+function withClassicalExplanation(
+  scored: ScoredChord,
+  previous: ScoredChord | null,
+  index: number,
+  segmentCount: number,
+): ScoredChord {
+  return {
+    ...scored,
+    explanation: {
+      ...scored.explanation,
+      functionReason: `${scored.explanation.functionReason} ${classicalMotionReason(
+        previous,
+        scored,
+        index,
+        segmentCount,
+      )}`,
+    },
+  };
+}
+
+function adjustedStableScore(
+  scored: ScoredChord,
+  previous: ScoredChord | null,
+  index: number,
+  segmentCount: number,
+): number {
+  return (
+    scored.score +
+    motionBonus(previous, scored) +
+    cadenceBonus(previous, scored, index, segmentCount) +
+    strictNonChordPenalty(scored)
+  );
+}
+
 function chooseStableChord(
   segment: HarmonySegment,
   index: number,
+  segmentCount: number,
   tonic: ProjectSettings["keyTonic"],
+  previous: ScoredChord | null,
 ): ScoredChord {
   const palette = getMajorDiatonicChords(tonic);
   const scored = scoreSegment(segment, palette);
-  const cadenceIndex = index % 4;
-  const cadenceRoman = cadenceIndex === 1 ? "IV" : cadenceIndex === 2 ? "V7" : null;
-  const cadenceMatch = cadenceRoman
-    ? scored.find((candidate) => candidate.chord.roman === cadenceRoman)
-    : null;
-  return cadenceMatch && cadenceMatch.score > -0.5 ? cadenceMatch : scored[0];
+  const best = scored
+    .map((candidate) => ({
+      candidate,
+      adjustedScore: adjustedStableScore(candidate, previous, index, segmentCount),
+    }))
+    .sort((a, b) => b.adjustedScore - a.adjustedScore)[0].candidate;
+
+  return withClassicalExplanation(best, previous, index, segmentCount);
 }
 
 function chooseByPalette(
@@ -103,13 +226,15 @@ export function generateHarmonyCandidates(
           ? getColorChords(settings.keyTonic)
           : getMajorDiatonicChords(settings.keyTonic);
 
-    const selectedScoredChords = segments.map((segment, index) => {
+    const selectedScoredChords: ScoredChord[] = [];
+    for (const [index, segment] of segments.entries()) {
+      const previous = selectedScoredChords[index - 1] ?? null;
       const scored =
         mode === "stable-classical"
-          ? chooseStableChord(segment, index, settings.keyTonic)
+          ? chooseStableChord(segment, index, segments.length, settings.keyTonic, previous)
           : chooseByPalette(segment, palette, index);
-      return scored;
-    });
+      selectedScoredChords.push(scored);
+    }
 
     const chords = selectedScoredChords.map((scored, index) => {
       const segment = segments[index];

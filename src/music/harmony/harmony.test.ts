@@ -48,6 +48,49 @@ const melody: NoteEvent[] = [
   },
 ];
 
+const cadenceMelody: NoteEvent[] = [
+  {
+    id: "cadence-1",
+    midi: 64,
+    pitchClass: 4,
+    name: "E4",
+    startBeat: 0,
+    durationBeats: 1,
+    velocity: 0.8,
+    source: "manual",
+  },
+  {
+    id: "cadence-2",
+    midi: 65,
+    pitchClass: 5,
+    name: "F4",
+    startBeat: 4,
+    durationBeats: 1,
+    velocity: 0.8,
+    source: "manual",
+  },
+  {
+    id: "cadence-3",
+    midi: 71,
+    pitchClass: 11,
+    name: "B4",
+    startBeat: 8,
+    durationBeats: 1,
+    velocity: 0.8,
+    source: "manual",
+  },
+  {
+    id: "cadence-4",
+    midi: 72,
+    pitchClass: 0,
+    name: "C5",
+    startBeat: 12,
+    durationBeats: 2,
+    velocity: 0.8,
+    source: "manual",
+  },
+];
+
 describe("melody segmentation", () => {
   it("segments by bar", () => {
     const segments = segmentMelody(melody, "bar", 4);
@@ -89,5 +132,27 @@ describe("candidate generation", () => {
     expect(candidates).toHaveLength(3);
     expect(candidates[0].chords).toHaveLength(2);
     expect(candidates[0].chords[0].explanation.fitReason).toContain("E4");
+  });
+
+  it("prefers a classical predominant to dominant to tonic cadence", () => {
+    const stable = generateHarmonyCandidates(cadenceMelody, settings)[0];
+
+    expect(stable.chords.map((placedChord) => placedChord.chord.functionLabel)).toEqual([
+      "T",
+      "PD",
+      "D",
+      "T",
+    ]);
+    expect(["ii", "IV"]).toContain(stable.chords[1].chord.roman);
+    expect(stable.chords.map((placedChord) => placedChord.chord.roman).slice(2)).toEqual([
+      "V7",
+      "Imaj7",
+    ]);
+    expect(stable.chords[2].explanation.functionReason).toContain(
+      "Classical motion: predominant prepares dominant.",
+    );
+    expect(stable.chords[3].explanation.functionReason).toContain(
+      "Classical motion: dominant resolves to tonic.",
+    );
   });
 });
