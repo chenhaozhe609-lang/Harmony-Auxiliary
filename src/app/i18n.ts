@@ -13,6 +13,7 @@ const translations: Record<Language, TranslationTree> = {
     "action.chooseFile": "Choose File",
     "action.importing": "Importing",
     "action.loadDemo": "Load Demo Melody",
+    "action.loadLongDemo": "Load Long Demo",
     "action.clearLocalData": "Clear Local Data",
     "action.restore": "Restore",
     "action.discard": "Discard",

@@ -984,9 +984,13 @@ button:disabled,
 }
 
 .candidate strong {
+  display: -webkit-box;
   overflow: hidden;
+  line-height: 1.35;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .candidate small {
