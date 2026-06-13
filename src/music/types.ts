@@ -13,6 +13,8 @@ export type HarmonyRhythmPattern =
 
 export type InputMode = "midi" | "manual";
 
+export type PlaybackTonePreset = "mellow-keys" | "warm-organ" | "soft-pluck" | "glass-bell";
+
 export type ChordQuality =
   | "major"
   | "minor"
@@ -51,6 +53,7 @@ export type ProjectSettings = {
   harmonyRhythm: HarmonyRhythmPattern;
   harmonyDensity?: HarmonyDensity;
   inputMode: InputMode;
+  playbackTone: PlaybackTonePreset;
 };
 
 export type ChordDefinition = {

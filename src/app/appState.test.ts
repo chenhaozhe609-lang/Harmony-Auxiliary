@@ -99,6 +99,23 @@ describe("app project editing state", () => {
     expect(updated.candidates).toEqual([]);
   });
 
+  it("changes playback tone without invalidating generated candidates", () => {
+    const candidates = generateHarmonyCandidates(melody, defaultPreferences);
+    const generated = appReducer(
+      appReducer(createInitialState(), { type: "load-melody", melody }),
+      { type: "set-candidates", candidates },
+    );
+
+    const updated = appReducer(generated, {
+      type: "set-playback-tone",
+      playbackTone: "glass-bell",
+    });
+
+    expect(updated.settings.playbackTone).toBe("glass-bell");
+    expect(updated.candidates).toEqual(candidates);
+    expect(updated.selectedCandidateId).toBe(candidates[0].id);
+  });
+
   it("deletes a melody note and clears stale candidates", () => {
     const candidates = generateHarmonyCandidates(melody, defaultPreferences);
     const generated = appReducer(
@@ -118,6 +135,6 @@ describe("app project editing state", () => {
     const reset = appReducer(state, { type: "reset-app", settings: defaultPreferences });
 
     expect(reset.melody).toEqual([]);
-    expect(reset.settings).toBe(defaultPreferences);
+    expect(reset.settings).toEqual(defaultPreferences);
   });
 });

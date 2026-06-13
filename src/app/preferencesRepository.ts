@@ -4,6 +4,7 @@ import type {
   HarmonyRhythmPattern,
   InputMode,
   Mode,
+  PlaybackTonePreset,
   PitchClass,
   ProjectSettings,
 } from "../music/types";
@@ -22,6 +23,7 @@ export type StoredPreferences = {
   harmonyRhythm: HarmonyRhythmPattern;
   harmonyDensity?: HarmonyDensity;
   inputMode: InputMode;
+  playbackTone: PlaybackTonePreset;
   language: Language;
 };
 
@@ -36,6 +38,7 @@ export const defaultPreferences: StoredPreferences = {
   harmonyRhythm: "bar",
   harmonyDensity: "bar",
   inputMode: "midi",
+  playbackTone: "mellow-keys",
   language: "zh",
 };
 
@@ -50,6 +53,15 @@ function isHarmonyRhythm(value: unknown): value is HarmonyRhythmPattern {
     value === "every-beat" ||
     value === "cadence-aware" ||
     value === "sparse"
+  );
+}
+
+function isPlaybackTone(value: unknown): value is PlaybackTonePreset {
+  return (
+    value === "mellow-keys" ||
+    value === "warm-organ" ||
+    value === "soft-pluck" ||
+    value === "glass-bell"
   );
 }
 
@@ -78,6 +90,9 @@ export function loadPreferences(): StoredPreferences {
         : legacyDensityToRhythm(legacyDensity),
       harmonyDensity: legacyDensity,
       inputMode: parsed.inputMode === "manual" ? "manual" : "midi",
+      playbackTone: isPlaybackTone(parsed.playbackTone)
+        ? parsed.playbackTone
+        : defaultPreferences.playbackTone,
       language: parsed.language === "en" ? "en" : "zh",
     };
   } catch {
@@ -96,6 +111,7 @@ export function savePreferences(settings: ProjectSettings, language = defaultPre
     harmonyRhythm: settings.harmonyRhythm,
     harmonyDensity: settings.harmonyRhythm === "strong-beats" ? "half-bar" : "bar",
     inputMode: settings.inputMode,
+    playbackTone: settings.playbackTone,
     language,
   };
 

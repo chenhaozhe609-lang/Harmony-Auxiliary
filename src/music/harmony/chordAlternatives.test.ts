@@ -10,6 +10,7 @@ const settings: ProjectSettings = {
   timeSignature: { numerator: 4, denominator: 4 },
   harmonyRhythm: "bar",
   inputMode: "manual",
+  playbackTone: "mellow-keys",
 };
 
 const melody: NoteEvent[] = [

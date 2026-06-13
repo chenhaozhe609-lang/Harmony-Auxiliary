@@ -1,9 +1,86 @@
 import * as Tone from "tone";
-import type { HarmonyCandidate, NoteEvent, PlacedChord } from "../types";
+import type { HarmonyCandidate, NoteEvent, PlacedChord, PlaybackTonePreset } from "../types";
 
 export type PlaybackOptions = {
   melodyMuted: boolean;
   harmonyMuted: boolean;
+  tonePreset: PlaybackTonePreset;
+};
+
+type SynthVoiceConfig = {
+  oscillator: "sine" | "triangle";
+  envelope: {
+    attack: number;
+    decay: number;
+    sustain: number;
+    release: number;
+  };
+  volume: number;
+  velocity: number;
+};
+
+type PlaybackToneConfig = {
+  melody: SynthVoiceConfig;
+  harmony: SynthVoiceConfig;
+};
+
+export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfig> = {
+  "mellow-keys": {
+    melody: {
+      oscillator: "triangle",
+      envelope: { attack: 0.012, decay: 0.16, sustain: 0.46, release: 0.38 },
+      volume: -9,
+      velocity: 0.9,
+    },
+    harmony: {
+      oscillator: "sine",
+      envelope: { attack: 0.04, decay: 0.26, sustain: 0.38, release: 0.8 },
+      volume: -16,
+      velocity: 0.55,
+    },
+  },
+  "warm-organ": {
+    melody: {
+      oscillator: "sine",
+      envelope: { attack: 0.018, decay: 0.08, sustain: 0.78, release: 0.42 },
+      volume: -11,
+      velocity: 0.82,
+    },
+    harmony: {
+      oscillator: "triangle",
+      envelope: { attack: 0.035, decay: 0.08, sustain: 0.74, release: 0.7 },
+      volume: -18,
+      velocity: 0.48,
+    },
+  },
+  "soft-pluck": {
+    melody: {
+      oscillator: "triangle",
+      envelope: { attack: 0.004, decay: 0.18, sustain: 0.18, release: 0.28 },
+      volume: -8,
+      velocity: 0.88,
+    },
+    harmony: {
+      oscillator: "triangle",
+      envelope: { attack: 0.008, decay: 0.26, sustain: 0.22, release: 0.58 },
+      volume: -15,
+      velocity: 0.5,
+    },
+  },
+  "glass-bell": {
+    melody: {
+      oscillator: "sine",
+      envelope: { attack: 0.006, decay: 0.5, sustain: 0.14, release: 1.05 },
+      volume: -10,
+      velocity: 0.78,
+    },
+    harmony: {
+      oscillator: "sine",
+      envelope: { attack: 0.02, decay: 0.6, sustain: 0.18, release: 1.35 },
+      volume: -18,
+      velocity: 0.42,
+    },
+  },
 };
 
 type ActivePlayback = {
@@ -40,29 +117,30 @@ export class AudioEngine {
   private melodySynth: Tone.PolySynth | null = null;
   private harmonySynth: Tone.PolySynth | null = null;
   private activePlayback: ActivePlayback | null = null;
+  private activeTonePreset: PlaybackTonePreset | null = null;
 
-  async ensureStarted(): Promise<void> {
+  async ensureStarted(tonePreset: PlaybackTonePreset = "mellow-keys"): Promise<void> {
     await Tone.start();
-    this.melodySynth ??= new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "triangle" },
-      envelope: {
-        attack: 0.01,
-        decay: 0.12,
-        sustain: 0.5,
-        release: 0.25,
-      },
-    }).toDestination();
-    this.harmonySynth ??= new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: "sine" },
-      envelope: {
-        attack: 0.03,
-        decay: 0.22,
-        sustain: 0.42,
-        release: 0.55,
-      },
-    }).toDestination();
-    this.melodySynth.volume.value = -8;
-    this.harmonySynth.volume.value = -15;
+    this.melodySynth ??= new Tone.PolySynth(Tone.Synth).toDestination();
+    this.harmonySynth ??= new Tone.PolySynth(Tone.Synth).toDestination();
+    this.applyTonePreset(tonePreset);
+  }
+
+  private applyTonePreset(tonePreset: PlaybackTonePreset): void {
+    if (this.activeTonePreset === tonePreset) return;
+
+    const config = PLAYBACK_TONE_PRESETS[tonePreset];
+    this.melodySynth?.set({
+      oscillator: { type: config.melody.oscillator },
+      envelope: config.melody.envelope,
+    });
+    this.harmonySynth?.set({
+      oscillator: { type: config.harmony.oscillator },
+      envelope: config.harmony.envelope,
+    });
+    if (this.melodySynth) this.melodySynth.volume.value = config.melody.volume;
+    if (this.harmonySynth) this.harmonySynth.volume.value = config.harmony.volume;
+    this.activeTonePreset = tonePreset;
   }
 
   stop(): void {
@@ -80,8 +158,11 @@ export class AudioEngine {
     onBeat: (beat: number) => void,
     onEnded: () => void,
   ): Promise<void> {
-    await this.ensureStarted();
+    const tonePreset = options.tonePreset ?? "mellow-keys";
+    await this.ensureStarted(tonePreset);
     this.stop();
+    this.applyTonePreset(tonePreset);
+    const toneConfig = PLAYBACK_TONE_PRESETS[tonePreset];
 
     const startTime = Tone.now() + 0.05;
     const timers: number[] = [];
@@ -96,7 +177,7 @@ export class AudioEngine {
           midiToFrequency(note.midi),
           Math.max(0.08, beatToSeconds(note.durationBeats, tempo) * 0.92),
           startTime + beatToSeconds(note.startBeat, tempo),
-          note.velocity,
+          Math.min(1, note.velocity * toneConfig.melody.velocity),
         );
       }
     }
@@ -107,7 +188,7 @@ export class AudioEngine {
           chordToMidiVoicing(placedChord).map(midiToFrequency),
           Math.max(0.12, beatToSeconds(placedChord.durationBeats, tempo) * 0.9),
           startTime + beatToSeconds(placedChord.startBeat, tempo),
-          0.55,
+          toneConfig.harmony.velocity,
         );
       }
     }
@@ -156,4 +237,3 @@ export function getPlaybackEndBeat(melody: NoteEvent[], candidate: HarmonyCandid
     ) ?? 0;
   return Math.max(1, melodyEnd, harmonyEnd);
 }
-

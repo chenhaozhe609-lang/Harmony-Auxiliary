@@ -14,6 +14,7 @@ const settings: ProjectSettings = {
   },
   harmonyRhythm: "bar",
   inputMode: "manual",
+  playbackTone: "mellow-keys",
 };
 
 const melody: NoteEvent[] = [

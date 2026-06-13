@@ -29,6 +29,7 @@ import type {
   HarmonyRhythmPattern,
   MidiImportResult,
   NoteEvent,
+  PlaybackTonePreset,
   PitchClass,
   PlacedChord,
   StoredProjectSnapshot,
@@ -63,6 +64,13 @@ const DURATION_OPTIONS = [
 ] as const;
 
 const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
+
+const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
+  "mellow-keys",
+  "warm-organ",
+  "soft-pluck",
+  "glass-bell",
+];
 
 const PITCH_ROWS = [
   { label: "C5", midi: 72 },
@@ -638,6 +646,7 @@ function App() {
         {
           melodyMuted: state.playback.melodyMuted,
           harmonyMuted: state.playback.harmonyMuted,
+          tonePreset: state.settings.playbackTone,
         },
         (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
         () => dispatch({ type: "reset-playback" }),
@@ -663,6 +672,7 @@ function App() {
         {
           melodyMuted: state.playback.melodyMuted,
           harmonyMuted: state.playback.harmonyMuted,
+          tonePreset: state.settings.playbackTone,
         },
         (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
         () => dispatch({ type: "reset-playback" }),
@@ -893,6 +903,25 @@ function App() {
               <option value="every-beat">{t("settings.everyBeat")}</option>
               <option value="cadence-aware">{t("settings.cadenceAware")}</option>
               <option value="sparse">{t("settings.sparse")}</option>
+            </select>
+          </label>
+          <label>
+            {t("settings.tone")}
+            <select
+              value={state.settings.playbackTone}
+              onChange={(event) => {
+                if (state.playback.status === "playing") stopPlayback();
+                dispatch({
+                  type: "set-playback-tone",
+                  playbackTone: event.target.value as PlaybackTonePreset,
+                });
+              }}
+            >
+              {PLAYBACK_TONE_OPTIONS.map((tone) => (
+                <option value={tone} key={tone}>
+                  {t(`tone.${tone}`)}
+                </option>
+              ))}
             </select>
           </label>
           <button

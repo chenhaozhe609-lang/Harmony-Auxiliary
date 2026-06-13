@@ -18,6 +18,7 @@ export type AppAction =
   | { type: "set-harmony-rhythm"; harmonyRhythm: HarmonyRhythmPattern }
   | { type: "set-density"; harmonyDensity: NonNullable<ProjectSettings["harmonyDensity"]> }
   | { type: "set-input-mode"; inputMode: InputMode }
+  | { type: "set-playback-tone"; playbackTone: ProjectSettings["playbackTone"] }
   | { type: "add-note"; note: NoteEvent }
   | { type: "update-note"; noteId: string; note: NoteEvent }
   | { type: "delete-note"; noteId: string }
@@ -51,10 +52,11 @@ export type AppAction =
   | { type: "set-import-error"; message: string };
 
 function normalizeSettings(settings: ProjectSettings): ProjectSettings {
-  if (settings.harmonyRhythm) return settings;
   return {
     ...settings,
-    harmonyRhythm: settings.harmonyDensity === "half-bar" ? "strong-beats" : "bar",
+    harmonyRhythm:
+      settings.harmonyRhythm ?? (settings.harmonyDensity === "half-bar" ? "strong-beats" : "bar"),
+    playbackTone: settings.playbackTone ?? defaultPreferences.playbackTone,
   };
 }
 
@@ -136,6 +138,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         settings: { ...state.settings, inputMode: action.inputMode },
+      };
+    case "set-playback-tone":
+      return {
+        ...state,
+        settings: { ...state.settings, playbackTone: action.playbackTone },
       };
     case "add-note":
       return resetGenerated({
