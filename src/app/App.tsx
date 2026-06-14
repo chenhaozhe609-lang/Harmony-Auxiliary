@@ -1181,12 +1181,24 @@ function App() {
                     onPointerDown={handleMelodyLanePointerDown}
                   >
                     <div className="lane-label melody-lane-label">
-                      <span>{t("lane.melody")}</span>
-                      <div className="pitch-labels" aria-hidden="true">
-                        {PITCH_ROWS.map((row) => (
-                          <span key={row.label}>{row.label}</span>
-                        ))}
-                      </div>
+                      {PITCH_ROWS.map((row) => (
+                        <span
+                          className="pitch-key"
+                          data-root={row.label.startsWith("C")}
+                          key={row.label}
+                        >
+                          {row.label}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="piano-roll-cells" aria-hidden="true">
+                      {PITCH_ROWS.map((row, index) => (
+                        <span
+                          key={`row-${row.label}`}
+                          data-root={row.label.startsWith("C")}
+                          style={{ gridRow: index + 1 }}
+                        />
+                      ))}
                     </div>
                     {state.melody.map((note) => (
                       <button

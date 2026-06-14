@@ -754,6 +754,12 @@ button:disabled,
   align-items: center;
   padding: 0;
   background:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-surface-muted) 92%, var(--color-text) 8%) 0,
+      color-mix(in srgb, var(--color-surface-muted) 92%, var(--color-text) 8%) var(--timeline-label-width),
+      transparent var(--timeline-label-width)
+    ),
     repeating-linear-gradient(
       to bottom,
       transparent 0,
@@ -768,27 +774,53 @@ button:disabled,
 }
 
 .melody-lane-label {
-  align-content: stretch;
-  gap: 4px;
-  padding: 7px 0 7px 12px;
-}
-
-.melody-lane-label > span {
-  align-self: start;
-}
-
-.pitch-labels {
   display: grid;
-  grid-template-rows: repeat(8, 1fr);
+  grid-template-rows: repeat(8, var(--pitch-row-height));
+  align-content: stretch;
+  padding: 0;
+  background: color-mix(in srgb, var(--color-surface-muted) 96%, var(--color-text) 4%);
+}
+
+.pitch-key {
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
+  min-height: var(--pitch-row-height);
+  padding: 0 10px 0 8px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 76%, transparent);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 650;
+  font-weight: 760;
 }
 
-.pitch-labels span {
-  line-height: 1;
+.pitch-key[data-root="true"] {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent-soft) 54%, transparent);
+}
+
+.piano-roll-cells {
+  position: relative;
+  z-index: 0;
+  grid-column: 2 / -1;
+  grid-row: 1 / -1;
+  display: grid;
+  grid-template-rows: repeat(8, var(--pitch-row-height));
+  min-height: calc(var(--pitch-row-height) * 8);
+}
+
+.piano-roll-cells span {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+}
+
+.piano-roll-cells span[data-root="true"] {
+  background: color-mix(in srgb, var(--color-accent-soft) 28%, transparent);
+}
+
+.melody-lane[data-editable="true"] .piano-roll-cells span:hover {
+  background: color-mix(in srgb, var(--color-accent-soft) 46%, transparent);
 }
 
 .note {
