@@ -317,7 +317,7 @@ export class AudioEngine {
 
   async playCandidate(
     melody: NoteEvent[],
-    candidate: HarmonyCandidate,
+    candidate: HarmonyCandidate | null,
     tempo: number,
     options: PlaybackOptions,
     onBeat: (beat: number) => void,
@@ -358,7 +358,7 @@ export class AudioEngine {
       }
     }
 
-    if (!options.harmonyMuted) {
+    if (candidate && !options.harmonyMuted) {
       for (const scheduledChord of makeScheduledBeatEvents(candidate.chords, playbackStartBeat, tempo)) {
         triggers.push({
           delaySeconds: leadSeconds + scheduledChord.delaySeconds,

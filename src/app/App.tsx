@@ -292,6 +292,9 @@ function App() {
     () => selectedChordFrom(selectedCandidate, state.selectedChordId),
     [selectedCandidate, state.selectedChordId],
   );
+  const harmonyIsReady = state.harmonyStatus === "ready" && selectedCandidate !== null;
+  const harmonyIsOutdated = state.harmonyStatus === "outdated";
+  const canPlayTimeline = hasMelody;
   const chordAlternatives = useMemo(
     () =>
       selectedChord
@@ -319,21 +322,23 @@ function App() {
   } as CSSProperties;
   const playheadLeft = beatToPixel(state.playback.currentBeat, timelineMetrics);
   const activePlaybackChordId =
-    selectedCandidate?.chords.find(
-      (placedChord) =>
-        state.playback.currentBeat >= placedChord.startBeat &&
-        state.playback.currentBeat < placedChord.startBeat + placedChord.durationBeats,
-    )?.id ?? null;
+    harmonyIsReady
+      ? selectedCandidate?.chords.find(
+          (placedChord) =>
+            state.playback.currentBeat >= placedChord.startBeat &&
+            state.playback.currentBeat < placedChord.startBeat + placedChord.durationBeats,
+        )?.id ?? null
+      : null;
 
   const handleLoadDemo = () => {
-    stopPlayback();
+    resetPlayback();
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
     dispatch({ type: "load-melody", melody: demoMelody });
   };
 
   const handleLoadLongDemo = () => {
-    stopPlayback();
+    resetPlayback();
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
     dispatch({ type: "load-melody", melody: longDemoMelody });
@@ -346,7 +351,7 @@ function App() {
     }
     if (isGenerating) return;
 
-    stopPlayback();
+    pausePlayback();
     setIsGenerating(true);
     window.setTimeout(() => {
       dispatch({
@@ -359,6 +364,7 @@ function App() {
 
   const handleAddNote = (noteName: string) => {
     const note = createManualNote(noteName, durationBeats, state.melody);
+    pausePlayback();
     dispatch({
       type: "add-note",
       note,
@@ -368,7 +374,7 @@ function App() {
 
   const handleDeleteSelectedNote = () => {
     if (!selectedNoteId) return;
-    stopPlayback();
+    pausePlayback();
     dispatch({ type: "delete-note", noteId: selectedNoteId });
     setSelectedNoteId(null);
   };
@@ -377,7 +383,7 @@ function App() {
     if (!selectedCandidate || !selectedChord) return;
     const alternative = chordAlternatives[alternativeIndex];
     if (!alternative) return;
-    stopPlayback();
+    pausePlayback();
     dispatch({
       type: "replace-chord",
       candidateId: selectedCandidate.id,
@@ -444,7 +450,7 @@ function App() {
   };
 
   const handleClearLocalData = async () => {
-    stopPlayback();
+    resetPlayback();
     try {
       await clearAllProjectData();
       clearPreferences();
@@ -469,7 +475,7 @@ function App() {
     file: File,
     arrayBuffer: ArrayBuffer,
   ) => {
-    stopPlayback();
+    resetPlayback();
     setSelectedNoteId(null);
     setCurrentMidiFile({ file, arrayBuffer });
     dispatch({
@@ -564,7 +570,7 @@ function App() {
       durationBeats,
       state.melody,
     );
-    stopPlayback();
+    pausePlayback();
     dispatch({ type: "add-note", note });
     setSelectedNoteId(note.id);
   };
@@ -649,7 +655,7 @@ function App() {
 
   const restoreAutosave = () => {
     if (!recoveredSnapshot) return;
-    stopPlayback();
+    resetPlayback();
     setSelectedNoteId(null);
     setCurrentMidiFile(null);
     dispatch({ type: "restore-snapshot", snapshot: recoveredSnapshot });
@@ -661,13 +667,21 @@ function App() {
     setRecoveredSnapshot(null);
   };
 
-  const stopPlayback = () => {
+  const pausePlayback = () => {
+    audioEngineRef.current?.stop();
+    if (state.playback.status === "playing" || state.playback.status === "starting") {
+      dispatch({ type: "pause-playback" });
+    }
+  };
+
+  const resetPlayback = () => {
     audioEngineRef.current?.stop();
     dispatch({ type: "reset-playback" });
   };
 
   const startPlaybackAt = async (startBeat: number, errorMessage: string) => {
-    if (!selectedCandidate || state.playback.status === "starting") return;
+    if (!canPlayTimeline || state.playback.status === "starting") return;
+    const playbackCandidate = harmonyIsReady ? selectedCandidate : null;
     audioEngineRef.current?.stop();
     dispatch({ type: "set-current-beat", currentBeat: startBeat });
     dispatch({ type: "set-playback-status", status: "starting" });
@@ -675,11 +689,11 @@ function App() {
     try {
       await audioEngineRef.current?.playCandidate(
         state.melody,
-        selectedCandidate,
+        playbackCandidate,
         state.settings.tempo,
         {
           melodyMuted: state.playback.melodyMuted,
-          harmonyMuted: state.playback.harmonyMuted,
+          harmonyMuted: !playbackCandidate || state.playback.harmonyMuted,
           tonePreset: state.settings.playbackTone,
           startBeat,
         },
@@ -694,10 +708,10 @@ function App() {
   };
 
   const playSelectedCandidate = async () => {
-    if (!selectedCandidate || state.playback.status === "starting") return;
+    if (!canPlayTimeline || state.playback.status === "starting") return;
 
     if (state.playback.status === "playing") {
-      stopPlayback();
+      pausePlayback();
       return;
     }
 
@@ -710,24 +724,24 @@ function App() {
 
   const handlePlayFromCurrentMeasure = async () => {
     const beatsPerMeasure = state.settings.timeSignature.numerator;
-    const anchorBeat = selectedChord?.startBeat ?? state.playback.currentBeat;
+    const anchorBeat = state.playback.currentBeat;
     const measureStartBeat = Math.floor(anchorBeat / beatsPerMeasure) * beatsPerMeasure;
     await startPlaybackAt(measureStartBeat, t("message.audioRestart"));
   };
 
   const toggleMelodyMute = () => {
-    if (state.playback.status === "playing") stopPlayback();
+    if (state.playback.status === "playing") pausePlayback();
     dispatch({ type: "toggle-melody-muted" });
   };
 
   const toggleHarmonyMute = () => {
-    if (state.playback.status === "playing") stopPlayback();
+    if (state.playback.status === "playing") pausePlayback();
     dispatch({ type: "toggle-harmony-muted" });
   };
 
   const handleSelectCandidate = (candidateId: string) => {
     if (state.playback.status === "playing" || state.playback.status === "starting") {
-      stopPlayback();
+      pausePlayback();
     }
     dispatch({ type: "select-candidate", candidateId });
   };
@@ -941,7 +955,7 @@ function App() {
                 <select
                   value={state.settings.playbackTone}
                   onChange={(event) => {
-                    if (state.playback.status === "playing") stopPlayback();
+                    if (state.playback.status === "playing") pausePlayback();
                     dispatch({
                       type: "set-playback-tone",
                       playbackTone: event.target.value as PlaybackTonePreset,
@@ -982,7 +996,7 @@ function App() {
               <button
                 type="button"
                 aria-label="Play from start"
-                disabled={!showCandidates || state.playback.status === "starting"}
+                disabled={!canPlayTimeline || state.playback.status === "starting"}
                 onClick={() => void handlePlayFromStart()}
               >
                 {t("action.playFromStart")}
@@ -990,7 +1004,7 @@ function App() {
               <button
                 type="button"
                 aria-label="Play from current bar"
-                disabled={!showCandidates || state.playback.status === "starting"}
+                disabled={!canPlayTimeline || state.playback.status === "starting"}
                 onClick={() => void handlePlayFromCurrentMeasure()}
               >
                 {t("action.playFromCurrentBar")}
@@ -998,8 +1012,8 @@ function App() {
               <button
                 type="button"
                 className="play-button"
-                aria-label="Play selected candidate"
-                disabled={!showCandidates}
+                aria-label="Play timeline"
+                disabled={!canPlayTimeline}
                 onClick={playSelectedCandidate}
               >
                 {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
@@ -1007,7 +1021,7 @@ function App() {
               <button
                 type="button"
                 aria-pressed={state.playback.melodyMuted}
-                disabled={!showCandidates}
+                disabled={!canPlayTimeline}
                 onClick={toggleMelodyMute}
               >
                 {t("transport.melody")}
@@ -1015,13 +1029,20 @@ function App() {
               <button
                 type="button"
                 aria-pressed={state.playback.harmonyMuted}
-                disabled={!showCandidates}
+                disabled={!harmonyIsReady}
                 onClick={toggleHarmonyMute}
               >
                 {t("transport.harmony")}
               </button>
             </div>
           </div>
+
+          {harmonyIsOutdated ? (
+            <div className="harmony-status-banner" role="status">
+              <strong>{t("harmony.outdatedTitle")}</strong>
+              <span>{t("harmony.outdatedCopy")}</span>
+            </div>
+          ) : null}
 
           <div className="input-dock" aria-label="Input actions">
             <div>
@@ -1212,7 +1233,7 @@ function App() {
                       </span>
                     ))}
                   </div>
-                  {showCandidates ? (
+                  {hasMelody ? (
                     <div
                       className="playhead"
                       aria-hidden="true"
@@ -1277,7 +1298,7 @@ function App() {
                     ))}
                   </div>
 
-                  <div className="lane chord-lane">
+                  <div className={`lane chord-lane${harmonyIsOutdated ? " is-outdated" : ""}`}>
                     <div className="lane-label harmony-lane-label">
                       <span>{t("lane.harmony")}</span>
                       <div className="voice-labels" aria-hidden="true">
@@ -1352,7 +1373,7 @@ function App() {
                       type="button"
                       className={`candidate${
                         selectedCandidate?.id === candidate.id ? " is-selected" : ""
-                      }`}
+                      }${harmonyIsOutdated ? " is-outdated" : ""}`}
                       key={candidate.id}
                       title={candidateProgression(candidate)}
                       onClick={() => handleSelectCandidate(candidate.id)}
@@ -1361,7 +1382,9 @@ function App() {
                       <strong title={candidateProgression(candidate)}>
                         {candidateProgression(candidate)}
                       </strong>
-                      <small>{candidate.subtitle}</small>
+                      <small>
+                        {harmonyIsOutdated ? t("candidate.outdated") : candidate.subtitle}
+                      </small>
                     </button>
                   ))
                 : ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (

@@ -44,6 +44,7 @@ export type AppAction =
   | { type: "set-current-beat"; currentBeat: number }
   | { type: "toggle-melody-muted" }
   | { type: "toggle-harmony-muted" }
+  | { type: "pause-playback" }
   | { type: "reset-playback" }
   | { type: "restore-snapshot"; snapshot: StoredProjectSnapshot }
   | { type: "reset-app"; settings: ProjectSettings }
@@ -67,6 +68,7 @@ export function createInitialState(settings: ProjectSettings = defaultPreference
     candidates: [],
     selectedCandidateId: null,
     selectedChordId: null,
+    harmonyStatus: "empty",
     playback: {
       status: "stopped",
       currentBeat: 0,
@@ -90,24 +92,41 @@ function createIdleImportState(): MidiImportState {
   };
 }
 
-function resetGenerated(state: AppState): AppState {
+function clearGenerated(state: AppState): AppState {
   return {
     ...state,
     candidates: [],
     selectedCandidateId: null,
     selectedChordId: null,
+    harmonyStatus: "empty",
+  };
+}
+
+function markGeneratedOutdated(state: AppState): AppState {
+  if (state.melody.length === 0) return clearGenerated(state);
+
+  if (state.candidates.length === 0) {
+    return {
+      ...state,
+      harmonyStatus: "empty",
+    };
+  }
+
+  return {
+    ...state,
+    harmonyStatus: "outdated",
   };
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "set-key":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         settings: { ...state.settings, keyTonic: action.keyTonic },
       });
     case "set-mode":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         settings: { ...state.settings, mode: action.mode },
       });
@@ -117,7 +136,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         settings: { ...state.settings, tempo: Math.min(220, Math.max(40, action.tempo)) },
       };
     case "set-density":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         settings: {
           ...state.settings,
@@ -126,7 +145,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         },
       });
     case "set-harmony-rhythm":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         settings: {
           ...state.settings,
@@ -145,42 +164,42 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         settings: { ...state.settings, playbackTone: action.playbackTone },
       };
     case "add-note":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         melody: [...state.melody, action.note],
         importState: createIdleImportState(),
       });
     case "update-note":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         melody: state.melody.map((note) => (note.id === action.noteId ? action.note : note)),
         importState: createIdleImportState(),
       });
     case "delete-note":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         melody: state.melody.filter((note) => note.id !== action.noteId),
         importState: createIdleImportState(),
       });
     case "load-melody":
-      return resetGenerated({
+      return clearGenerated({
         ...state,
         melody: action.melody,
         importState: createIdleImportState(),
       });
     case "undo-note":
-      return resetGenerated({
+      return markGeneratedOutdated({
         ...state,
         melody: state.melody.slice(0, -1),
       });
     case "clear-melody":
-      return resetGenerated({
+      return clearGenerated({
         ...state,
         melody: [],
         importState: createIdleImportState(),
       });
     case "set-midi-import":
-      return resetGenerated({
+      return clearGenerated({
         ...state,
         settings: normalizeSettings({
           ...state.settings,
@@ -198,6 +217,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         candidates: action.candidates,
         selectedCandidateId: firstCandidate?.id ?? null,
         selectedChordId: firstChord?.id ?? null,
+        harmonyStatus: action.candidates.length > 0 ? "ready" : "empty",
       };
     }
     case "select-candidate": {
@@ -261,6 +281,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           harmonyMuted: !state.playback.harmonyMuted,
         },
       };
+    case "pause-playback":
+      return {
+        ...state,
+        playback: {
+          ...state.playback,
+          status: "paused",
+        },
+      };
     case "reset-playback":
       return {
         ...state,
@@ -278,6 +306,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         candidates: action.snapshot.candidates,
         selectedCandidateId: action.snapshot.selectedCandidateId,
         selectedChordId: action.snapshot.selectedChordId,
+        harmonyStatus:
+          action.snapshot.harmonyStatus ??
+          (action.snapshot.candidates.length > 0 ? "ready" : "empty"),
         importState: action.snapshot.sourceImport
           ? {
               status: "ready",

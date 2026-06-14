@@ -127,6 +127,8 @@ export type PlaybackState = {
   harmonyMuted: boolean;
 };
 
+export type HarmonyStatus = "empty" | "ready" | "outdated";
+
 export type MidiImportState = {
   status: "idle" | "ready" | "error";
   fileName: string | null;
@@ -173,6 +175,7 @@ export type StoredProjectSnapshot = {
   candidates: HarmonyCandidate[];
   selectedCandidateId: string | null;
   selectedChordId: string | null;
+  harmonyStatus?: HarmonyStatus;
   sourceImport?: {
     fileName: string;
     fileSize: number;
@@ -188,6 +191,7 @@ export type AppState = {
   candidates: HarmonyCandidate[];
   selectedCandidateId: string | null;
   selectedChordId: string | null;
+  harmonyStatus: HarmonyStatus;
   playback: PlaybackState;
   importState: MidiImportState;
   errors: AppError[];

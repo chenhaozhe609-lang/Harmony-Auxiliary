@@ -52,6 +52,7 @@ export function createProjectSnapshot(state: AppState): StoredProjectSnapshot {
     candidates: state.candidates,
     selectedCandidateId: state.selectedCandidateId,
     selectedChordId: state.selectedChordId,
+    harmonyStatus: state.harmonyStatus,
     sourceImport: state.importState.fileName
       ? {
           fileName: state.importState.fileName,

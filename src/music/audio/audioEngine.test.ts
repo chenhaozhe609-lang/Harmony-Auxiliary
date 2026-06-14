@@ -66,6 +66,10 @@ describe("audio playback helpers", () => {
     expect(getPlaybackEndBeat(melody, candidate)).toBe(8);
   });
 
+  it("uses the melody end beat for melody-only playback", () => {
+    expect(getPlaybackEndBeat(melody, null)).toBe(5);
+  });
+
   it("schedules beat events relative to a playback start beat", () => {
     const scheduled = makeScheduledBeatEvents(
       [

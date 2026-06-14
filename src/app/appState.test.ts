@@ -37,6 +37,15 @@ describe("app playback state", () => {
     expect(reset.playback.currentBeat).toBe(0);
     expect(reset.playback.melodyMuted).toBe(true);
   });
+
+  it("pauses playback without losing the current beat", () => {
+    const playing = appReducer(createInitialState(), { type: "set-playback-status", status: "playing" });
+    const withBeat = appReducer(playing, { type: "set-current-beat", currentBeat: 2.5 });
+    const paused = appReducer(withBeat, { type: "pause-playback" });
+
+    expect(paused.playback.status).toBe("paused");
+    expect(paused.playback.currentBeat).toBe(2.5);
+  });
 });
 
 describe("app project editing state", () => {
@@ -62,7 +71,7 @@ describe("app project editing state", () => {
     expect(updated.candidates[0].chords[0].id).toBe("replacement");
   });
 
-  it("updates a melody note and clears stale candidates", () => {
+  it("updates a melody note and marks generated harmony as outdated", () => {
     const candidates = generateHarmonyCandidates(melody, defaultPreferences);
     const generated = appReducer(
       appReducer(createInitialState(), { type: "load-melody", melody }),
@@ -78,11 +87,12 @@ describe("app project editing state", () => {
 
     expect(updated.melody[0].startBeat).toBe(1.5);
     expect(updated.melody[0].durationBeats).toBe(0.5);
-    expect(updated.candidates).toEqual([]);
-    expect(updated.selectedCandidateId).toBeNull();
+    expect(updated.candidates).toEqual(candidates);
+    expect(updated.selectedCandidateId).toBe(candidates[0].id);
+    expect(updated.harmonyStatus).toBe("outdated");
   });
 
-  it("changes harmony rhythm and clears stale candidates", () => {
+  it("changes harmony rhythm and marks generated harmony as outdated", () => {
     const candidates = generateHarmonyCandidates(melody, defaultPreferences);
     const generated = appReducer(
       appReducer(createInitialState(), { type: "load-melody", melody }),
@@ -96,7 +106,8 @@ describe("app project editing state", () => {
 
     expect(updated.settings.harmonyRhythm).toBe("strong-beats");
     expect(updated.settings.harmonyDensity).toBe("half-bar");
-    expect(updated.candidates).toEqual([]);
+    expect(updated.candidates).toEqual(candidates);
+    expect(updated.harmonyStatus).toBe("outdated");
   });
 
   it("changes playback tone without invalidating generated candidates", () => {
@@ -114,6 +125,7 @@ describe("app project editing state", () => {
     expect(updated.settings.playbackTone).toBe("glass-bell");
     expect(updated.candidates).toEqual(candidates);
     expect(updated.selectedCandidateId).toBe(candidates[0].id);
+    expect(updated.harmonyStatus).toBe("ready");
   });
 
   it("deletes a melody note and clears stale candidates", () => {
@@ -128,6 +140,7 @@ describe("app project editing state", () => {
     expect(updated.melody).toEqual([]);
     expect(updated.candidates).toEqual([]);
     expect(updated.selectedChordId).toBeNull();
+    expect(updated.harmonyStatus).toBe("empty");
   });
 
   it("resets the app with provided settings", () => {
