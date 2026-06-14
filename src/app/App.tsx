@@ -770,7 +770,6 @@ function App() {
           <div className="workflow-copy">
             <span>01</span>
             <h4>Import or sketch</h4>
-            <p>Start from a MIDI melody, or click note names when the idea is still small.</p>
           </div>
           <div className="landing-preview" aria-label="Workspace preview">
             <div className="preview-topbar">
@@ -798,11 +797,10 @@ function App() {
           </div>
         </section>
 
-        <section className="workflow-section workflow-section-reverse" aria-label="Generate workflow">
+        <section className="workflow-section" aria-label="Generate workflow">
           <div className="workflow-copy">
             <span>02</span>
             <h4>Generate and listen</h4>
-            <p>Compare classical, songwriting, and color-rich candidates with browser playback.</p>
           </div>
           <div className="workflow-rhythm" aria-hidden="true">
             <span>Cmaj7</span>
@@ -816,7 +814,6 @@ function App() {
           <div className="workflow-copy">
             <span>03</span>
             <h4>Inspect and keep</h4>
-            <p>Read the chord logic, replace a segment, copy the progression, or export MIDI.</p>
           </div>
           <div className="workflow-inspector" aria-hidden="true">
             <span>Why it works</span>

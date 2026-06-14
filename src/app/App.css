@@ -86,7 +86,7 @@
 
 .workflow-section {
   display: grid;
-  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 0.42fr) minmax(0, 1fr);
   align-items: center;
   gap: 48px;
   max-width: 1180px;
@@ -95,16 +95,20 @@
   border-top: 1px solid var(--color-border);
 }
 
-.workflow-section-reverse .workflow-copy {
-  order: 2;
-}
-
 .workflow-copy {
   display: grid;
-  gap: 14px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 18px;
 }
 
 .workflow-copy > span {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   color: var(--color-accent);
   font-family: var(--font-mono);
   font-size: 13px;
@@ -117,14 +121,6 @@
   font-size: clamp(32px, 5vw, 60px);
   line-height: 1;
   letter-spacing: 0;
-}
-
-.workflow-copy p {
-  max-width: 360px;
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 16px;
-  line-height: 1.65;
 }
 
 .workflow-rhythm {
@@ -1233,10 +1229,6 @@ summary:focus-visible {
     gap: 34px;
   }
 
-  .workflow-section-reverse .workflow-copy {
-    order: 0;
-  }
-
   .landing-preview {
     min-height: 380px;
   }
@@ -1334,6 +1326,16 @@ summary:focus-visible {
 
   .workflow-section {
     padding: 42px 0;
+  }
+
+  .workflow-copy {
+    grid-template-columns: 46px minmax(0, 1fr);
+    column-gap: 14px;
+  }
+
+  .workflow-copy > span {
+    width: 38px;
+    height: 38px;
   }
 
   .workflow-copy h4 {
