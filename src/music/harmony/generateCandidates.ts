@@ -129,6 +129,27 @@ function classicalMotionReason(
   return `Classical motion: ${motion} keeps the progression explainable.`;
 }
 
+function classicalMotionInfo(
+  previous: ScoredChord | null,
+  current: ScoredChord,
+  index: number,
+  segmentCount: number,
+): NonNullable<ScoredChord["explanation"]["functionInfo"]>["motion"] {
+  const remaining = segmentCount - index - 1;
+  const to = current.chord.functionLabel;
+  if (!previous) {
+    return current.chord.functionLabel === "T"
+      ? { kind: "open-tonic" }
+      : { kind: "open-prep", to };
+  }
+  const from = previous.chord.functionLabel;
+  if (from === "D" && to === "T") return { kind: "d-to-t" };
+  if (from === "PD" && to === "D") return { kind: "pd-to-d" };
+  if (from === "T" && to === "PD") return { kind: "t-to-pd" };
+  if (remaining === 0 && to === "T") return { kind: "close-tonic" };
+  return { kind: "general", from, to };
+}
+
 function withClassicalExplanation(
   scored: ScoredChord,
   previous: ScoredChord | null,
@@ -145,6 +166,10 @@ function withClassicalExplanation(
         index,
         segmentCount,
       )}`,
+      functionInfo: {
+        functionLabel: scored.chord.functionLabel,
+        motion: classicalMotionInfo(previous, scored, index, segmentCount),
+      },
     },
   };
 }

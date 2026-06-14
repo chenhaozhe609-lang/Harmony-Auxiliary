@@ -105,6 +105,111 @@ const acousticPianoSynth = {
   },
 } satisfies Record<"melody" | "harmony", SynthVoiceConfig>;
 
+const INSTRUMENT_BASE_URL = "https://nbrosowsky.github.io/tonejs-instruments/samples/";
+
+// Sample maps verified available on the tonejs-instruments CDN. Keys are note names,
+// values are the hosted filenames (sharps written as "s").
+const GUITAR_NYLON_URLS: Record<string, string> = {
+  "F#2": "Fs2.mp3",
+  A2: "A2.mp3",
+  "F#3": "Fs3.mp3",
+  A3: "A3.mp3",
+  "D#4": "Ds4.mp3",
+  "F#4": "Fs4.mp3",
+  A4: "A4.mp3",
+  "F#5": "Fs5.mp3",
+  A5: "A5.mp3",
+};
+
+const GUITAR_ELECTRIC_URLS: Record<string, string> = {
+  "F#2": "Fs2.mp3",
+  A2: "A2.mp3",
+  C3: "C3.mp3",
+  "D#3": "Ds3.mp3",
+  "F#3": "Fs3.mp3",
+  A3: "A3.mp3",
+  C4: "C4.mp3",
+  "D#4": "Ds4.mp3",
+  "F#4": "Fs4.mp3",
+  A4: "A4.mp3",
+  C5: "C5.mp3",
+  "D#5": "Ds5.mp3",
+  "F#5": "Fs5.mp3",
+  A5: "A5.mp3",
+  C6: "C6.mp3",
+};
+
+const ORGAN_URLS: Record<string, string> = {
+  C2: "C2.mp3",
+  "D#2": "Ds2.mp3",
+  "F#2": "Fs2.mp3",
+  A2: "A2.mp3",
+  C3: "C3.mp3",
+  "D#3": "Ds3.mp3",
+  "F#3": "Fs3.mp3",
+  A3: "A3.mp3",
+  C4: "C4.mp3",
+  "D#4": "Ds4.mp3",
+  "F#4": "Fs4.mp3",
+  A4: "A4.mp3",
+  C5: "C5.mp3",
+  "D#5": "Ds5.mp3",
+  "F#5": "Fs5.mp3",
+  A5: "A5.mp3",
+  C6: "C6.mp3",
+};
+
+// Offline synth fallbacks, used while samples load or when the CDN is unreachable.
+const nylonGuitarSynth = {
+  melody: {
+    engine: "pluck",
+    options: { attackNoise: 0.8, dampening: 4200, resonance: 0.82 },
+    volume: -8,
+    velocity: 0.86,
+    durationScale: 0.5,
+    minDuration: 0.05,
+  },
+  harmony: {
+    engine: "pluck",
+    options: { attackNoise: 0.6, dampening: 3600, resonance: 0.72 },
+    volume: -16,
+    velocity: 0.42,
+    durationScale: 0.56,
+    minDuration: 0.08,
+  },
+} satisfies Record<"melody" | "harmony", SynthVoiceConfig>;
+
+const organSynth = {
+  melody: {
+    engine: "am",
+    options: {
+      harmonicity: 1.5,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.018, decay: 0.08, sustain: 0.82, release: 0.38 },
+      modulation: { type: "triangle" },
+      modulationEnvelope: { attack: 0.03, decay: 0.08, sustain: 0.7, release: 0.4 },
+    },
+    volume: -11,
+    velocity: 0.82,
+    durationScale: 0.96,
+    minDuration: 0.12,
+  },
+  harmony: {
+    engine: "am",
+    options: {
+      harmonicity: 1.25,
+      oscillator: { type: "sine" },
+      envelope: { attack: 0.035, decay: 0.08, sustain: 0.78, release: 0.7 },
+      modulation: { type: "triangle" },
+      modulationEnvelope: { attack: 0.04, decay: 0.1, sustain: 0.62, release: 0.72 },
+    },
+    volume: -18,
+    velocity: 0.48,
+    durationScale: 0.98,
+    minDuration: 0.12,
+  },
+} satisfies Record<"melody" | "harmony", SynthVoiceConfig>;
+
 const playableTonePresets = {
   "acoustic-grand": {
     label: "Grand Piano",
@@ -131,112 +236,79 @@ const playableTonePresets = {
       fallback: acousticPianoSynth.harmony,
     },
   },
-  "acoustic-piano": {
-    label: "Piano",
-    melody: {
-      engine: "synth",
-      options: {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.003, decay: 0.32, sustain: 0.12, release: 0.78 },
-      },
-      volume: -7,
-      velocity: 0.92,
-      durationScale: 0.58,
-      minDuration: 0.06,
-    },
-    harmony: {
-      engine: "synth",
-      options: {
-        oscillator: { type: "triangle" },
-        envelope: { attack: 0.006, decay: 0.42, sustain: 0.18, release: 1.05 },
-      },
-      volume: -17,
-      velocity: 0.48,
-      durationScale: 0.72,
-      minDuration: 0.1,
-    },
-  },
-  "electric-piano": {
-    label: "Electric Piano",
-    melody: {
-      engine: "fm",
-      options: {
-        harmonicity: 3,
-        modulationIndex: 7,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.006, decay: 0.28, sustain: 0.32, release: 0.85 },
-        modulation: { type: "triangle" },
-        modulationEnvelope: { attack: 0.01, decay: 0.22, sustain: 0.18, release: 0.65 },
-      },
-      volume: -10,
-      velocity: 0.82,
-      durationScale: 0.78,
-      minDuration: 0.08,
-    },
-    harmony: {
-      engine: "fm",
-      options: {
-        harmonicity: 2,
-        modulationIndex: 4,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.012, decay: 0.36, sustain: 0.26, release: 1 },
-        modulation: { type: "sine" },
-        modulationEnvelope: { attack: 0.02, decay: 0.24, sustain: 0.12, release: 0.8 },
-      },
-      volume: -19,
-      velocity: 0.45,
-      durationScale: 0.82,
-      minDuration: 0.1,
-    },
-  },
   "nylon-guitar": {
     label: "Nylon Guitar",
     melody: {
-      engine: "pluck",
-      options: { attackNoise: 0.8, dampening: 4200, resonance: 0.82 },
-      volume: -8,
+      engine: "sampler",
+      urls: GUITAR_NYLON_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}guitar-nylon/`,
+      release: 0.9,
+      volume: -7,
       velocity: 0.86,
-      durationScale: 0.5,
-      minDuration: 0.05,
+      durationScale: 0.66,
+      minDuration: 0.1,
+      fallback: nylonGuitarSynth.melody,
     },
     harmony: {
-      engine: "pluck",
-      options: { attackNoise: 0.6, dampening: 3600, resonance: 0.72 },
-      volume: -16,
-      velocity: 0.42,
-      durationScale: 0.56,
-      minDuration: 0.08,
+      engine: "sampler",
+      urls: GUITAR_NYLON_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}guitar-nylon/`,
+      release: 1.1,
+      volume: -15,
+      velocity: 0.5,
+      durationScale: 0.74,
+      minDuration: 0.14,
+      fallback: nylonGuitarSynth.harmony,
+    },
+  },
+  "electric-guitar": {
+    label: "Electric Guitar",
+    melody: {
+      engine: "sampler",
+      urls: GUITAR_ELECTRIC_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}guitar-electric/`,
+      release: 1,
+      volume: -10,
+      velocity: 0.82,
+      durationScale: 0.72,
+      minDuration: 0.1,
+      fallback: nylonGuitarSynth.melody,
+    },
+    harmony: {
+      engine: "sampler",
+      urls: GUITAR_ELECTRIC_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}guitar-electric/`,
+      release: 1.3,
+      volume: -17,
+      velocity: 0.5,
+      durationScale: 0.8,
+      minDuration: 0.14,
+      fallback: nylonGuitarSynth.harmony,
     },
   },
   "warm-organ": {
     label: "Organ",
     melody: {
-      engine: "am",
-      options: {
-        harmonicity: 1.5,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.018, decay: 0.08, sustain: 0.82, release: 0.38 },
-        modulation: { type: "triangle" },
-        modulationEnvelope: { attack: 0.03, decay: 0.08, sustain: 0.7, release: 0.4 },
-      },
-      volume: -11,
-      velocity: 0.82,
-      durationScale: 0.96,
-      minDuration: 0.12,
+      engine: "sampler",
+      urls: ORGAN_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}organ/`,
+      release: 0.5,
+      volume: -13,
+      velocity: 0.8,
+      durationScale: 0.98,
+      minDuration: 0.14,
+      fallback: organSynth.melody,
     },
     harmony: {
-      engine: "am",
-      options: {
-        harmonicity: 1.25,
-        oscillator: { type: "sine" },
-        envelope: { attack: 0.035, decay: 0.08, sustain: 0.78, release: 0.7 },
-        modulation: { type: "triangle" },
-        modulationEnvelope: { attack: 0.04, decay: 0.1, sustain: 0.62, release: 0.72 },
-      },
-      volume: -18,
-      velocity: 0.48,
-      durationScale: 0.98,
-      minDuration: 0.12,
+      engine: "sampler",
+      urls: ORGAN_URLS,
+      baseUrl: `${INSTRUMENT_BASE_URL}organ/`,
+      release: 0.7,
+      volume: -20,
+      velocity: 0.5,
+      durationScale: 1,
+      minDuration: 0.16,
+      fallback: organSynth.harmony,
     },
   },
   "glass-bell": {
@@ -276,7 +348,7 @@ const playableTonePresets = {
 
 export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfig> = {
   ...playableTonePresets,
-  "mellow-keys": playableTonePresets["acoustic-piano"],
+  "mellow-keys": playableTonePresets["acoustic-grand"],
   "soft-pluck": playableTonePresets["nylon-guitar"],
 };
 

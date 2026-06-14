@@ -1,4 +1,11 @@
-import type { ChordDefinition, ChordExplanation, MelodyRelationship, NoteEvent } from "../types";
+import type {
+  ChordDefinition,
+  ChordExplanation,
+  ChordToneRole,
+  FitInfo,
+  MelodyRelationship,
+  NoteEvent,
+} from "../types";
 import { relationshipToChordTone } from "../theory/chords";
 
 function noteWeight(note: NoteEvent, segmentStartBeat: number): number {
@@ -33,6 +40,9 @@ export function scoreChordForSegment(
         functionReason: functionReason(chord),
         melodyRelationships: [],
         warnings: [],
+        fit: { kind: "no-notes" },
+        functionInfo: { functionLabel: chord.functionLabel },
+        warningNotes: [],
       },
     };
   }
@@ -40,6 +50,7 @@ export function scoreChordForSegment(
   let score = 0;
   const relationships: MelodyRelationship[] = [];
   const warnings: string[] = [];
+  const warningNotes: string[] = [];
 
   for (const note of notes) {
     const relationship = relationshipToChordTone(note.pitchClass, chord);
@@ -61,6 +72,7 @@ export function scoreChordForSegment(
       score -= 1.1 * weight;
       if (note.durationBeats >= 1) {
         warnings.push(`${note.name} is a sustained non-chord tone against ${chord.symbol}.`);
+        warningNotes.push(note.name);
       }
     }
   }
@@ -69,6 +81,15 @@ export function scoreChordForSegment(
     relationships
       .filter((relationship) => relationship.relationship !== "non-chord tone")
       .sort((a, b) => b.weight - a.weight)[0] ?? relationships[0];
+
+  const fit: FitInfo =
+    bestRelationship.relationship === "non-chord tone"
+      ? { kind: "non-chord", noteName: bestRelationship.noteName }
+      : {
+          kind: "chord-tone",
+          noteName: bestRelationship.noteName,
+          role: bestRelationship.relationship as ChordToneRole,
+        };
 
   return {
     score,
@@ -80,6 +101,9 @@ export function scoreChordForSegment(
       functionReason: functionReason(chord),
       melodyRelationships: relationships,
       warnings,
+      fit,
+      functionInfo: { functionLabel: chord.functionLabel },
+      warningNotes,
     },
   };
 }

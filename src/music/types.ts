@@ -15,9 +15,8 @@ export type InputMode = "midi" | "manual";
 
 export type PlaybackTonePreset =
   | "acoustic-grand"
-  | "acoustic-piano"
-  | "electric-piano"
   | "nylon-guitar"
+  | "electric-guitar"
   | "warm-organ"
   | "glass-bell"
   | "mellow-keys"
@@ -82,11 +81,36 @@ export type MelodyRelationship = {
   weight: number;
 };
 
+export type ChordToneRole = "root" | "third" | "fifth" | "seventh" | "extension";
+
+export type FitInfo =
+  | { kind: "no-notes" }
+  | { kind: "chord-tone"; noteName: string; role: ChordToneRole }
+  | { kind: "non-chord"; noteName: string };
+
+export type ClassicalMotionKind =
+  | "open-tonic"
+  | "open-prep"
+  | "d-to-t"
+  | "pd-to-d"
+  | "t-to-pd"
+  | "close-tonic"
+  | "general";
+
+export type FunctionInfo = {
+  functionLabel: FunctionLabel;
+  motion?: { kind: ClassicalMotionKind; from?: FunctionLabel; to?: FunctionLabel };
+};
+
 export type ChordExplanation = {
   fitReason: string;
   functionReason: string;
   melodyRelationships: MelodyRelationship[];
   warnings: string[];
+  /** Structured data for localized rendering (the *Reason strings stay for back-compat). */
+  fit?: FitInfo;
+  functionInfo?: FunctionInfo;
+  warningNotes?: string[];
 };
 
 export type ScoredChord = {

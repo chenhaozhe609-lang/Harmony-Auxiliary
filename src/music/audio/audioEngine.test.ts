@@ -49,27 +49,27 @@ describe("audio playback helpers", () => {
   it("provides selectable tone presets for melody and harmony playback", () => {
     expect(Object.keys(PLAYBACK_TONE_PRESETS)).toEqual([
       "acoustic-grand",
-      "acoustic-piano",
-      "electric-piano",
       "nylon-guitar",
+      "electric-guitar",
       "warm-organ",
       "glass-bell",
       "mellow-keys",
       "soft-pluck",
     ]);
+    // Most presets are now sample-based; only the bell remains a synth.
     expect(PLAYBACK_TONE_PRESETS["acoustic-grand"].melody.engine).toBe("sampler");
-    expect(PLAYBACK_TONE_PRESETS["acoustic-piano"].melody.engine).toBe("synth");
-    expect(PLAYBACK_TONE_PRESETS["electric-piano"].melody.engine).toBe("fm");
-    expect(PLAYBACK_TONE_PRESETS["nylon-guitar"].melody.engine).toBe("pluck");
-    expect(PLAYBACK_TONE_PRESETS["warm-organ"].melody.engine).toBe("am");
-    expect(PLAYBACK_TONE_PRESETS["mellow-keys"]).toBe(PLAYBACK_TONE_PRESETS["acoustic-piano"]);
+    expect(PLAYBACK_TONE_PRESETS["nylon-guitar"].melody.engine).toBe("sampler");
+    expect(PLAYBACK_TONE_PRESETS["electric-guitar"].melody.engine).toBe("sampler");
+    expect(PLAYBACK_TONE_PRESETS["warm-organ"].melody.engine).toBe("sampler");
+    expect(PLAYBACK_TONE_PRESETS["glass-bell"].melody.engine).toBe("fm");
+    expect(PLAYBACK_TONE_PRESETS["mellow-keys"]).toBe(PLAYBACK_TONE_PRESETS["acoustic-grand"]);
     expect(PLAYBACK_TONE_PRESETS["soft-pluck"]).toBe(PLAYBACK_TONE_PRESETS["nylon-guitar"]);
   });
 
   it("flags sample-based presets so the UI can show loading state", () => {
     expect(isSampledTonePreset("acoustic-grand")).toBe(true);
-    expect(isSampledTonePreset("acoustic-piano")).toBe(false);
-    expect(isSampledTonePreset("electric-piano")).toBe(false);
+    expect(isSampledTonePreset("warm-organ")).toBe(true);
+    expect(isSampledTonePreset("glass-bell")).toBe(false);
   });
 
   it("falls back to the synth voice config when samples are unavailable", () => {
@@ -82,7 +82,7 @@ describe("audio playback helpers", () => {
       PLAYBACK_TONE_PRESETS["acoustic-grand"].melody.durationScale,
     );
 
-    const synthPreset = getEffectiveVoiceConfig("electric-piano", "harmony", false);
+    const synthPreset = getEffectiveVoiceConfig("glass-bell", "harmony", false);
     expect(synthPreset.engine).toBe("fm");
   });
 

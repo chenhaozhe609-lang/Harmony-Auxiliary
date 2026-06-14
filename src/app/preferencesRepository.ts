@@ -60,9 +60,8 @@ function isPlaybackTone(value: unknown): value is PlaybackTonePreset {
   return (
     value === "acoustic-grand" ||
     value === "mellow-keys" ||
-    value === "acoustic-piano" ||
-    value === "electric-piano" ||
     value === "nylon-guitar" ||
+    value === "electric-guitar" ||
     value === "warm-organ" ||
     value === "soft-pluck" ||
     value === "glass-bell"

@@ -11,6 +11,12 @@ import {
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
+import {
+  describeFit,
+  describeFunction,
+  describeWarnings,
+  relationshipLabel,
+} from "./explain";
 import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
 import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
@@ -66,9 +72,8 @@ const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
 
 const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
   "acoustic-grand",
-  "acoustic-piano",
-  "electric-piano",
   "nylon-guitar",
+  "electric-guitar",
   "warm-organ",
   "glass-bell",
 ];
@@ -1466,7 +1471,9 @@ function App() {
                         {candidateProgression(candidate)}
                       </strong>
                       <small>
-                        {harmonyIsOutdated ? t("candidate.outdated") : candidate.subtitle}
+                        {harmonyIsOutdated
+                          ? t("candidate.outdated")
+                          : t(`candidate.${candidate.mode}.subtitle`)}
                       </small>
                     </button>
                   ))
@@ -1485,7 +1492,9 @@ function App() {
           {selectedCandidate && selectedChord ? (
             <>
               <h2>{selectedChord.chord.symbol}</h2>
-              <p className="candidate-summary">{selectedCandidate.summary}</p>
+              <p className="candidate-summary">
+                {t(`candidate.${selectedCandidate.mode}.summary`)}
+              </p>
               <div className="inspector-rows">
                 <div>
                   <span>{t("inspector.roman")}</span>
@@ -1499,15 +1508,39 @@ function App() {
                   <span>{t("inspector.melody")}</span>
                   <strong>
                     {selectedChord.explanation.melodyRelationships[0]
-                      ? `${selectedChord.explanation.melodyRelationships[0].noteName} = ${selectedChord.explanation.melodyRelationships[0].relationship}`
+                      ? `${selectedChord.explanation.melodyRelationships[0].noteName} = ${relationshipLabel(
+                          language,
+                          selectedChord.explanation.melodyRelationships[0].relationship,
+                        )}`
                       : t("inspector.noNote")}
                   </strong>
                 </div>
               </div>
-              <p>{selectedChord.explanation.fitReason}</p>
-              <p>{selectedChord.explanation.functionReason}</p>
+              <p>
+                {describeFit(
+                  language,
+                  selectedChord.chord,
+                  selectedChord.explanation.fit,
+                  selectedChord.explanation.fitReason,
+                )}
+              </p>
+              <p>
+                {describeFunction(
+                  language,
+                  selectedChord.chord,
+                  selectedChord.explanation.functionInfo,
+                  selectedChord.explanation.functionReason,
+                )}
+              </p>
               {selectedChord.explanation.warnings.length > 0 ? (
-                <p className="warning-copy">{selectedChord.explanation.warnings.join(" ")}</p>
+                <p className="warning-copy">
+                  {describeWarnings(
+                    language,
+                    selectedChord.chord,
+                    selectedChord.explanation.warningNotes,
+                    selectedChord.explanation.warnings,
+                  )}
+                </p>
               ) : null}
               <div className="alternative-chords" aria-label="Alternative chords">
                 <span>{t("inspector.alternatives")}</span>
@@ -1540,7 +1573,11 @@ function App() {
               <div className="inspector-rows">
                 <div>
                   <span>{t("inspector.melody")}</span>
-                  <strong>{hasMelody ? `${state.melody.length} notes` : t("inspector.empty")}</strong>
+                  <strong>
+                    {hasMelody
+                      ? `${state.melody.length} ${t("inspector.notes")}`
+                      : t("inspector.empty")}
+                  </strong>
                 </div>
                 <div>
                   <span>{t("inspector.generate")}</span>
