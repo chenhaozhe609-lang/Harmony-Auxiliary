@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPlaybackEndBeat, PLAYBACK_TONE_PRESETS } from "./audioEngine";
+import { getPlaybackEndBeat, PLAYBACK_TONE_PRESETS, scheduleCancellableTriggers } from "./audioEngine";
 import type { HarmonyCandidate, NoteEvent } from "../types";
 
 const melody: NoteEvent[] = [
@@ -59,6 +59,47 @@ describe("audio playback helpers", () => {
 
   it("uses the latest melody or harmony end beat", () => {
     expect(getPlaybackEndBeat(melody, candidate)).toBe(8);
+  });
+
+  it("cancels queued playback triggers before they fire", () => {
+    const callbacks: Array<() => void> = [];
+    const clearedTimers: number[] = [];
+    let triggered = 0;
+    const playback = scheduleCancellableTriggers(
+      [
+        { delaySeconds: 0, run: () => { triggered += 1; } },
+        { delaySeconds: 1, run: () => { triggered += 1; } },
+      ],
+      (callback) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      },
+      (timer) => clearedTimers.push(timer),
+    );
+
+    playback.stop();
+    callbacks.forEach((callback) => callback());
+
+    expect(triggered).toBe(0);
+    expect(clearedTimers).toEqual([1, 2]);
+  });
+
+  it("runs queued playback triggers while active", () => {
+    const callbacks: Array<() => void> = [];
+    let triggered = 0;
+    scheduleCancellableTriggers(
+      [{ delaySeconds: 0.25, run: () => { triggered += 1; } }],
+      (callback, delayMs) => {
+        expect(delayMs).toBe(250);
+        callbacks.push(callback);
+        return callbacks.length;
+      },
+      () => undefined,
+    );
+
+    callbacks[0]();
+
+    expect(triggered).toBe(1);
   });
 
   it("falls back to at least one beat", () => {

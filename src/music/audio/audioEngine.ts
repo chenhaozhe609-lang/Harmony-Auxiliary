@@ -186,9 +186,35 @@ export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfi
   "soft-pluck": playableTonePresets["nylon-guitar"],
 };
 
-type ActivePlayback = {
+export type ActivePlayback = {
   stop: () => void;
 };
+
+export type ScheduledPlaybackTrigger = {
+  delaySeconds: number;
+  run: () => void;
+};
+
+export function scheduleCancellableTriggers(
+  triggers: ScheduledPlaybackTrigger[],
+  setTimer: (callback: () => void, delayMs: number) => number = window.setTimeout,
+  clearTimer: (timer: number) => void = window.clearTimeout,
+): ActivePlayback {
+  let stopped = false;
+  const timers = triggers.map((trigger) =>
+    setTimer(() => {
+      if (stopped) return;
+      trigger.run();
+    }, Math.max(0, Math.round(trigger.delaySeconds * 1000))),
+  );
+
+  return {
+    stop: () => {
+      stopped = true;
+      timers.forEach((timer) => clearTimer(timer));
+    },
+  };
+}
 
 function beatToSeconds(beat: number, tempo: number): number {
   return (beat * 60) / tempo;
@@ -279,42 +305,54 @@ export class AudioEngine {
     this.applyTonePreset(tonePreset);
     const toneConfig = PLAYBACK_TONE_PRESETS[tonePreset];
 
-    const startTime = Tone.now() + 0.05;
-    const timers: number[] = [];
+    const leadSeconds = 0.05;
+    const startTime = Tone.now() + leadSeconds;
     let animationFrame: number | null = null;
     let stopped = false;
     const endBeat = getPlaybackEndBeat(melody, candidate);
     const endSeconds = beatToSeconds(endBeat, tempo);
+    const triggers: ScheduledPlaybackTrigger[] = [];
 
     if (!options.melodyMuted) {
       for (const note of melody) {
-        this.melodySynth?.triggerAttackRelease(
-          midiToFrequency(note.midi),
-          Math.max(
-            toneConfig.melody.minDuration,
-            beatToSeconds(note.durationBeats, tempo) * toneConfig.melody.durationScale,
-          ),
-          startTime + beatToSeconds(note.startBeat, tempo),
-          Math.min(1, note.velocity * toneConfig.melody.velocity),
-        );
+        triggers.push({
+          delaySeconds: leadSeconds + beatToSeconds(note.startBeat, tempo),
+          run: () => {
+            this.melodySynth?.triggerAttackRelease(
+              midiToFrequency(note.midi),
+              Math.max(
+                toneConfig.melody.minDuration,
+                beatToSeconds(note.durationBeats, tempo) * toneConfig.melody.durationScale,
+              ),
+              Tone.now(),
+              Math.min(1, note.velocity * toneConfig.melody.velocity),
+            );
+          },
+        });
       }
     }
 
     if (!options.harmonyMuted) {
       for (const placedChord of candidate.chords) {
-        this.harmonySynth?.triggerAttackRelease(
-          chordToMidiVoicing(placedChord).map(midiToFrequency),
-          Math.max(
-            toneConfig.harmony.minDuration,
-            beatToSeconds(placedChord.durationBeats, tempo) * toneConfig.harmony.durationScale,
-          ),
-          startTime + beatToSeconds(placedChord.startBeat, tempo),
-          toneConfig.harmony.velocity,
-        );
+        triggers.push({
+          delaySeconds: leadSeconds + beatToSeconds(placedChord.startBeat, tempo),
+          run: () => {
+            this.harmonySynth?.triggerAttackRelease(
+              chordToMidiVoicing(placedChord).map(midiToFrequency),
+              Math.max(
+                toneConfig.harmony.minDuration,
+                beatToSeconds(placedChord.durationBeats, tempo) * toneConfig.harmony.durationScale,
+              ),
+              Tone.now(),
+              toneConfig.harmony.velocity,
+            );
+          },
+        });
       }
     }
 
-    const startedAt = performance.now() + 50;
+    const triggerPlayback = scheduleCancellableTriggers(triggers, window.setTimeout, window.clearTimeout);
+    const startedAt = performance.now() + (startTime - Tone.now()) * 1000;
     const tick = () => {
       if (stopped) return;
       const elapsedSeconds = Math.max(0, (performance.now() - startedAt) / 1000);
@@ -326,20 +364,20 @@ export class AudioEngine {
     };
 
     animationFrame = window.requestAnimationFrame(tick);
-    timers.push(
-      window.setTimeout(() => {
-        if (stopped) return;
-        stopped = true;
-        if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
-        onBeat(0);
-        onEnded();
-      }, Math.ceil((endSeconds + 0.12) * 1000)),
-    );
+    const endTimer = window.setTimeout(() => {
+      if (stopped) return;
+      stopped = true;
+      triggerPlayback.stop();
+      if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
+      onBeat(0);
+      onEnded();
+    }, Math.ceil((endSeconds + 0.12) * 1000));
 
     this.activePlayback = {
       stop: () => {
         stopped = true;
-        timers.forEach((timer) => window.clearTimeout(timer));
+        triggerPlayback.stop();
+        window.clearTimeout(endTimer);
         if (animationFrame !== null) window.cancelAnimationFrame(animationFrame);
       },
     };
