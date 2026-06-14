@@ -13,7 +13,14 @@ export type HarmonyRhythmPattern =
 
 export type InputMode = "midi" | "manual";
 
-export type PlaybackTonePreset = "mellow-keys" | "warm-organ" | "soft-pluck" | "glass-bell";
+export type PlaybackTonePreset =
+  | "acoustic-piano"
+  | "electric-piano"
+  | "nylon-guitar"
+  | "warm-organ"
+  | "glass-bell"
+  | "mellow-keys"
+  | "soft-pluck";
 
 export type ChordQuality =
   | "major"

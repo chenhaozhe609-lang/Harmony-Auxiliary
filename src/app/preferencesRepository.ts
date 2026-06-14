@@ -38,7 +38,7 @@ export const defaultPreferences: StoredPreferences = {
   harmonyRhythm: "bar",
   harmonyDensity: "bar",
   inputMode: "midi",
-  playbackTone: "mellow-keys",
+  playbackTone: "acoustic-piano",
   language: "zh",
 };
 
@@ -59,6 +59,9 @@ function isHarmonyRhythm(value: unknown): value is HarmonyRhythmPattern {
 function isPlaybackTone(value: unknown): value is PlaybackTonePreset {
   return (
     value === "mellow-keys" ||
+    value === "acoustic-piano" ||
+    value === "electric-piano" ||
+    value === "nylon-guitar" ||
     value === "warm-organ" ||
     value === "soft-pluck" ||
     value === "glass-bell"

@@ -66,9 +66,10 @@ const DURATION_OPTIONS = [
 const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
 
 const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
-  "mellow-keys",
+  "acoustic-piano",
+  "electric-piano",
+  "nylon-guitar",
   "warm-organ",
-  "soft-pluck",
   "glass-bell",
 ];
 

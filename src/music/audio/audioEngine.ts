@@ -7,80 +7,183 @@ export type PlaybackOptions = {
   tonePreset: PlaybackTonePreset;
 };
 
+type SynthEngine = "synth" | "fm" | "am" | "pluck";
+
+type PlayableSynth = {
+  volume: { value: number };
+  dispose: () => void;
+  releaseAll: () => void;
+  triggerAttackRelease: (
+    notes: number | number[],
+    duration: number,
+    time: number,
+    velocity: number,
+  ) => void;
+};
+
 type SynthVoiceConfig = {
-  oscillator: "sine" | "triangle";
-  envelope: {
-    attack: number;
-    decay: number;
-    sustain: number;
-    release: number;
-  };
+  engine: SynthEngine;
+  options: Record<string, unknown>;
   volume: number;
   velocity: number;
+  durationScale: number;
+  minDuration: number;
 };
 
 type PlaybackToneConfig = {
+  label: string;
   melody: SynthVoiceConfig;
   harmony: SynthVoiceConfig;
 };
 
-export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfig> = {
-  "mellow-keys": {
+const playableTonePresets = {
+  "acoustic-piano": {
+    label: "Piano",
     melody: {
-      oscillator: "triangle",
-      envelope: { attack: 0.012, decay: 0.16, sustain: 0.46, release: 0.38 },
-      volume: -9,
-      velocity: 0.9,
+      engine: "synth",
+      options: {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.003, decay: 0.32, sustain: 0.12, release: 0.78 },
+      },
+      volume: -7,
+      velocity: 0.92,
+      durationScale: 0.58,
+      minDuration: 0.06,
     },
     harmony: {
-      oscillator: "sine",
-      envelope: { attack: 0.04, decay: 0.26, sustain: 0.38, release: 0.8 },
+      engine: "synth",
+      options: {
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.006, decay: 0.42, sustain: 0.18, release: 1.05 },
+      },
+      volume: -17,
+      velocity: 0.48,
+      durationScale: 0.72,
+      minDuration: 0.1,
+    },
+  },
+  "electric-piano": {
+    label: "Electric Piano",
+    melody: {
+      engine: "fm",
+      options: {
+        harmonicity: 3,
+        modulationIndex: 7,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.006, decay: 0.28, sustain: 0.32, release: 0.85 },
+        modulation: { type: "triangle" },
+        modulationEnvelope: { attack: 0.01, decay: 0.22, sustain: 0.18, release: 0.65 },
+      },
+      volume: -10,
+      velocity: 0.82,
+      durationScale: 0.78,
+      minDuration: 0.08,
+    },
+    harmony: {
+      engine: "fm",
+      options: {
+        harmonicity: 2,
+        modulationIndex: 4,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.012, decay: 0.36, sustain: 0.26, release: 1 },
+        modulation: { type: "sine" },
+        modulationEnvelope: { attack: 0.02, decay: 0.24, sustain: 0.12, release: 0.8 },
+      },
+      volume: -19,
+      velocity: 0.45,
+      durationScale: 0.82,
+      minDuration: 0.1,
+    },
+  },
+  "nylon-guitar": {
+    label: "Nylon Guitar",
+    melody: {
+      engine: "pluck",
+      options: { attackNoise: 0.8, dampening: 4200, resonance: 0.82 },
+      volume: -8,
+      velocity: 0.86,
+      durationScale: 0.5,
+      minDuration: 0.05,
+    },
+    harmony: {
+      engine: "pluck",
+      options: { attackNoise: 0.6, dampening: 3600, resonance: 0.72 },
       volume: -16,
-      velocity: 0.55,
+      velocity: 0.42,
+      durationScale: 0.56,
+      minDuration: 0.08,
     },
   },
   "warm-organ": {
+    label: "Organ",
     melody: {
-      oscillator: "sine",
-      envelope: { attack: 0.018, decay: 0.08, sustain: 0.78, release: 0.42 },
+      engine: "am",
+      options: {
+        harmonicity: 1.5,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.018, decay: 0.08, sustain: 0.82, release: 0.38 },
+        modulation: { type: "triangle" },
+        modulationEnvelope: { attack: 0.03, decay: 0.08, sustain: 0.7, release: 0.4 },
+      },
       volume: -11,
       velocity: 0.82,
+      durationScale: 0.96,
+      minDuration: 0.12,
     },
     harmony: {
-      oscillator: "triangle",
-      envelope: { attack: 0.035, decay: 0.08, sustain: 0.74, release: 0.7 },
+      engine: "am",
+      options: {
+        harmonicity: 1.25,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.035, decay: 0.08, sustain: 0.78, release: 0.7 },
+        modulation: { type: "triangle" },
+        modulationEnvelope: { attack: 0.04, decay: 0.1, sustain: 0.62, release: 0.72 },
+      },
       volume: -18,
       velocity: 0.48,
-    },
-  },
-  "soft-pluck": {
-    melody: {
-      oscillator: "triangle",
-      envelope: { attack: 0.004, decay: 0.18, sustain: 0.18, release: 0.28 },
-      volume: -8,
-      velocity: 0.88,
-    },
-    harmony: {
-      oscillator: "triangle",
-      envelope: { attack: 0.008, decay: 0.26, sustain: 0.22, release: 0.58 },
-      volume: -15,
-      velocity: 0.5,
+      durationScale: 0.98,
+      minDuration: 0.12,
     },
   },
   "glass-bell": {
+    label: "Bell",
     melody: {
-      oscillator: "sine",
-      envelope: { attack: 0.006, decay: 0.5, sustain: 0.14, release: 1.05 },
-      volume: -10,
-      velocity: 0.78,
+      engine: "fm",
+      options: {
+        harmonicity: 5.2,
+        modulationIndex: 13,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.002, decay: 0.72, sustain: 0.04, release: 1.4 },
+        modulation: { type: "square" },
+        modulationEnvelope: { attack: 0.001, decay: 0.5, sustain: 0.02, release: 1.1 },
+      },
+      volume: -12,
+      velocity: 0.7,
+      durationScale: 0.62,
+      minDuration: 0.08,
     },
     harmony: {
-      oscillator: "sine",
-      envelope: { attack: 0.02, decay: 0.6, sustain: 0.18, release: 1.35 },
-      volume: -18,
-      velocity: 0.42,
+      engine: "fm",
+      options: {
+        harmonicity: 4,
+        modulationIndex: 8,
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.01, decay: 0.86, sustain: 0.08, release: 1.7 },
+        modulation: { type: "triangle" },
+        modulationEnvelope: { attack: 0.01, decay: 0.68, sustain: 0.04, release: 1.4 },
+      },
+      volume: -21,
+      velocity: 0.34,
+      durationScale: 0.68,
+      minDuration: 0.12,
     },
   },
+} satisfies Record<Exclude<PlaybackTonePreset, "mellow-keys" | "soft-pluck">, PlaybackToneConfig>;
+
+export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfig> = {
+  ...playableTonePresets,
+  "mellow-keys": playableTonePresets["acoustic-piano"],
+  "soft-pluck": playableTonePresets["nylon-guitar"],
 };
 
 type ActivePlayback = {
@@ -113,16 +216,34 @@ function chordToMidiVoicing(placedChord: PlacedChord): number[] {
   return tones;
 }
 
+function createPolySynth(config: SynthVoiceConfig): PlayableSynth {
+  const PolySynth = Tone.PolySynth as unknown as new (
+    voice: unknown,
+    options?: Record<string, unknown>,
+  ) => PlayableSynth & { toDestination: () => PlayableSynth };
+  let voice: unknown = Tone.Synth;
+
+  if (config.engine === "fm") {
+    voice = Tone.FMSynth;
+  } else if (config.engine === "am") {
+    voice = Tone.AMSynth;
+  } else if (config.engine === "pluck") {
+    voice = Tone.PluckSynth;
+  }
+
+  const synth = new PolySynth(voice, config.options).toDestination();
+  synth.volume.value = config.volume;
+  return synth;
+}
+
 export class AudioEngine {
-  private melodySynth: Tone.PolySynth | null = null;
-  private harmonySynth: Tone.PolySynth | null = null;
+  private melodySynth: PlayableSynth | null = null;
+  private harmonySynth: PlayableSynth | null = null;
   private activePlayback: ActivePlayback | null = null;
   private activeTonePreset: PlaybackTonePreset | null = null;
 
   async ensureStarted(tonePreset: PlaybackTonePreset = "mellow-keys"): Promise<void> {
     await Tone.start();
-    this.melodySynth ??= new Tone.PolySynth(Tone.Synth).toDestination();
-    this.harmonySynth ??= new Tone.PolySynth(Tone.Synth).toDestination();
     this.applyTonePreset(tonePreset);
   }
 
@@ -130,16 +251,10 @@ export class AudioEngine {
     if (this.activeTonePreset === tonePreset) return;
 
     const config = PLAYBACK_TONE_PRESETS[tonePreset];
-    this.melodySynth?.set({
-      oscillator: { type: config.melody.oscillator },
-      envelope: config.melody.envelope,
-    });
-    this.harmonySynth?.set({
-      oscillator: { type: config.harmony.oscillator },
-      envelope: config.harmony.envelope,
-    });
-    if (this.melodySynth) this.melodySynth.volume.value = config.melody.volume;
-    if (this.harmonySynth) this.harmonySynth.volume.value = config.harmony.volume;
+    this.melodySynth?.dispose();
+    this.harmonySynth?.dispose();
+    this.melodySynth = createPolySynth(config.melody);
+    this.harmonySynth = createPolySynth(config.harmony);
     this.activeTonePreset = tonePreset;
   }
 
@@ -175,7 +290,10 @@ export class AudioEngine {
       for (const note of melody) {
         this.melodySynth?.triggerAttackRelease(
           midiToFrequency(note.midi),
-          Math.max(0.08, beatToSeconds(note.durationBeats, tempo) * 0.92),
+          Math.max(
+            toneConfig.melody.minDuration,
+            beatToSeconds(note.durationBeats, tempo) * toneConfig.melody.durationScale,
+          ),
           startTime + beatToSeconds(note.startBeat, tempo),
           Math.min(1, note.velocity * toneConfig.melody.velocity),
         );
@@ -186,7 +304,10 @@ export class AudioEngine {
       for (const placedChord of candidate.chords) {
         this.harmonySynth?.triggerAttackRelease(
           chordToMidiVoicing(placedChord).map(midiToFrequency),
-          Math.max(0.12, beatToSeconds(placedChord.durationBeats, tempo) * 0.9),
+          Math.max(
+            toneConfig.harmony.minDuration,
+            beatToSeconds(placedChord.durationBeats, tempo) * toneConfig.harmony.durationScale,
+          ),
           startTime + beatToSeconds(placedChord.startBeat, tempo),
           toneConfig.harmony.velocity,
         );

@@ -41,17 +41,20 @@ const candidate = {
 describe("audio playback helpers", () => {
   it("provides selectable tone presets for melody and harmony playback", () => {
     expect(Object.keys(PLAYBACK_TONE_PRESETS)).toEqual([
-      "mellow-keys",
+      "acoustic-piano",
+      "electric-piano",
+      "nylon-guitar",
       "warm-organ",
-      "soft-pluck",
       "glass-bell",
+      "mellow-keys",
+      "soft-pluck",
     ]);
-    expect(PLAYBACK_TONE_PRESETS["soft-pluck"].melody.envelope.sustain).toBeLessThan(
-      PLAYBACK_TONE_PRESETS["warm-organ"].melody.envelope.sustain,
-    );
-    expect(PLAYBACK_TONE_PRESETS["glass-bell"].harmony.envelope.release).toBeGreaterThan(
-      PLAYBACK_TONE_PRESETS["mellow-keys"].harmony.envelope.release,
-    );
+    expect(PLAYBACK_TONE_PRESETS["acoustic-piano"].melody.engine).toBe("synth");
+    expect(PLAYBACK_TONE_PRESETS["electric-piano"].melody.engine).toBe("fm");
+    expect(PLAYBACK_TONE_PRESETS["nylon-guitar"].melody.engine).toBe("pluck");
+    expect(PLAYBACK_TONE_PRESETS["warm-organ"].melody.engine).toBe("am");
+    expect(PLAYBACK_TONE_PRESETS["mellow-keys"]).toBe(PLAYBACK_TONE_PRESETS["acoustic-piano"]);
+    expect(PLAYBACK_TONE_PRESETS["soft-pluck"]).toBe(PLAYBACK_TONE_PRESETS["nylon-guitar"]);
   });
 
   it("uses the latest melody or harmony end beat", () => {
