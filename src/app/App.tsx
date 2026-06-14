@@ -879,82 +879,87 @@ function App() {
           >
             {t("action.importMidi")}
           </button>
-          <label>
-            {t("settings.key")}
-            <select
-              value={state.settings.keyTonic}
-              onChange={(event) =>
-                dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
-              }
-            >
-              {KEY_OPTIONS.map((pitchClass) => (
-                <option value={pitchClass} key={pitchClass}>
-                  {pitchClassToName(pitchClass)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t("settings.mode")}
-            <select
-              value={state.settings.mode}
-              onChange={(event) =>
-                dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
-              }
-            >
-              <option value="major">{t("settings.major")}</option>
-              <option value="minor" disabled>
-                {t("settings.minorLater")}
-              </option>
-            </select>
-          </label>
-          <label>
-            {t("settings.tempo")}
-            <input
-              type="number"
-              value={state.settings.tempo}
-              min={40}
-              max={220}
-              onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
-            />
-          </label>
-          <label>
-            {t("settings.density")}
-            <select
-              value={state.settings.harmonyRhythm}
-              onChange={(event) =>
-                dispatch({
-                  type: "set-harmony-rhythm",
-                  harmonyRhythm: event.target.value as HarmonyRhythmPattern,
-                })
-              }
-            >
-              <option value="bar">{t("settings.bar")}</option>
-              <option value="strong-beats">{t("settings.strongBeats")}</option>
-              <option value="every-beat">{t("settings.everyBeat")}</option>
-              <option value="cadence-aware">{t("settings.cadenceAware")}</option>
-              <option value="sparse">{t("settings.sparse")}</option>
-            </select>
-          </label>
-          <label>
-            {t("settings.tone")}
-            <select
-              value={state.settings.playbackTone}
-              onChange={(event) => {
-                if (state.playback.status === "playing") stopPlayback();
-                dispatch({
-                  type: "set-playback-tone",
-                  playbackTone: event.target.value as PlaybackTonePreset,
-                });
-              }}
-            >
-              {PLAYBACK_TONE_OPTIONS.map((tone) => (
-                <option value={tone} key={tone}>
-                  {t(`tone.${tone}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <details className="settings-tray">
+            <summary>{t("settings.projectSettings")}</summary>
+            <div className="settings-grid">
+              <label>
+                {t("settings.key")}
+                <select
+                  value={state.settings.keyTonic}
+                  onChange={(event) =>
+                    dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
+                  }
+                >
+                  {KEY_OPTIONS.map((pitchClass) => (
+                    <option value={pitchClass} key={pitchClass}>
+                      {pitchClassToName(pitchClass)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {t("settings.mode")}
+                <select
+                  value={state.settings.mode}
+                  onChange={(event) =>
+                    dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
+                  }
+                >
+                  <option value="major">{t("settings.major")}</option>
+                  <option value="minor" disabled>
+                    {t("settings.minorLater")}
+                  </option>
+                </select>
+              </label>
+              <label>
+                {t("settings.tempo")}
+                <input
+                  type="number"
+                  value={state.settings.tempo}
+                  min={40}
+                  max={220}
+                  onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
+                />
+              </label>
+              <label>
+                {t("settings.density")}
+                <select
+                  value={state.settings.harmonyRhythm}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "set-harmony-rhythm",
+                      harmonyRhythm: event.target.value as HarmonyRhythmPattern,
+                    })
+                  }
+                >
+                  <option value="bar">{t("settings.bar")}</option>
+                  <option value="strong-beats">{t("settings.strongBeats")}</option>
+                  <option value="every-beat">{t("settings.everyBeat")}</option>
+                  <option value="cadence-aware">{t("settings.cadenceAware")}</option>
+                  <option value="sparse">{t("settings.sparse")}</option>
+                </select>
+              </label>
+              <label>
+                {t("settings.tone")}
+                <select
+                  value={state.settings.playbackTone}
+                  onChange={(event) => {
+                    if (state.playback.status === "playing") stopPlayback();
+                    dispatch({
+                      type: "set-playback-tone",
+                      playbackTone: event.target.value as PlaybackTonePreset,
+                    });
+                  }}
+                >
+                  {PLAYBACK_TONE_OPTIONS.map((tone) => (
+                    <option value={tone} key={tone}>
+                      {t(`tone.${tone}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </details>
           <button
             type="button"
             className="primary-button"
@@ -1059,15 +1064,20 @@ function App() {
                   {isImporting ? t("action.importing") : t("action.chooseFile")}
                 </button>
               )}
-              <button type="button" className="secondary-button" onClick={handleLoadDemo}>
-                {t("action.loadDemo")}
-              </button>
-              <button type="button" className="secondary-button" onClick={handleLoadLongDemo}>
-                {t("action.loadLongDemo")}
-              </button>
-              <button type="button" className="secondary-button" onClick={() => void handleClearLocalData()}>
-                {t("action.clearLocalData")}
-              </button>
+              <details className="dock-menu">
+                <summary>{t("dock.draftActions")}</summary>
+                <div>
+                  <button type="button" className="secondary-button" onClick={handleLoadDemo}>
+                    {t("action.loadDemo")}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={handleLoadLongDemo}>
+                    {t("action.loadLongDemo")}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={() => void handleClearLocalData()}>
+                    {t("action.clearLocalData")}
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
 
