@@ -39,7 +39,6 @@ import {
   createNoteEventId,
   midiToPitchClass,
   midiToNoteName,
-  noteNameToPitchClass,
   pitchClassToName,
 } from "../music/theory/pitches";
 import {
@@ -54,8 +53,6 @@ import {
   pixelToSnappedBeat,
 } from "./timelineGrid";
 import "./App.css";
-
-const NOTE_BUTTONS = ["C", "D", "E", "F", "G", "A", "B"] as const;
 
 const DURATION_OPTIONS = [
   { labelKey: "duration.whole", value: 4 },
@@ -115,24 +112,6 @@ type NoteDragState = {
 function getNextStartBeat(melody: NoteEvent[]): number {
   if (melody.length === 0) return 0;
   return Math.max(...melody.map((note) => note.startBeat + note.durationBeats));
-}
-
-function createManualNote(noteName: string, durationBeats: number, melody: NoteEvent[]): NoteEvent {
-  const pitchClass = noteNameToPitchClass(noteName);
-  const midi = 60 + pitchClass;
-  const index = melody.length;
-  const startBeat = getNextStartBeat(melody);
-
-  return {
-    id: `${createNoteEventId("manual", index)}-${Math.round(startBeat * 100)}-${midi}`,
-    midi,
-    pitchClass,
-    name: midiToNoteName(midi),
-    startBeat,
-    durationBeats,
-    velocity: 0.8,
-    source: "manual",
-  };
 }
 
 function createManualGridNote(
@@ -424,16 +403,6 @@ function App() {
       });
       setIsGenerating(false);
     }, 400);
-  };
-
-  const handleAddNote = (noteName: string) => {
-    const note = createManualNote(noteName, durationBeats, state.melody);
-    pausePlayback();
-    dispatch({
-      type: "add-note",
-      note,
-    });
-    setSelectedNoteId(note.id);
   };
 
   const handleDeleteSelectedNote = () => {
@@ -935,7 +904,14 @@ function App() {
           </div>
         </div>
 
-        <nav className="control-group" aria-label="Project settings">
+        <nav className="command-actions" aria-label="Project settings">
+          <input
+            ref={fileInputRef}
+            className="file-input"
+            type="file"
+            accept=".mid,.midi,audio/midi"
+            onChange={(event) => void handleFileSelected(event.currentTarget.files?.[0] ?? null)}
+          />
           <div className="segmented-control" aria-label="Workspace language">
             <button type="button" aria-pressed={language === "zh"} onClick={() => setLanguage("zh")}>
               中文
@@ -944,37 +920,6 @@ function App() {
               EN
             </button>
           </div>
-          <div className="segmented-control" aria-label="Input mode">
-            <button
-              type="button"
-              aria-pressed={state.settings.inputMode === "midi"}
-              onClick={() => dispatch({ type: "set-input-mode", inputMode: "midi" })}
-            >
-              {t("input.midi")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={state.settings.inputMode === "manual"}
-              onClick={() => dispatch({ type: "set-input-mode", inputMode: "manual" })}
-            >
-              {t("input.manual")}
-            </button>
-          </div>
-          <input
-            ref={fileInputRef}
-            className="file-input"
-            type="file"
-            accept=".mid,.midi,audio/midi"
-            onChange={(event) => void handleFileSelected(event.currentTarget.files?.[0] ?? null)}
-          />
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-          >
-            {t("action.importMidi")}
-          </button>
           <details className="settings-tray">
             <summary>{t("settings.projectSettings")}</summary>
             <div className="settings-grid">
@@ -1073,36 +1018,135 @@ function App() {
             <div>
               <span className="eyebrow">{t("timeline.label")}</span>
               <h2>{hasMelody ? t("timeline.active") : t("timeline.start")}</h2>
-              {toneStatus === "loading" ? (
-                <span className="tone-status" data-tone="loading" role="status">
-                  {t("tone.loading")}
-                </span>
-              ) : toneStatus === "fallback" ? (
-                <span className="tone-status" data-tone="fallback" role="status">
-                  {t("tone.fallback")}
-                </span>
-              ) : null}
             </div>
-            <div className="transport" aria-label="Playback controls">
-              <span className="beat-readout">
-                {state.playback.currentBeat.toFixed(1)} {t("timeline.beat")}
+            {toneStatus === "loading" ? (
+              <span className="tone-status" data-tone="loading" role="status">
+                {t("tone.loading")}
               </span>
-              <button
-                type="button"
-                aria-label="Play from start"
-                disabled={!canPlayTimeline || state.playback.status === "starting"}
-                onClick={() => void handlePlayFromStart()}
-              >
-                {t("action.playFromStart")}
-              </button>
-              <button
-                type="button"
-                aria-label="Play from current bar"
-                disabled={!canPlayTimeline || state.playback.status === "starting"}
-                onClick={() => void handlePlayFromCurrentMeasure()}
-              >
-                {t("action.playFromCurrentBar")}
-              </button>
+            ) : toneStatus === "fallback" ? (
+              <span className="tone-status" data-tone="fallback" role="status">
+                {t("tone.fallback")}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="stage-toolbar">
+            <div className="toolbar-source" aria-label="Input source">
+              <div className="segmented-control" aria-label="Input mode">
+                <button
+                  type="button"
+                  aria-pressed={state.settings.inputMode === "midi"}
+                  onClick={() => dispatch({ type: "set-input-mode", inputMode: "midi" })}
+                >
+                  {t("input.midi")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={state.settings.inputMode === "manual"}
+                  onClick={() => dispatch({ type: "set-input-mode", inputMode: "manual" })}
+                >
+                  {t("input.manual")}
+                </button>
+              </div>
+
+              {state.settings.inputMode === "manual" ? (
+                <>
+                  <label className="field duration-select">
+                    <span>{t("dock.duration")}</span>
+                    <select
+                      value={durationBeats}
+                      onChange={(event) =>
+                        setDurationBeats(Number(event.target.value) as typeof durationBeats)
+                      }
+                    >
+                      {DURATION_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {t(option.labelKey)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="tool-group" role="group" aria-label="Edit notes">
+                    <button
+                      type="button"
+                      className="tool-button"
+                      disabled={!selectedNoteId}
+                      onClick={handleDeleteSelectedNote}
+                    >
+                      {t("action.deleteNote")}
+                    </button>
+                    <button
+                      type="button"
+                      className="tool-button"
+                      disabled={!hasMelody}
+                      onClick={() => {
+                        dispatch({ type: "undo-note" });
+                        setSelectedNoteId(null);
+                      }}
+                    >
+                      {t("action.undo")}
+                    </button>
+                    <button
+                      type="button"
+                      className="tool-button"
+                      disabled={!hasMelody}
+                      onClick={() => {
+                        dispatch({ type: "clear-melody" });
+                        setSelectedNoteId(null);
+                      }}
+                    >
+                      {t("action.clear")}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  {isImporting ? t("action.importing") : t("action.importMidi")}
+                </button>
+              )}
+
+              <details className="overflow-menu">
+                <summary aria-label={t("action.more")}>{t("action.more")}</summary>
+                <div>
+                  <button type="button" className="secondary-button" onClick={handleLoadDemo}>
+                    {t("action.loadDemo")}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={handleLoadLongDemo}>
+                    {t("action.loadLongDemo")}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void handleClearLocalData()}
+                  >
+                    {t("action.clearLocalData")}
+                  </button>
+                </div>
+              </details>
+            </div>
+
+            <div className="toolbar-transport" aria-label="Playback controls">
+              <div className="jump-group" role="group" aria-label="Playback start">
+                <button
+                  type="button"
+                  disabled={!canPlayTimeline || state.playback.status === "starting"}
+                  onClick={() => void handlePlayFromStart()}
+                >
+                  {t("action.playFromStart")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!canPlayTimeline || state.playback.status === "starting"}
+                  onClick={() => void handlePlayFromCurrentMeasure()}
+                >
+                  {t("action.playFromCurrentBar")}
+                </button>
+              </div>
               <button
                 type="button"
                 className="play-button"
@@ -1112,22 +1156,30 @@ function App() {
               >
                 {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
               </button>
-              <button
-                type="button"
-                aria-pressed={state.playback.melodyMuted}
-                disabled={!canPlayTimeline}
-                onClick={toggleMelodyMute}
-              >
-                {t("transport.melody")}
-              </button>
-              <button
-                type="button"
-                aria-pressed={state.playback.harmonyMuted}
-                disabled={!harmonyIsReady}
-                onClick={toggleHarmonyMute}
-              >
-                {t("transport.harmony")}
-              </button>
+              <div className="mute-group" role="group" aria-label="Mute tracks">
+                <button
+                  type="button"
+                  className="mute-chip"
+                  aria-pressed={state.playback.melodyMuted}
+                  disabled={!canPlayTimeline}
+                  onClick={toggleMelodyMute}
+                >
+                  {t("transport.melody")}
+                </button>
+                <button
+                  type="button"
+                  className="mute-chip"
+                  aria-pressed={state.playback.harmonyMuted}
+                  disabled={!harmonyIsReady}
+                  onClick={toggleHarmonyMute}
+                >
+                  {t("transport.harmony")}
+                </button>
+              </div>
+              <span className="beat-readout" aria-live="off">
+                {state.playback.currentBeat.toFixed(1)}
+                <small>{t("timeline.beat")}</small>
+              </span>
             </div>
           </div>
 
@@ -1135,101 +1187,6 @@ function App() {
             <div className="harmony-status-banner" role="status">
               <strong>{t("harmony.outdatedTitle")}</strong>
               <span>{t("harmony.outdatedCopy")}</span>
-            </div>
-          ) : null}
-
-          <div className="input-dock" aria-label="Input actions">
-            <div>
-              <strong>
-                {state.settings.inputMode === "midi" ? t("dock.midiTitle") : t("dock.manualTitle")}
-              </strong>
-              <span>
-                {state.settings.inputMode === "midi"
-                  ? t("dock.midiCopy")
-                  : t("dock.manualCopy")}
-              </span>
-            </div>
-            <div className="input-actions">
-              {state.settings.inputMode === "manual" ? (
-                <label className="duration-select">
-                  {t("dock.duration")}
-                  <select
-                    value={durationBeats}
-                    onChange={(event) =>
-                      setDurationBeats(Number(event.target.value) as typeof durationBeats)
-                    }
-                  >
-                    {DURATION_OPTIONS.map((option) => (
-                      <option value={option.value} key={option.value}>
-                        {t(option.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isImporting}
-                >
-                  {isImporting ? t("action.importing") : t("action.chooseFile")}
-                </button>
-              )}
-              <details className="dock-menu">
-                <summary>{t("dock.draftActions")}</summary>
-                <div>
-                  <button type="button" className="secondary-button" onClick={handleLoadDemo}>
-                    {t("action.loadDemo")}
-                  </button>
-                  <button type="button" className="secondary-button" onClick={handleLoadLongDemo}>
-                    {t("action.loadLongDemo")}
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => void handleClearLocalData()}>
-                    {t("action.clearLocalData")}
-                  </button>
-                </div>
-              </details>
-            </div>
-          </div>
-
-          {state.settings.inputMode === "manual" ? (
-            <div className="manual-input" aria-label="Manual note input">
-              {NOTE_BUTTONS.map((noteName) => (
-                <button type="button" key={noteName} onClick={() => handleAddNote(noteName)}>
-                  {noteName}
-                </button>
-              ))}
-              <button
-                type="button"
-                className="text-tool-button"
-                disabled={!selectedNoteId}
-                onClick={handleDeleteSelectedNote}
-              >
-                {t("action.deleteNote")}
-              </button>
-              <button
-                type="button"
-                className="text-tool-button"
-                disabled={!hasMelody}
-                onClick={() => {
-                  dispatch({ type: "undo-note" });
-                  setSelectedNoteId(null);
-                }}
-              >
-                {t("action.undo")}
-              </button>
-              <button
-                type="button"
-                className="text-tool-button"
-                disabled={!hasMelody}
-                onClick={() => {
-                  dispatch({ type: "clear-melody" });
-                  setSelectedNoteId(null);
-                }}
-              >
-                {t("action.clear")}
-              </button>
             </div>
           ) : null}
 
