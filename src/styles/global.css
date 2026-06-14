@@ -1,18 +1,24 @@
 :root {
-  --color-bg: oklch(0.975 0.006 255);
-  --color-surface: oklch(0.992 0.004 255);
-  --color-surface-muted: oklch(0.955 0.006 255);
-  --color-border: oklch(0.88 0.008 255);
-  --color-hairline: oklch(0.91 0.006 255);
-  --color-text: oklch(0.21 0.01 255);
-  --color-text-muted: oklch(0.52 0.012 255);
-  --color-accent: oklch(0.55 0.16 256);
-  --color-accent-strong: oklch(0.49 0.17 256);
-  --color-accent-soft: oklch(0.94 0.03 256);
-  --color-stable: oklch(0.56 0.105 155);
-  --color-tension: oklch(0.62 0.12 55);
-  --color-danger: oklch(0.58 0.18 25);
-  --color-focus: oklch(0.78 0.1 256);
+  /* Forest deep-green + cream "bone" neutrals. Rich, natural, not the AI-purple default. */
+  --color-bg: oklch(0.955 0.018 95);
+  --color-surface: oklch(0.984 0.011 95);
+  --color-surface-muted: oklch(0.928 0.022 98);
+  --color-border: oklch(0.855 0.022 120);
+  --color-hairline: oklch(0.9 0.018 110);
+  --color-text: oklch(0.27 0.035 152);
+  --color-text-muted: oklch(0.47 0.03 150);
+  --color-accent: oklch(0.46 0.1 153);
+  --color-accent-strong: oklch(0.38 0.095 153);
+  --color-accent-soft: oklch(0.9 0.05 150);
+  --color-stable: oklch(0.5 0.1 160);
+  --color-tension: oklch(0.62 0.13 62);
+  --color-danger: oklch(0.55 0.19 28);
+  --color-focus: oklch(0.7 0.11 152);
+
+  /* Signature gradient (forest to pine), reserved for the hero brand moment. */
+  --gradient-warm: linear-gradient(102deg, oklch(0.44 0.11 156), oklch(0.55 0.09 192));
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 

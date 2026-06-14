@@ -53,6 +53,7 @@ import {
   pixelToSnappedBeat,
 } from "./timelineGrid";
 import "./App.css";
+import workspacePreview from "../assets/workspace-preview.png";
 
 const DURATION_OPTIONS = [
   { labelKey: "duration.whole", value: 4 },
@@ -821,11 +822,21 @@ function App() {
             <span className="landing-kicker">MIDI in. Harmony out.</span>
             <h2>
               <span>Harmony,</span>
-              <span>heard.</span>
+              <span className="hero-grad">heard.</span>
             </h2>
+            <p className="landing-sub">
+              Turn a melody or MIDI sketch into playable harmony, with the theory shown for
+              every chord.
+            </p>
             <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
               Start Harmonizing
             </button>
+          </div>
+          <div className="hero-motif" aria-hidden="true">
+            <span data-fn="T">Cmaj7</span>
+            <span data-fn="PD">F</span>
+            <span data-fn="D">G7</span>
+            <span data-fn="T">C</span>
           </div>
         </section>
 
@@ -839,29 +850,14 @@ function App() {
             <span>01</span>
             <h4>Import or sketch</h4>
           </div>
-          <div className="landing-preview" aria-label="Workspace preview">
-            <div className="preview-topbar">
-              <span>Melody.mid</span>
-              <strong>C major · 92 BPM</strong>
-            </div>
-            <div className="preview-timeline">
-              <span className="preview-note" style={{ left: "8%", width: "16%", top: "22%" }}>E4</span>
-              <span className="preview-note" style={{ left: "30%", width: "12%", top: "34%" }}>G4</span>
-              <span className="preview-note" style={{ left: "48%", width: "20%", top: "18%" }}>C5</span>
-              <span className="preview-chord" style={{ left: "8%", width: "22%" }}>Cmaj7</span>
-              <span className="preview-chord" style={{ left: "36%", width: "22%" }}>F</span>
-              <span className="preview-chord" style={{ left: "64%", width: "24%" }}>G7</span>
-            </div>
-            <div className="preview-bottom">
-              <div>
-                <span>Stable Classical</span>
-                <strong>Cmaj7 / F / G7 / C</strong>
-              </div>
-              <div>
-                <span>Why it works</span>
-                <strong>E is the third of Cmaj7.</strong>
-              </div>
-            </div>
+          <div className="landing-preview">
+            <img
+              src={workspacePreview}
+              alt="The Harmony Auxiliary workspace: a melody on the piano roll with generated harmony voices and chord labels below."
+              loading="lazy"
+              width={945}
+              height={840}
+            />
           </div>
         </section>
 
