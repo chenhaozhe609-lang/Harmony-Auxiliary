@@ -14,6 +14,7 @@ export type HarmonyRhythmPattern =
 export type InputMode = "midi" | "manual";
 
 export type PlaybackTonePreset =
+  | "acoustic-grand"
   | "acoustic-piano"
   | "electric-piano"
   | "nylon-guitar"

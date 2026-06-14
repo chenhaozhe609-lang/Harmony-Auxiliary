@@ -6,12 +6,10 @@ A local-first harmony assistant for music creation.
 
 The project currently contains:
 
-- Product requirements in `PRD.md`.
-- Finalized UI/UX direction in `UI_UX_DESIGN.md`.
-- Technical design in `TECHNICAL_DESIGN.md`.
-- Milestone task breakdown in `TASKS.md`.
 - A Vite + React + TypeScript scaffold.
 - Installed npm dependencies and a committed lockfile.
+
+Internal planning docs (PRD, UI/UX direction, technical design, and milestone task breakdowns) are kept locally under `docs/` and are not tracked.
 
 ## Intended Development Commands
 

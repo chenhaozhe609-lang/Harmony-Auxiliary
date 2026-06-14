@@ -6,11 +6,12 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type UIEvent as ReactUIEvent,
 } from "react";
 import { appReducer, createInitialState } from "./appState";
 import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
-import { AudioEngine } from "../music/audio/audioEngine";
+import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
 import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
 import { getHarmonyVoiceRows, makeDisplayVoicing } from "../music/harmony/displayVoicing";
@@ -66,6 +67,7 @@ const DURATION_OPTIONS = [
 const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
 
 const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
+  "acoustic-grand",
   "acoustic-piano",
   "electric-piano",
   "nylon-guitar",
@@ -73,16 +75,32 @@ const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
   "glass-bell",
 ];
 
-const PITCH_ROWS = [
-  { label: "C5", midi: 72 },
-  { label: "B4", midi: 71 },
-  { label: "A4", midi: 69 },
-  { label: "G4", midi: 67 },
-  { label: "F4", midi: 65 },
-  { label: "E4", midi: 64 },
-  { label: "D4", midi: 62 },
-  { label: "C4", midi: 60 },
-] as const;
+// Three chromatic octaves (C3–B5) so the melody roll behaves like an FL Studio piano roll:
+// 12 semitone rows per octave, black keys distinguished from white keys.
+const LOWEST_PITCH_MIDI = 48; // C3
+const HIGHEST_PITCH_MIDI = 83; // B5
+const PITCH_ROW_HEIGHT = 22;
+const BLACK_KEY_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
+
+type PitchRow = {
+  label: string;
+  midi: number;
+  isBlack: boolean;
+};
+
+function buildPitchRows(): PitchRow[] {
+  const rows: PitchRow[] = [];
+  for (let midi = HIGHEST_PITCH_MIDI; midi >= LOWEST_PITCH_MIDI; midi -= 1) {
+    rows.push({
+      label: midiToNoteName(midi),
+      midi,
+      isBlack: BLACK_KEY_PITCH_CLASSES.has(midiToPitchClass(midi)),
+    });
+  }
+  return rows;
+}
+
+const PITCH_ROWS: PitchRow[] = buildPitchRows();
 
 const HARMONY_VOICE_ROWS = getHarmonyVoiceRows();
 
@@ -218,6 +236,9 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [toneStatus, setToneStatus] = useState<"loading" | "sampled" | "fallback" | "synth">(
+    "loading",
+  );
   const [recoveredSnapshot, setRecoveredSnapshot] = useState<StoredProjectSnapshot | null>(null);
   const [lastAutosaveAt, setLastAutosaveAt] = useState<string | null>(null);
   const [currentMidiFile, setCurrentMidiFile] = useState<{
@@ -227,6 +248,11 @@ function App() {
   const audioEngineRef = useRef<AudioEngine | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const noteDragRef = useRef<NoteDragState | null>(null);
+  const rulerScrollRef = useRef<HTMLDivElement | null>(null);
+  const melodyScrollRef = useRef<HTMLDivElement | null>(null);
+  const harmonyScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollSyncRef = useRef(false);
+  const melodyCenteredRef = useRef(false);
   const t = (key: string) => translate(language, key);
 
   useEffect(() => {
@@ -237,6 +263,26 @@ function App() {
     audioEngineRef.current = new AudioEngine();
     return () => audioEngineRef.current?.stop();
   }, []);
+
+  useEffect(() => {
+    const engine = audioEngineRef.current;
+    if (!engine) return;
+    let cancelled = false;
+    if (isSampledTonePreset(state.settings.playbackTone)) {
+      setToneStatus("loading");
+    }
+    engine
+      .loadTone(state.settings.playbackTone)
+      .then((status) => {
+        if (!cancelled) setToneStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setToneStatus("fallback");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.settings.playbackTone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -280,6 +326,24 @@ function App() {
       setSelectedNoteId(null);
     }
   }, [selectedNoteId, state.melody]);
+
+  // Center the piano roll on the melody's pitch range once, so 3 octaves never open on empty rows.
+  useEffect(() => {
+    if (state.melody.length === 0) {
+      melodyCenteredRef.current = false;
+      return;
+    }
+    if (melodyCenteredRef.current) return;
+    const element = melodyScrollRef.current;
+    if (!element) return;
+    const averageMidi = Math.round(
+      state.melody.reduce((sum, note) => sum + note.midi, 0) / state.melody.length,
+    );
+    const rowIndex = pitchRowIndexForMidi(averageMidi);
+    const target = rowIndex * PITCH_ROW_HEIGHT - element.clientHeight / 2 + PITCH_ROW_HEIGHT / 2;
+    element.scrollTop = Math.max(0, target);
+    melodyCenteredRef.current = true;
+  }, [state.melody]);
 
   const hasMelody = state.melody.length > 0;
   const showEditableGrid = hasMelody || state.settings.inputMode === "manual";
@@ -552,6 +616,23 @@ function App() {
     return PITCH_ROWS[rowIndex];
   };
 
+  const syncHorizontalScroll = (event: ReactUIEvent<HTMLDivElement>) => {
+    if (scrollSyncRef.current) return;
+    scrollSyncRef.current = true;
+    const left = event.currentTarget.scrollLeft;
+    for (const ref of [rulerScrollRef, melodyScrollRef, harmonyScrollRef]) {
+      const element = ref.current;
+      if (element && element !== event.currentTarget && element.scrollLeft !== left) {
+        element.scrollLeft = left;
+      }
+    }
+    scrollSyncRef.current = false;
+  };
+
+  const auditionPitch = (midi: number) => {
+    void audioEngineRef.current?.previewNote(midi, state.settings.playbackTone);
+  };
+
   const handleMelodyLanePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (state.settings.inputMode !== "manual" || event.button !== 0) return;
     if ((event.target as HTMLElement).closest(".note")) return;
@@ -583,8 +664,6 @@ function App() {
     if (state.settings.inputMode !== "manual" || event.button !== 0) return;
     event.stopPropagation();
     setSelectedNoteId(note.id);
-    const captureTarget = event.currentTarget.closest(".note") as HTMLElement | null;
-    captureTarget?.setPointerCapture(event.pointerId);
     noteDragRef.current = {
       noteId: note.id,
       mode,
@@ -592,9 +671,15 @@ function App() {
       originClientY: event.clientY,
       originalNote: note,
     };
+    const captureTarget = event.currentTarget.closest(".note") as HTMLElement | null;
+    try {
+      captureTarget?.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is a progressive enhancement; dragging still works without it.
+    }
   };
 
-  const handleNotePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleNotePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
     const drag = noteDragRef.current;
     if (!drag || state.settings.inputMode !== "manual") return;
     event.stopPropagation();
@@ -603,7 +688,7 @@ function App() {
       event.clientX - drag.originClientX,
       timelineMetrics,
     );
-    const rowHeight = (event.currentTarget.closest(".melody-lane")?.clientHeight ?? 0) / PITCH_ROWS.length;
+    const rowHeight = (event.currentTarget.closest(".melody-grid")?.clientHeight ?? 0) / PITCH_ROWS.length;
     const draggedMidi =
       rowHeight > 0
         ? midiForDraggedPitch(
@@ -646,8 +731,8 @@ function App() {
     dispatch({ type: "update-note", noteId: drag.noteId, note: updatedNote });
   };
 
-  const handleNotePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (noteDragRef.current && event.currentTarget.hasPointerCapture(event.pointerId)) {
+  const handleNotePointerUp = (event: ReactPointerEvent<HTMLElement>) => {
+    if (noteDragRef.current && event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     noteDragRef.current = null;
@@ -988,6 +1073,15 @@ function App() {
             <div>
               <span className="eyebrow">{t("timeline.label")}</span>
               <h2>{hasMelody ? t("timeline.active") : t("timeline.start")}</h2>
+              {toneStatus === "loading" ? (
+                <span className="tone-status" data-tone="loading" role="status">
+                  {t("tone.loading")}
+                </span>
+              ) : toneStatus === "fallback" ? (
+                <span className="tone-status" data-tone="fallback" role="status">
+                  {t("tone.fallback")}
+                </span>
+              ) : null}
             </div>
             <div className="transport" aria-label="Playback controls">
               <span className="beat-readout">
@@ -1217,9 +1311,15 @@ function App() {
                 </button>
               </div>
             ) : (
-              <div className="timeline-scroll" aria-label="Scrollable beat grid">
-                <div className="timeline-grid" style={timelineGridStyle}>
-                  <div className="bar-ruler" aria-hidden="true">
+              <div className="timeline-stack" style={timelineGridStyle}>
+                <div
+                  className="timeline-window ruler-window"
+                  ref={rulerScrollRef}
+                  onScroll={syncHorizontalScroll}
+                  aria-hidden="true"
+                >
+                  <div className="bar-ruler">
+                    <span className="ruler-corner" />
                     {Array.from({ length: timelineMetrics.measureCount }, (_, index) => (
                       <span
                         key={`bar-${index + 1}`}
@@ -1233,38 +1333,57 @@ function App() {
                       </span>
                     ))}
                   </div>
-                  {hasMelody ? (
-                    <div
-                      className="playhead"
-                      aria-hidden="true"
-                      style={{ left: `${playheadLeft}px` }}
-                    />
-                  ) : null}
+                </div>
+
+                <div className="window-title">{t("lane.melody")}</div>
+                <div
+                  className="timeline-window melody-window"
+                  ref={melodyScrollRef}
+                  onScroll={syncHorizontalScroll}
+                  aria-label="Melody piano roll"
+                >
                   <div
-                    className="lane melody-lane"
+                    className="melody-grid"
                     data-editable={state.settings.inputMode === "manual"}
                     onPointerDown={handleMelodyLanePointerDown}
+                    onPointerMove={handleNotePointerMove}
+                    onPointerUp={handleNotePointerUp}
+                    onPointerLeave={handleNotePointerUp}
                   >
-                    <div className="lane-label melody-lane-label">
+                    <div className="piano-keys">
                       {PITCH_ROWS.map((row) => (
-                        <span
-                          className="pitch-key"
+                        <button
+                          type="button"
+                          className="piano-key"
+                          data-black={row.isBlack}
                           data-root={row.label.startsWith("C")}
                           key={row.label}
+                          aria-label={`Preview ${row.label}`}
+                          title={row.label}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={() => auditionPitch(row.midi)}
                         >
                           {row.label}
-                        </span>
+                        </button>
                       ))}
                     </div>
                     <div className="piano-roll-cells" aria-hidden="true">
                       {PITCH_ROWS.map((row, index) => (
                         <span
                           key={`row-${row.label}`}
+                          data-black={row.isBlack}
                           data-root={row.label.startsWith("C")}
                           style={{ gridRow: index + 1 }}
                         />
                       ))}
                     </div>
+                    {hasMelody ? (
+                      <div
+                        className="playhead"
+                        aria-hidden="true"
+                        style={{ left: `${playheadLeft}px` }}
+                      />
+                    ) : null}
                     {state.melody.map((note) => (
                       <button
                         type="button"
@@ -1282,9 +1401,6 @@ function App() {
                           setSelectedNoteId(note.id);
                         }}
                         onPointerDown={(event) => handleNotePointerDown(event, note, "move")}
-                        onPointerMove={handleNotePointerMove}
-                        onPointerUp={handleNotePointerUp}
-                        onPointerCancel={handleNotePointerUp}
                       >
                         <span>{note.name}</span>
                         {state.settings.inputMode === "manual" ? (
@@ -1297,10 +1413,17 @@ function App() {
                       </button>
                     ))}
                   </div>
+                </div>
 
-                  <div className={`lane chord-lane${harmonyIsOutdated ? " is-outdated" : ""}`}>
+                <div className="window-title">{t("lane.harmony")}</div>
+                <div
+                  className="timeline-window harmony-window"
+                  ref={harmonyScrollRef}
+                  onScroll={syncHorizontalScroll}
+                  aria-label="Harmony voices"
+                >
+                  <div className={`harmony-grid${harmonyIsOutdated ? " is-outdated" : ""}`}>
                     <div className="lane-label harmony-lane-label">
-                      <span>{t("lane.harmony")}</span>
                       <div className="voice-labels" aria-hidden="true">
                         {HARMONY_VOICE_ROWS.map((voice) => (
                           <span key={voice}>{voice}</span>
@@ -1308,6 +1431,13 @@ function App() {
                         <span>Chord</span>
                       </div>
                     </div>
+                    {hasMelody ? (
+                      <div
+                        className="playhead"
+                        aria-hidden="true"
+                        style={{ left: `${playheadLeft}px` }}
+                      />
+                    ) : null}
                     {selectedCandidate && selectedChord ? (
                       <>
                         {selectedCandidate.chords.flatMap((placedChord) =>

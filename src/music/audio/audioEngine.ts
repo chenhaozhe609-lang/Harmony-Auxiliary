@@ -31,13 +31,106 @@ type SynthVoiceConfig = {
   minDuration: number;
 };
 
-type PlaybackToneConfig = {
-  label: string;
-  melody: SynthVoiceConfig;
-  harmony: SynthVoiceConfig;
+type SamplerVoiceConfig = {
+  engine: "sampler";
+  urls: Record<string, string>;
+  baseUrl: string;
+  release: number;
+  volume: number;
+  velocity: number;
+  durationScale: number;
+  minDuration: number;
+  /** Synth voice used while samples are still loading or when loading fails (offline). */
+  fallback: SynthVoiceConfig;
 };
 
+type VoiceConfig = SynthVoiceConfig | SamplerVoiceConfig;
+
+type PlaybackToneConfig = {
+  label: string;
+  melody: VoiceConfig;
+  harmony: VoiceConfig;
+};
+
+export type ToneLoadStatus = "synth" | "sampled" | "fallback";
+
+/**
+ * Salamander Grand Piano samples hosted by the Tone.js project. A reduced set keeps the
+ * first load light; the sampler interpolates the missing pitches.
+ */
+const SALAMANDER_BASE_URL = "https://tonejs.github.io/audio/salamander/";
+const SALAMANDER_URLS: Record<string, string> = {
+  A1: "A1.mp3",
+  C2: "C2.mp3",
+  "D#2": "Ds2.mp3",
+  "F#2": "Fs2.mp3",
+  A2: "A2.mp3",
+  C3: "C3.mp3",
+  "D#3": "Ds3.mp3",
+  "F#3": "Fs3.mp3",
+  A3: "A3.mp3",
+  C4: "C4.mp3",
+  "D#4": "Ds4.mp3",
+  "F#4": "Fs4.mp3",
+  A4: "A4.mp3",
+  C5: "C5.mp3",
+  "D#5": "Ds5.mp3",
+  "F#5": "Fs5.mp3",
+  A5: "A5.mp3",
+  C6: "C6.mp3",
+};
+
+const acousticPianoSynth = {
+  melody: {
+    engine: "synth",
+    options: {
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.003, decay: 0.32, sustain: 0.12, release: 0.78 },
+    },
+    volume: -7,
+    velocity: 0.92,
+    durationScale: 0.58,
+    minDuration: 0.06,
+  },
+  harmony: {
+    engine: "synth",
+    options: {
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.006, decay: 0.42, sustain: 0.18, release: 1.05 },
+    },
+    volume: -17,
+    velocity: 0.48,
+    durationScale: 0.72,
+    minDuration: 0.1,
+  },
+} satisfies Record<"melody" | "harmony", SynthVoiceConfig>;
+
 const playableTonePresets = {
+  "acoustic-grand": {
+    label: "Grand Piano",
+    melody: {
+      engine: "sampler",
+      urls: SALAMANDER_URLS,
+      baseUrl: SALAMANDER_BASE_URL,
+      release: 1.1,
+      volume: -6,
+      velocity: 0.9,
+      durationScale: 0.88,
+      minDuration: 0.14,
+      fallback: acousticPianoSynth.melody,
+    },
+    harmony: {
+      engine: "sampler",
+      urls: SALAMANDER_URLS,
+      baseUrl: SALAMANDER_BASE_URL,
+      release: 1.6,
+      volume: -13,
+      velocity: 0.56,
+      durationScale: 0.92,
+      minDuration: 0.18,
+      fallback: acousticPianoSynth.harmony,
+    },
+  },
   "acoustic-piano": {
     label: "Piano",
     melody: {
@@ -187,6 +280,42 @@ export const PLAYBACK_TONE_PRESETS: Record<PlaybackTonePreset, PlaybackToneConfi
   "soft-pluck": playableTonePresets["nylon-guitar"],
 };
 
+export function isSamplerVoiceConfig(config: VoiceConfig): config is SamplerVoiceConfig {
+  return config.engine === "sampler";
+}
+
+export function isSampledTonePreset(preset: PlaybackTonePreset): boolean {
+  const config = PLAYBACK_TONE_PRESETS[preset];
+  return isSamplerVoiceConfig(config.melody) || isSamplerVoiceConfig(config.harmony);
+}
+
+/**
+ * Resolve the scheduling voice config for a tone preset and role. When a preset is
+ * sample-based but the samples are not available (still loading or offline), the synth
+ * fallback config is used so playback timing stays consistent.
+ */
+export function getEffectiveVoiceConfig(
+  preset: PlaybackTonePreset,
+  role: "melody" | "harmony",
+  samplerReady: boolean,
+): SynthVoiceConfig {
+  const config = PLAYBACK_TONE_PRESETS[preset][role];
+  if (isSamplerVoiceConfig(config)) {
+    if (samplerReady) {
+      return {
+        engine: "synth",
+        options: {},
+        volume: config.volume,
+        velocity: config.velocity,
+        durationScale: config.durationScale,
+        minDuration: config.minDuration,
+      };
+    }
+    return config.fallback;
+  }
+  return config;
+}
+
 export type ActivePlayback = {
   stop: () => void;
 };
@@ -266,11 +395,16 @@ function chordToMidiVoicing(placedChord: PlacedChord): number[] {
   return tones;
 }
 
-function createPolySynth(config: SynthVoiceConfig): PlayableSynth {
+type DisposableNode = { dispose: () => void };
+
+function createPolySynth(config: SynthVoiceConfig, destination?: unknown): PlayableSynth {
   const PolySynth = Tone.PolySynth as unknown as new (
     voice: unknown,
     options?: Record<string, unknown>,
-  ) => PlayableSynth & { toDestination: () => PlayableSynth };
+  ) => PlayableSynth & {
+    toDestination: () => PlayableSynth;
+    connect: (node: unknown) => PlayableSynth;
+  };
   let voice: unknown = Tone.Synth;
 
   if (config.engine === "fm") {
@@ -281,31 +415,141 @@ function createPolySynth(config: SynthVoiceConfig): PlayableSynth {
     voice = Tone.PluckSynth;
   }
 
-  const synth = new PolySynth(voice, config.options).toDestination();
+  const synth = new PolySynth(voice, config.options);
+  if (destination) {
+    synth.connect(destination);
+  } else {
+    synth.toDestination();
+  }
   synth.volume.value = config.volume;
   return synth;
+}
+
+function createReverb(): DisposableNode & { ready: Promise<void> } {
+  const Reverb = Tone.Reverb as unknown as new (options: Record<string, unknown>) => DisposableNode & {
+    toDestination: () => unknown;
+    ready: Promise<void>;
+  };
+  const reverb = new Reverb({ decay: 1.8, preDelay: 0.01, wet: 0.16 });
+  reverb.toDestination();
+  return reverb;
+}
+
+function createSampler(
+  config: SamplerVoiceConfig,
+  destination: unknown,
+): { sampler: PlayableSynth; loaded: Promise<void> } {
+  let resolveLoaded: () => void = () => undefined;
+  let rejectLoaded: (error: unknown) => void = () => undefined;
+  const loaded = new Promise<void>((resolve, reject) => {
+    resolveLoaded = resolve;
+    rejectLoaded = reject;
+  });
+
+  const Sampler = Tone.Sampler as unknown as new (options: Record<string, unknown>) => PlayableSynth & {
+    connect: (node: unknown) => unknown;
+  };
+  const sampler = new Sampler({
+    urls: config.urls,
+    baseUrl: config.baseUrl,
+    release: config.release,
+    onload: () => resolveLoaded(),
+    onerror: (error: unknown) => rejectLoaded(error),
+  });
+  sampler.connect(destination);
+  sampler.volume.value = config.volume;
+  return { sampler, loaded };
 }
 
 export class AudioEngine {
   private melodySynth: PlayableSynth | null = null;
   private harmonySynth: PlayableSynth | null = null;
+  private auxNodes: DisposableNode[] = [];
   private activePlayback: ActivePlayback | null = null;
   private activeTonePreset: PlaybackTonePreset | null = null;
+  private samplerReady = false;
+  private tonePromise: Promise<ToneLoadStatus> | null = null;
+
+  /** Whether the active preset is currently playing through loaded samples. */
+  isSamplerReady(): boolean {
+    return this.samplerReady;
+  }
 
   async ensureStarted(tonePreset: PlaybackTonePreset = "mellow-keys"): Promise<void> {
     await Tone.start();
-    this.applyTonePreset(tonePreset);
+    await this.loadTone(tonePreset);
   }
 
-  private applyTonePreset(tonePreset: PlaybackTonePreset): void {
-    if (this.activeTonePreset === tonePreset) return;
+  /**
+   * Build (or reuse) the instruments for a preset. Sample-based presets load their buffers
+   * asynchronously; until the buffers are ready (or if loading fails offline) a synth
+   * fallback voice keeps playback audible. Returns the resolved tone status.
+   */
+  loadTone(tonePreset: PlaybackTonePreset): Promise<ToneLoadStatus> {
+    if (this.activeTonePreset === tonePreset && this.tonePromise) {
+      return this.tonePromise;
+    }
+
+    this.disposeInstruments();
+    this.activeTonePreset = tonePreset;
+    this.samplerReady = false;
 
     const config = PLAYBACK_TONE_PRESETS[tonePreset];
+
+    if (!isSamplerVoiceConfig(config.melody) && !isSamplerVoiceConfig(config.harmony)) {
+      this.melodySynth = createPolySynth(config.melody as SynthVoiceConfig);
+      this.harmonySynth = createPolySynth(config.harmony as SynthVoiceConfig);
+      this.tonePromise = Promise.resolve<ToneLoadStatus>("synth");
+      return this.tonePromise;
+    }
+
+    const reverb = createReverb();
+    this.auxNodes.push(reverb);
+    const melodyConfig = config.melody as SamplerVoiceConfig;
+    const harmonyConfig = config.harmony as SamplerVoiceConfig;
+
+    // Start with the synth fallback so playback works instantly and offline.
+    this.melodySynth = createPolySynth(melodyConfig.fallback, reverb);
+    this.harmonySynth = createPolySynth(harmonyConfig.fallback, reverb);
+
+    const melody = createSampler(melodyConfig, reverb);
+    const harmony = createSampler(harmonyConfig, reverb);
+
+    this.tonePromise = Promise.all([reverb.ready, melody.loaded, harmony.loaded])
+      .then<ToneLoadStatus>(() => {
+        if (this.activeTonePreset !== tonePreset) {
+          melody.sampler.dispose();
+          harmony.sampler.dispose();
+          return "fallback";
+        }
+        melody.sampler.volume.value = melodyConfig.volume;
+        harmony.sampler.volume.value = harmonyConfig.volume;
+        this.melodySynth?.dispose();
+        this.harmonySynth?.dispose();
+        this.melodySynth = melody.sampler;
+        this.harmonySynth = harmony.sampler;
+        this.samplerReady = true;
+        return "sampled";
+      })
+      .catch<ToneLoadStatus>(() => {
+        // Offline or blocked CDN: keep the synth fallback already in place.
+        melody.sampler.dispose();
+        harmony.sampler.dispose();
+        this.samplerReady = false;
+        return "fallback";
+      });
+
+    return this.tonePromise;
+  }
+
+  private disposeInstruments(): void {
     this.melodySynth?.dispose();
     this.harmonySynth?.dispose();
-    this.melodySynth = createPolySynth(config.melody);
-    this.harmonySynth = createPolySynth(config.harmony);
-    this.activeTonePreset = tonePreset;
+    this.melodySynth = null;
+    this.harmonySynth = null;
+    this.auxNodes.forEach((node) => node.dispose());
+    this.auxNodes = [];
+    this.tonePromise = null;
   }
 
   stop(): void {
@@ -313,6 +557,12 @@ export class AudioEngine {
     this.activePlayback = null;
     this.melodySynth?.releaseAll();
     this.harmonySynth?.releaseAll();
+  }
+
+  /** Audition a single pitch, e.g. when the user taps a piano-roll key. */
+  async previewNote(midi: number, tonePreset: PlaybackTonePreset = "mellow-keys"): Promise<void> {
+    await this.ensureStarted(tonePreset);
+    this.melodySynth?.triggerAttackRelease(midiToFrequency(midi), 0.55, Tone.now(), 0.85);
   }
 
   async playCandidate(
@@ -326,8 +576,9 @@ export class AudioEngine {
     const tonePreset = options.tonePreset ?? "mellow-keys";
     await this.ensureStarted(tonePreset);
     this.stop();
-    this.applyTonePreset(tonePreset);
-    const toneConfig = PLAYBACK_TONE_PRESETS[tonePreset];
+    const melodyVoice = getEffectiveVoiceConfig(tonePreset, "melody", this.samplerReady);
+    const harmonyVoice = getEffectiveVoiceConfig(tonePreset, "harmony", this.samplerReady);
+    const toneConfig = { melody: melodyVoice, harmony: harmonyVoice };
 
     const leadSeconds = 0.05;
     const startTime = Tone.now() + leadSeconds;

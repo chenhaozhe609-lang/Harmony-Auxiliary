@@ -13,3 +13,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Internal planning docs (PRD + task breakdowns) and local tooling
+docs/
+.claude/
+

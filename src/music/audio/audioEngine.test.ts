@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getEffectiveVoiceConfig,
   getPlaybackEndBeat,
+  isSampledTonePreset,
   makeScheduledBeatEvents,
   PLAYBACK_TONE_PRESETS,
   scheduleCancellableTriggers,
@@ -46,6 +48,7 @@ const candidate = {
 describe("audio playback helpers", () => {
   it("provides selectable tone presets for melody and harmony playback", () => {
     expect(Object.keys(PLAYBACK_TONE_PRESETS)).toEqual([
+      "acoustic-grand",
       "acoustic-piano",
       "electric-piano",
       "nylon-guitar",
@@ -54,12 +57,33 @@ describe("audio playback helpers", () => {
       "mellow-keys",
       "soft-pluck",
     ]);
+    expect(PLAYBACK_TONE_PRESETS["acoustic-grand"].melody.engine).toBe("sampler");
     expect(PLAYBACK_TONE_PRESETS["acoustic-piano"].melody.engine).toBe("synth");
     expect(PLAYBACK_TONE_PRESETS["electric-piano"].melody.engine).toBe("fm");
     expect(PLAYBACK_TONE_PRESETS["nylon-guitar"].melody.engine).toBe("pluck");
     expect(PLAYBACK_TONE_PRESETS["warm-organ"].melody.engine).toBe("am");
     expect(PLAYBACK_TONE_PRESETS["mellow-keys"]).toBe(PLAYBACK_TONE_PRESETS["acoustic-piano"]);
     expect(PLAYBACK_TONE_PRESETS["soft-pluck"]).toBe(PLAYBACK_TONE_PRESETS["nylon-guitar"]);
+  });
+
+  it("flags sample-based presets so the UI can show loading state", () => {
+    expect(isSampledTonePreset("acoustic-grand")).toBe(true);
+    expect(isSampledTonePreset("acoustic-piano")).toBe(false);
+    expect(isSampledTonePreset("electric-piano")).toBe(false);
+  });
+
+  it("falls back to the synth voice config when samples are unavailable", () => {
+    const fallback = getEffectiveVoiceConfig("acoustic-grand", "melody", false);
+    expect(fallback.engine).toBe("synth");
+    expect(Object.keys(fallback.options).length).toBeGreaterThan(0);
+
+    const sampled = getEffectiveVoiceConfig("acoustic-grand", "melody", true);
+    expect(sampled.durationScale).toBe(
+      PLAYBACK_TONE_PRESETS["acoustic-grand"].melody.durationScale,
+    );
+
+    const synthPreset = getEffectiveVoiceConfig("electric-piano", "harmony", false);
+    expect(synthPreset.engine).toBe("fm");
   });
 
   it("uses the latest melody or harmony end beat", () => {
