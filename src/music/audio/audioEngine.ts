@@ -5,6 +5,7 @@ export type PlaybackOptions = {
   melodyMuted: boolean;
   harmonyMuted: boolean;
   tonePreset: PlaybackTonePreset;
+  startBeat?: number;
 };
 
 type SynthEngine = "synth" | "fm" | "am" | "pluck";
@@ -195,6 +196,29 @@ export type ScheduledPlaybackTrigger = {
   run: () => void;
 };
 
+export type ScheduledBeatEvent<T> = {
+  event: T;
+  delaySeconds: number;
+  durationBeats: number;
+};
+
+export function makeScheduledBeatEvents<T extends { startBeat: number; durationBeats: number }>(
+  events: T[],
+  startBeat: number,
+  tempo: number,
+): Array<ScheduledBeatEvent<T>> {
+  return events
+    .filter((event) => event.startBeat + event.durationBeats > startBeat)
+    .map((event) => {
+      const audibleStartBeat = Math.max(event.startBeat, startBeat);
+      return {
+        event,
+        delaySeconds: beatToSeconds(audibleStartBeat - startBeat, tempo),
+        durationBeats: event.startBeat + event.durationBeats - audibleStartBeat,
+      };
+    });
+}
+
 export function scheduleCancellableTriggers(
   triggers: ScheduledPlaybackTrigger[],
   setTimer: (callback: () => void, delayMs: number) => number = window.setTimeout,
@@ -310,22 +334,24 @@ export class AudioEngine {
     let animationFrame: number | null = null;
     let stopped = false;
     const endBeat = getPlaybackEndBeat(melody, candidate);
-    const endSeconds = beatToSeconds(endBeat, tempo);
+    const playbackStartBeat = Math.max(0, Math.min(options.startBeat ?? 0, endBeat));
+    const playbackDurationBeats = Math.max(0, endBeat - playbackStartBeat);
+    const endSeconds = beatToSeconds(playbackDurationBeats, tempo);
     const triggers: ScheduledPlaybackTrigger[] = [];
 
     if (!options.melodyMuted) {
-      for (const note of melody) {
+      for (const scheduledNote of makeScheduledBeatEvents(melody, playbackStartBeat, tempo)) {
         triggers.push({
-          delaySeconds: leadSeconds + beatToSeconds(note.startBeat, tempo),
+          delaySeconds: leadSeconds + scheduledNote.delaySeconds,
           run: () => {
             this.melodySynth?.triggerAttackRelease(
-              midiToFrequency(note.midi),
+              midiToFrequency(scheduledNote.event.midi),
               Math.max(
                 toneConfig.melody.minDuration,
-                beatToSeconds(note.durationBeats, tempo) * toneConfig.melody.durationScale,
+                beatToSeconds(scheduledNote.durationBeats, tempo) * toneConfig.melody.durationScale,
               ),
               Tone.now(),
-              Math.min(1, note.velocity * toneConfig.melody.velocity),
+              Math.min(1, scheduledNote.event.velocity * toneConfig.melody.velocity),
             );
           },
         });
@@ -333,15 +359,15 @@ export class AudioEngine {
     }
 
     if (!options.harmonyMuted) {
-      for (const placedChord of candidate.chords) {
+      for (const scheduledChord of makeScheduledBeatEvents(candidate.chords, playbackStartBeat, tempo)) {
         triggers.push({
-          delaySeconds: leadSeconds + beatToSeconds(placedChord.startBeat, tempo),
+          delaySeconds: leadSeconds + scheduledChord.delaySeconds,
           run: () => {
             this.harmonySynth?.triggerAttackRelease(
-              chordToMidiVoicing(placedChord).map(midiToFrequency),
+              chordToMidiVoicing(scheduledChord.event).map(midiToFrequency),
               Math.max(
                 toneConfig.harmony.minDuration,
-                beatToSeconds(placedChord.durationBeats, tempo) * toneConfig.harmony.durationScale,
+                beatToSeconds(scheduledChord.durationBeats, tempo) * toneConfig.harmony.durationScale,
               ),
               Tone.now(),
               toneConfig.harmony.velocity,
@@ -356,7 +382,7 @@ export class AudioEngine {
     const tick = () => {
       if (stopped) return;
       const elapsedSeconds = Math.max(0, (performance.now() - startedAt) / 1000);
-      const currentBeat = Math.min(endBeat, (elapsedSeconds * tempo) / 60);
+      const currentBeat = Math.min(endBeat, playbackStartBeat + (elapsedSeconds * tempo) / 60);
       onBeat(currentBeat);
       if (currentBeat < endBeat) {
         animationFrame = window.requestAnimationFrame(tick);

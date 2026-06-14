@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getPlaybackEndBeat, PLAYBACK_TONE_PRESETS, scheduleCancellableTriggers } from "./audioEngine";
+import {
+  getPlaybackEndBeat,
+  makeScheduledBeatEvents,
+  PLAYBACK_TONE_PRESETS,
+  scheduleCancellableTriggers,
+} from "./audioEngine";
 import type { HarmonyCandidate, NoteEvent } from "../types";
 
 const melody: NoteEvent[] = [
@@ -59,6 +64,22 @@ describe("audio playback helpers", () => {
 
   it("uses the latest melody or harmony end beat", () => {
     expect(getPlaybackEndBeat(melody, candidate)).toBe(8);
+  });
+
+  it("schedules beat events relative to a playback start beat", () => {
+    const scheduled = makeScheduledBeatEvents(
+      [
+        { id: "before", startBeat: 0, durationBeats: 1 },
+        { id: "overlap", startBeat: 1, durationBeats: 3 },
+        { id: "after", startBeat: 5, durationBeats: 1 },
+      ],
+      2,
+      120,
+    );
+
+    expect(scheduled.map((item) => item.event.id)).toEqual(["overlap", "after"]);
+    expect(scheduled.map((item) => item.delaySeconds)).toEqual([0, 1.5]);
+    expect(scheduled.map((item) => item.durationBeats)).toEqual([2, 1]);
   });
 
   it("cancels queued playback triggers before they fire", () => {

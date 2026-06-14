@@ -629,6 +629,33 @@ function App() {
     dispatch({ type: "reset-playback" });
   };
 
+  const startPlaybackAt = async (startBeat: number, errorMessage: string) => {
+    if (!selectedCandidate || state.playback.status === "starting") return;
+    audioEngineRef.current?.stop();
+    dispatch({ type: "set-current-beat", currentBeat: startBeat });
+    dispatch({ type: "set-playback-status", status: "starting" });
+
+    try {
+      await audioEngineRef.current?.playCandidate(
+        state.melody,
+        selectedCandidate,
+        state.settings.tempo,
+        {
+          melodyMuted: state.playback.melodyMuted,
+          harmonyMuted: state.playback.harmonyMuted,
+          tonePreset: state.settings.playbackTone,
+          startBeat,
+        },
+        (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
+        () => dispatch({ type: "reset-playback" }),
+      );
+      dispatch({ type: "set-playback-status", status: "playing" });
+    } catch {
+      dispatch({ type: "reset-playback" });
+      dispatch({ type: "set-error", id: "audio", message: errorMessage });
+    }
+  };
+
   const playSelectedCandidate = async () => {
     if (!selectedCandidate || state.playback.status === "starting") return;
 
@@ -637,52 +664,18 @@ function App() {
       return;
     }
 
-    dispatch({ type: "set-playback-status", status: "starting" });
-
-    try {
-      await audioEngineRef.current?.playCandidate(
-        state.melody,
-        selectedCandidate,
-        state.settings.tempo,
-        {
-          melodyMuted: state.playback.melodyMuted,
-          harmonyMuted: state.playback.harmonyMuted,
-          tonePreset: state.settings.playbackTone,
-        },
-        (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
-        () => dispatch({ type: "reset-playback" }),
-      );
-      dispatch({ type: "set-playback-status", status: "playing" });
-    } catch {
-      dispatch({ type: "reset-playback" });
-      dispatch({ type: "set-error", id: "audio", message: t("message.audioStart") });
-    }
+    await startPlaybackAt(state.playback.currentBeat, t("message.audioStart"));
   };
 
-  const handleRestart = async () => {
-    if (!selectedCandidate) return;
-    audioEngineRef.current?.stop();
-    dispatch({ type: "set-current-beat", currentBeat: 0 });
-    dispatch({ type: "set-playback-status", status: "starting" });
+  const handlePlayFromStart = async () => {
+    await startPlaybackAt(0, t("message.audioRestart"));
+  };
 
-    try {
-      await audioEngineRef.current?.playCandidate(
-        state.melody,
-        selectedCandidate,
-        state.settings.tempo,
-        {
-          melodyMuted: state.playback.melodyMuted,
-          harmonyMuted: state.playback.harmonyMuted,
-          tonePreset: state.settings.playbackTone,
-        },
-        (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
-        () => dispatch({ type: "reset-playback" }),
-      );
-      dispatch({ type: "set-playback-status", status: "playing" });
-    } catch {
-      dispatch({ type: "reset-playback" });
-      dispatch({ type: "set-error", id: "audio", message: t("message.audioRestart") });
-    }
+  const handlePlayFromCurrentMeasure = async () => {
+    const beatsPerMeasure = state.settings.timeSignature.numerator;
+    const anchorBeat = selectedChord?.startBeat ?? state.playback.currentBeat;
+    const measureStartBeat = Math.floor(anchorBeat / beatsPerMeasure) * beatsPerMeasure;
+    await startPlaybackAt(measureStartBeat, t("message.audioRestart"));
   };
 
   const toggleMelodyMute = () => {
@@ -947,8 +940,21 @@ function App() {
               <span className="beat-readout">
                 {state.playback.currentBeat.toFixed(1)} {t("timeline.beat")}
               </span>
-              <button type="button" aria-label="Restart playback" disabled={!showCandidates} onClick={handleRestart}>
-                {t("action.restart")}
+              <button
+                type="button"
+                aria-label="Play from start"
+                disabled={!showCandidates || state.playback.status === "starting"}
+                onClick={() => void handlePlayFromStart()}
+              >
+                {t("action.playFromStart")}
+              </button>
+              <button
+                type="button"
+                aria-label="Play from current bar"
+                disabled={!showCandidates || state.playback.status === "starting"}
+                onClick={() => void handlePlayFromCurrentMeasure()}
+              >
+                {t("action.playFromCurrentBar")}
               </button>
               <button
                 type="button"
