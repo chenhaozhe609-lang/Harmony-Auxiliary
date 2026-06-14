@@ -90,6 +90,7 @@ type NoteDragState = {
   noteId: string;
   mode: "move" | "resize";
   originClientX: number;
+  originClientY: number;
   originalNote: NoteEvent;
 };
 
@@ -146,15 +147,29 @@ function harmonyVoiceGridRow(voice: (typeof HARMONY_VOICE_ROWS)[number]): number
   return HARMONY_VOICE_ROWS.indexOf(voice) + 1;
 }
 
-function noteGridRow(note: NoteEvent): number {
-  const closestIndex = PITCH_ROWS.reduce(
+function pitchRowIndexForMidi(midi: number): number {
+  return PITCH_ROWS.reduce(
     (bestIndex, row, index) =>
-      Math.abs(row.midi - note.midi) < Math.abs(PITCH_ROWS[bestIndex].midi - note.midi)
+      Math.abs(row.midi - midi) < Math.abs(PITCH_ROWS[bestIndex].midi - midi)
         ? index
         : bestIndex,
     0,
   );
-  return closestIndex + 1;
+}
+
+function noteGridRow(note: NoteEvent): number {
+  return pitchRowIndexForMidi(note.midi) + 1;
+}
+
+export function midiForDraggedPitch(
+  originalMidi: number,
+  deltaY: number,
+  rowHeight: number,
+): number {
+  const originalIndex = pitchRowIndexForMidi(originalMidi);
+  const rowDelta = Math.round(deltaY / rowHeight);
+  const nextIndex = Math.max(0, Math.min(PITCH_ROWS.length - 1, originalIndex + rowDelta));
+  return PITCH_ROWS[nextIndex].midi;
 }
 
 function updateNoteTiming(note: NoteEvent, startBeat: number, durationBeats: number): NoteEvent {
@@ -162,6 +177,15 @@ function updateNoteTiming(note: NoteEvent, startBeat: number, durationBeats: num
     ...note,
     startBeat,
     durationBeats,
+  };
+}
+
+function updateNotePitch(note: NoteEvent, midi: number): NoteEvent {
+  return {
+    ...note,
+    midi,
+    pitchClass: midiToPitchClass(midi),
+    name: midiToNoteName(midi),
   };
 }
 
@@ -559,6 +583,7 @@ function App() {
       noteId: note.id,
       mode,
       originClientX: event.clientX,
+      originClientY: event.clientY,
       originalNote: note,
     };
   };
@@ -572,21 +597,33 @@ function App() {
       event.clientX - drag.originClientX,
       timelineMetrics,
     );
+    const rowHeight = (event.currentTarget.closest(".melody-lane")?.clientHeight ?? 0) / PITCH_ROWS.length;
+    const draggedMidi =
+      rowHeight > 0
+        ? midiForDraggedPitch(
+            drag.originalNote.midi,
+            event.clientY - drag.originClientY,
+            rowHeight,
+          )
+        : drag.originalNote.midi;
     const latestNote =
       state.melody.find((note) => note.id === drag.noteId) ?? drag.originalNote;
 
     const updatedNote =
       drag.mode === "move"
-        ? updateNoteTiming(
-            latestNote,
-            Math.max(
-              0,
-              Math.min(
-                timelineMetrics.totalBeats - latestNote.durationBeats,
-                drag.originalNote.startBeat + signedDeltaBeat,
+        ? updateNotePitch(
+            updateNoteTiming(
+              latestNote,
+              Math.max(
+                0,
+                Math.min(
+                  timelineMetrics.totalBeats - latestNote.durationBeats,
+                  drag.originalNote.startBeat + signedDeltaBeat,
+                ),
               ),
+              latestNote.durationBeats,
             ),
-            latestNote.durationBeats,
+            draggedMidi,
           )
         : updateNoteTiming(
             latestNote,
