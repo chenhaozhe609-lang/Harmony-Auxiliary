@@ -772,10 +772,15 @@ button:disabled,
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in oklch, black 64%, transparent);
-  backdrop-filter: blur(4px);
+  /* Dark enough that the glass card reads even over the moving line field. */
+  background: color-mix(in oklch, black 70%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
+/* Deep-smoke glass, unified with the landing's capsule nav (TASK6 §9.8):
+   translucent void + backdrop blur + ivory hairline + a faint top highlight,
+   so it sits beautifully over the FloatingLines field underneath. */
 .auth-card {
   position: relative;
   width: min(420px, 100%);
@@ -783,10 +788,23 @@ button:disabled,
   flex-direction: column;
   gap: 14px;
   padding: 28px 26px 22px;
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in oklch, var(--color-ivory) 12%, transparent);
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-2);
+  background: color-mix(in oklch, var(--color-void) 64%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--color-ivory) 10%, transparent),
+    var(--shadow-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  backdrop-filter: blur(22px) saturate(1.2);
+}
+
+/* No backdrop-filter (or a low-end device where blur over live WebGL is too
+   costly): fall back to a more solid smoke so text stays legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .auth-card,
+  .projects-drawer {
+    background: color-mix(in oklch, var(--color-void) 94%, transparent);
+  }
 }
 
 .auth-card h2 {
@@ -840,7 +858,8 @@ button:disabled,
   padding: 0 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  /* A more solid inner surface so the field reads against the glass card. */
+  background: color-mix(in oklch, var(--color-surface-raised) 88%, transparent);
   color: var(--color-text);
   font: inherit;
 }
@@ -920,10 +939,12 @@ button:disabled,
   z-index: 48;
   display: flex;
   justify-content: flex-end;
-  background: color-mix(in oklch, black 58%, transparent);
-  backdrop-filter: blur(3px);
+  background: color-mix(in oklch, black 66%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
+/* Same deep-smoke glass as the auth card (TASK6 §9.8). */
 .projects-drawer {
   width: min(420px, 100%);
   height: 100%;
@@ -931,9 +952,13 @@ button:disabled,
   flex-direction: column;
   gap: 14px;
   padding: 20px;
-  background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  box-shadow: var(--shadow-2);
+  background: color-mix(in oklch, var(--color-void) 66%, transparent);
+  border-left: 1px solid color-mix(in oklch, var(--color-ivory) 12%, transparent);
+  box-shadow:
+    inset 1px 0 0 color-mix(in oklch, var(--color-ivory) 9%, transparent),
+    var(--shadow-2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  backdrop-filter: blur(22px) saturate(1.2);
   overflow-y: auto;
 }
 
