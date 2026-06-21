@@ -1,25 +1,42 @@
 :root {
-  /* Forest deep-green + cream "bone" neutrals. Rich, natural, not the AI-purple default. */
-  --color-bg: oklch(0.955 0.018 95);
-  --color-surface: oklch(0.984 0.011 95);
-  --color-surface-muted: oklch(0.928 0.022 98);
-  --color-border: oklch(0.855 0.022 120);
-  --color-hairline: oklch(0.9 0.018 110);
-  --color-text: oklch(0.27 0.035 152);
-  --color-text-muted: oklch(0.47 0.03 150);
-  --color-accent: oklch(0.46 0.1 153);
-  --color-accent-strong: oklch(0.38 0.095 153);
-  --color-accent-soft: oklch(0.9 0.05 150);
-  --color-stable: oklch(0.5 0.1 160);
-  --color-tension: oklch(0.62 0.13 62);
-  --color-danger: oklch(0.55 0.19 28);
-  --color-focus: oklch(0.7 0.11 152);
+  /* "Black space + ivory white": a warm, painterly near-black stage on which
+     ivory-white forms take shape, lit as if a single light fell on a still life.
+     Champagne/brass gold is the one warm-metal accent. (Task 6) */
 
-  /* Signature gradient (forest to pine), reserved for the hero brand moment. */
-  --gradient-warm: linear-gradient(102deg, oklch(0.44 0.11 156), oklch(0.55 0.09 192));
+  /* Black space — warm, layered, never pure black */
+  --color-void: oklch(0.1 0.012 70); /* deepest stage: hero, empty state */
+  --color-bg: oklch(0.15 0.012 70); /* main background */
+  --color-surface: oklch(0.195 0.012 70); /* workbench panels */
+  --color-surface-muted: oklch(0.165 0.012 70);
+  --color-surface-raised: oklch(0.235 0.014 70); /* lifted cards */
+  --color-border: oklch(0.32 0.012 70);
+  --color-hairline: oklch(0.26 0.01 70);
+
+  /* Ivory-white materials */
+  --color-text: oklch(0.94 0.012 85); /* primary ivory */
+  --color-text-muted: oklch(0.72 0.012 85);
+  --color-ivory: oklch(0.96 0.014 85); /* porcelain / ribbon highlight */
+  --color-ivory-dim: oklch(0.82 0.012 85);
+
+  /* Emphasis — no metallic gold. A near-monochrome pearl/ivory: emphasis reads
+     as a *brighter white*, not a colour, the way luxury houses work. */
+  --color-accent: oklch(0.94 0.006 90); /* bright pearl/ivory emphasis */
+  --color-accent-strong: oklch(0.86 0.006 90);
+  --color-accent-soft: oklch(0.4 0.005 90); /* warm graphite: rims, fills */
+
+  /* Harmony-function coding, near-monochrome (see TASK6 §5.2) */
+  --color-stable: oklch(0.94 0.008 90); /* T → ivory */
+  --color-tension: oklch(0.96 0.005 235); /* D → a whisper of cool platinum */
+
+  --color-danger: oklch(0.62 0.08 25); /* muted dusty rose, never a loud red */
+  --color-focus: oklch(0.93 0.012 95); /* pale ivory focus ring */
+
+  /* Signature gradient — a soft pearl sheen for the hero brand moment. */
+  --gradient-warm: linear-gradient(102deg, oklch(0.96 0.006 90), oklch(0.82 0.006 250));
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Cormorant Garamond", "Hoefler Text", "Iowan Old Style", Garamond, "Times New Roman", Georgia, serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 
   /* Spacing scale */
@@ -31,14 +48,14 @@
   --space-6: 32px;
   --space-8: 48px;
 
-  /* Radius scale: tighter inside, softer on containers */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Radius scale: sharpened for an editorial, gallery-print feel */
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
 
-  /* Tinted, single-light-source elevation */
-  --shadow-1: 0 1px 2px color-mix(in oklch, var(--color-text) 9%, transparent);
-  --shadow-2: 0 16px 40px -12px color-mix(in oklch, var(--color-text) 22%, transparent);
+  /* Dark-scene elevation: deep cast shadow, lifted by a faint top highlight. */
+  --shadow-1: 0 1px 2px color-mix(in oklch, black 45%, transparent);
+  --shadow-2: 0 24px 60px -18px color-mix(in oklch, black 70%, transparent);
 
   color: var(--color-text);
   background: var(--color-bg);
@@ -58,6 +75,36 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--color-bg);
+}
+
+/* Canvas tooth: a faint static film grain over the whole stage, so near-black
+   surfaces read like primed canvas rather than flat screen black. (Task 6) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Painterly "single light on a still life": a warm soft light from the top
+   fading into an edge vignette. Layer over a --color-void base. */
+.stage-atmosphere {
+  background:
+    radial-gradient(
+      130% 90% at 50% -12%,
+      color-mix(in oklch, var(--color-accent-soft) 42%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      120% 120% at 50% 42%,
+      transparent 46%,
+      color-mix(in oklch, black 42%, transparent) 100%
+    ),
+    var(--color-void);
 }
 
 button,

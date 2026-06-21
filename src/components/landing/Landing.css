@@ -1,0 +1,418 @@
+/* Multi-screen landing (TASK6 §9). The shell is the scroll container so the
+   floating glass nav can sit over scroll-snapped, full-height screens. Reuses
+   the global .primary-button / .ghost-button / .hero-grad / .landing-kicker. */
+.landing-shell.landing-v2 {
+  position: relative;
+  height: 100dvh;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 96px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-shell.landing-v2 {
+    scroll-behavior: smooth;
+  }
+}
+
+/* — Screens ----------------------------------------------------------------- */
+.landing-v2 .screen {
+  position: relative;
+  min-height: 100svh;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: clamp(72px, 12vh, 140px) clamp(24px, 5vw, 80px) clamp(56px, 9vh, 110px);
+}
+
+.landing-v2 .screen-head {
+  max-width: 720px;
+  text-align: center;
+}
+
+.landing-v2 .eyebrow {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.landing-v2 .screen-head h2 {
+  margin: 0;
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5vw, 64px);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.004em;
+  text-wrap: balance;
+}
+
+/* — Floating glass capsule nav (§9.0 / §9.8) -------------------------------- */
+.glass-nav {
+  position: sticky;
+  top: 16px;
+  z-index: 20;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(1100px, calc(100% - 32px));
+  margin: 16px auto -76px; /* negative pull so it overlays the hero below */
+  padding: 10px 12px 10px 20px;
+  border-radius: 999px;
+  /* Deep-smoke glass — never white frost on a near-black page. */
+  background: color-mix(in oklch, var(--color-void) 58%, transparent);
+  border: 1px solid color-mix(in oklch, var(--color-ivory) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--color-ivory) 10%, transparent),
+    0 12px 40px -16px color-mix(in oklch, black 75%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  transition: background 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+}
+
+/* Fallback for browsers without backdrop-filter: a more solid smoke. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-nav {
+    background: color-mix(in oklch, var(--color-void) 92%, transparent);
+  }
+}
+
+.glass-nav.is-scrolled {
+  background: color-mix(in oklch, var(--color-void) 74%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--color-ivory) 12%, transparent),
+    0 18px 50px -18px color-mix(in oklch, black 82%, transparent);
+}
+
+.glass-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.glass-nav-name {
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.01em;
+}
+
+.glass-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.glass-nav-cta {
+  min-width: auto;
+  height: 42px;
+  padding: 0 22px;
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .glass-nav-name {
+    display: none;
+  }
+}
+
+/* — 1 · Hero ---------------------------------------------------------------- */
+.hero-screen {
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+  padding-top: clamp(96px, 16vh, 180px);
+}
+
+.hero-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Scrim keeps the left-aligned title legible over the moving lines. */
+.hero-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--color-void) 0%,
+    color-mix(in oklch, var(--color-void) 60%, transparent) 34%,
+    transparent 66%
+  );
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 20px;
+  justify-items: start;
+  max-width: 34ch;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  /* Controls capture pointer events; the field below stays interactive. */
+  pointer-events: none;
+}
+
+.hero-copy > * {
+  pointer-events: auto;
+}
+
+.hero-title {
+  max-width: 12ch;
+  margin: 0;
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: clamp(64px, 9vw, 132px);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: 0.004em;
+  text-wrap: balance;
+}
+
+.hero-sub {
+  max-width: 42ch;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: clamp(16px, 1.3vw, 19px);
+  line-height: 1.6;
+}
+
+.hero-tagline {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.hero-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+/* — 2 · Interactive demo ---------------------------------------------------- */
+.harmony-demo {
+  width: min(720px, 100%);
+  display: grid;
+  gap: 26px;
+}
+
+.harmony-demo-melody {
+  position: relative;
+  height: 96px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.harmony-demo-note {
+  position: absolute;
+  height: 7px;
+  min-width: 14px;
+  border-radius: 999px;
+  background: var(--color-ivory);
+  box-shadow: 0 0 16px color-mix(in oklch, var(--color-ivory) 40%, transparent);
+}
+
+.harmony-demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.harmony-demo-styles {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--color-hairline);
+}
+
+.harmony-demo-styles button {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.25s var(--ease-out), background 0.25s var(--ease-out);
+}
+
+.harmony-demo-styles button.is-active {
+  background: color-mix(in oklch, var(--color-ivory) 12%, transparent);
+  color: var(--color-ivory);
+}
+
+.harmony-demo-chords {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.harmony-demo-chip {
+  display: grid;
+  gap: 6px;
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-hairline);
+  background: color-mix(in oklch, var(--color-surface) 55%, transparent);
+  transition: border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+
+.harmony-demo-chip.is-playing {
+  border-color: color-mix(in oklch, var(--color-ivory) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-ivory) 30%, transparent), var(--shadow-2);
+  transform: translateY(-3px);
+}
+
+.harmony-demo-symbol {
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.harmony-demo-roman {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+.harmony-demo-fn {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.harmony-demo-audition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.harmony-demo-audition .ghost-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.harmony-demo-audition p {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.harmony-demo-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.6;
+  max-width: 52ch;
+}
+
+/* — 3 · Personas bento ------------------------------------------------------ */
+.persona-bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  width: min(1080px, 100%);
+  /* Hairlines define the cells, not boxes (de-boxed editorial look). */
+  background: var(--color-hairline);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.persona-cell {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: clamp(28px, 4vw, 48px);
+  background: var(--color-void);
+}
+
+.persona-tag {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+.persona-cell h3 {
+  margin: 0;
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.persona-cell p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .persona-bento {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* — 5 · CTA ----------------------------------------------------------------- */
+.cta-screen {
+  gap: 24px;
+  text-align: center;
+}
+
+.cta-title {
+  margin: 0;
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: clamp(44px, 7vw, 96px);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.004em;
+  text-wrap: balance;
+}
+
+.cta-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: clamp(16px, 1.4vw, 20px);
+}
+
+.cta-button {
+  margin-top: 14px;
+  min-width: 240px;
+  height: 54px;
+  font-size: 16px;
+}

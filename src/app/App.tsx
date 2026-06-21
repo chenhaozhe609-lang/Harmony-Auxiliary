@@ -77,7 +77,7 @@ import {
   pixelToSnappedBeat,
 } from "./timelineGrid";
 import "./App.css";
-import workspacePreview from "../assets/workspace-preview.png";
+import Landing from "../components/landing/Landing";
 
 const DURATION_OPTIONS = [
   { labelKey: "duration.whole", value: 4 },
@@ -271,6 +271,12 @@ function App() {
   const scrollSyncRef = useRef(false);
   const melodyCenteredRef = useRef(false);
   const t = (key: string) => translate(language, key);
+  const prefersReducedMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
 
   useEffect(() => {
     savePreferences(state.settings, language, viewMode);
@@ -1273,112 +1279,19 @@ function App() {
 
   if (screen === "landing") {
     return (
-      <main className="landing-shell">
-        <header className="landing-nav" aria-label="Landing navigation">
-          <div className="brand-lockup">
-            <span className="brand-mark">H</span>
-            <div>
-              <h1>Harmony Auxiliary</h1>
-              <p>Local-first harmony assistant</p>
-            </div>
-          </div>
-          <div className="landing-nav-actions">
-            {authStatus === "authenticated" && user?.email ? (
-              <button type="button" className="secondary-button" onClick={() => void handleSignOut()}>
-                {translate(language, "auth.signOut")}
-              </button>
-            ) : authStatus === "anonymous" ? (
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => {
-                  setAuthIntent("prompt");
-                  setAuthOpen(true);
-                }}
-              >
-                {translate(language, "auth.signIn")}
-              </button>
-            ) : null}
-            <button type="button" className="secondary-button" onClick={enterWorkspace}>
-              Open Workspace
-            </button>
-          </div>
-        </header>
-
-        <section className="landing-hero" aria-label="Product introduction">
-          <div className="landing-poster">
-            <span className="landing-kicker">MIDI in. Harmony out.</span>
-            <h2>
-              <span>Harmony,</span>
-              <span className="hero-grad">heard.</span>
-            </h2>
-            <p className="landing-sub">
-              Turn a melody or MIDI sketch into playable harmony, with the theory shown for
-              every chord.
-            </p>
-            <div className="landing-cta-row">
-              <button type="button" className="primary-button" onClick={enterWorkspace}>
-                Start Harmonizing
-              </button>
-              <button type="button" className="ghost-button" onClick={enterDemo}>
-                {translate(language, "auth.demoCta")}
-              </button>
-            </div>
-          </div>
-          <div className="hero-motif" aria-hidden="true">
-            <span data-fn="T">Cmaj7</span>
-            <span data-fn="PD">F</span>
-            <span data-fn="D">G7</span>
-            <span data-fn="T">C</span>
-          </div>
-        </section>
-
-        <section className="workflow-intro" aria-label="Workflow introduction">
-          <span className="eyebrow">A compact music workflow</span>
-          <h3>From sketch to playable harmony without leaving the browser.</h3>
-        </section>
-
-        <section className="workflow-section" aria-label="Import workflow">
-          <div className="workflow-copy">
-            <span>01</span>
-            <h4>Import or sketch</h4>
-          </div>
-          <div className="landing-preview">
-            <img
-              src={workspacePreview}
-              alt="The Harmony Auxiliary workspace: a melody on the piano roll with generated harmony voices and chord labels below."
-              loading="lazy"
-              width={945}
-              height={840}
-            />
-          </div>
-        </section>
-
-        <section className="workflow-section" aria-label="Generate workflow">
-          <div className="workflow-copy">
-            <span>02</span>
-            <h4>Generate and listen</h4>
-          </div>
-          <div className="workflow-rhythm" aria-hidden="true">
-            <span>Cmaj7</span>
-            <span>F</span>
-            <span>G7</span>
-            <span>C</span>
-          </div>
-        </section>
-
-        <section className="workflow-section" aria-label="Inspect workflow">
-          <div className="workflow-copy">
-            <span>03</span>
-            <h4>Inspect and keep</h4>
-          </div>
-          <div className="workflow-inspector" aria-hidden="true">
-            <span>Why it works</span>
-            <strong>E is the third of Cmaj7.</strong>
-            <p>Tonic color, stable fit, ready to export.</p>
-          </div>
-        </section>
-
+      <>
+        <Landing
+          authStatus={authStatus}
+          userEmail={user?.email ?? null}
+          onSignIn={() => {
+            setAuthIntent("prompt");
+            setAuthOpen(true);
+          }}
+          onSignOut={() => void handleSignOut()}
+          onEnterWorkspace={enterWorkspace}
+          onEnterDemo={enterDemo}
+          prefersReducedMotion={prefersReducedMotion}
+        />
         {authOpen ? (
           <AuthPanel
             language={language}
@@ -1387,7 +1300,7 @@ function App() {
             onDemo={enterDemo}
           />
         ) : null}
-      </main>
+      </>
     );
   }
 

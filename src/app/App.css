@@ -1,15 +1,34 @@
 .app-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 40px clamp(24px, 4vw, 64px) 64px;
+  /* Workbench: a calmer single-light wash so dense data stays legible. */
+  background:
+    radial-gradient(
+      140% 70% at 50% -20%,
+      color-mix(in oklch, var(--color-accent-soft) 16%, transparent),
+      transparent 50%
+    ),
+    var(--color-bg);
+  background-attachment: fixed;
 }
 
 .landing-shell {
   min-height: 100dvh;
   overflow-x: hidden;
   padding: 24px 24px 64px;
+  /* Stage: full painterly black with a warm top light fading to a vignette. */
   background:
-    radial-gradient(120% 78% at 100% -8%, var(--color-accent-soft), transparent 48%),
-    var(--color-bg);
+    radial-gradient(
+      130% 90% at 50% -12%,
+      color-mix(in oklch, var(--color-accent-soft) 42%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      120% 120% at 50% 42%,
+      transparent 46%,
+      color-mix(in oklch, black 45%, transparent) 100%
+    ),
+    var(--color-void);
 }
 
 .landing-nav {
@@ -21,23 +40,62 @@
   margin: 0 auto;
 }
 
+/* Full-bleed generative hero: an interactive FloatingLines field (ivory/pearl
+   lines on black) is the background; the title sits over the dark left. (Task 6) */
 .landing-hero {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  min-height: calc(100dvh - 96px);
+  display: flex;
   align-items: center;
-  gap: 56px;
-  max-width: 1240px;
-  min-height: calc(100dvh - 120px);
+  overflow: hidden;
+}
+
+.still-life {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Scrim: keep the left title column legible over the moving lines. */
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--color-void) 0%,
+    color-mix(in oklch, var(--color-void) 64%, transparent) 32%,
+    transparent 64%
+  );
+}
+
+.landing-hero-inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 40px 0 56px;
+  padding: 0 24px;
+  /* Let pointer events fall through to the interactive line field; only the
+     actual controls capture them. */
+  pointer-events: none;
+}
+
+.landing-hero-inner button,
+.landing-hero-inner a {
+  pointer-events: auto;
 }
 
 .landing-poster {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 26px;
+  gap: 22px;
+  max-width: 32ch;
   align-content: center;
   justify-items: start;
 }
@@ -52,18 +110,27 @@
 }
 
 .landing-poster h2 {
-  max-width: 11ch;
+  max-width: 14ch;
   margin: 0;
-  color: var(--color-text);
-  font-size: clamp(60px, 8.4vw, 122px);
-  font-weight: 800;
-  line-height: 0.86;
-  letter-spacing: -0.035em;
+  color: var(--color-ivory);
+  font-family: var(--font-display);
+  font-size: clamp(64px, 8.8vw, 132px);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0.004em;
   text-wrap: balance;
 }
 
 .landing-poster h2 span {
-  display: block;
+  display: inline;
+}
+
+.landing-tagline {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
 }
 
 .hero-grad {
@@ -405,10 +472,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-5);
+  gap: var(--space-6);
   max-width: 1320px;
   margin: 0 auto;
-  padding: var(--space-2) var(--space-1) var(--space-4);
+  padding: 0 0 28px;
   border-bottom: 1px solid var(--color-hairline);
 }
 
@@ -436,6 +503,17 @@
 .empty-state h3 {
   margin: 0;
   letter-spacing: 0;
+}
+
+/* Gallery display headings: an editorial serif on the ivory "labels". */
+.timeline-header h2,
+.inspector h2,
+.empty-state h3,
+.workflow-intro h3,
+.workflow-section h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .brand-lockup h1 {
@@ -530,7 +608,7 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface);
-  box-shadow: 0 18px 42px color-mix(in srgb, var(--color-text) 12%, transparent);
+  box-shadow: 0 18px 42px color-mix(in oklch, black 55%, transparent);
 }
 
 .settings-grid {
@@ -694,8 +772,8 @@ button:disabled,
   display: grid;
   place-items: center;
   padding: 24px;
-  background: color-mix(in oklch, var(--color-text) 38%, transparent);
-  backdrop-filter: blur(3px);
+  background: color-mix(in oklch, black 64%, transparent);
+  backdrop-filter: blur(4px);
 }
 
 .auth-card {
@@ -842,8 +920,8 @@ button:disabled,
   z-index: 48;
   display: flex;
   justify-content: flex-end;
-  background: color-mix(in oklch, var(--color-text) 32%, transparent);
-  backdrop-filter: blur(2px);
+  background: color-mix(in oklch, black 58%, transparent);
+  backdrop-filter: blur(3px);
 }
 
 .projects-drawer {
@@ -1072,11 +1150,10 @@ button:disabled,
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 18px;
-  margin-bottom: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--color-accent-soft) 22%, var(--color-surface));
+  padding: 22px 0 24px;
+  margin-bottom: 18px;
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .guide-coach-head {
@@ -1168,26 +1245,24 @@ button:disabled,
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 344px;
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: clamp(40px, 5vw, 72px);
   max-width: 1320px;
-  margin: var(--space-5) auto 0;
+  margin: 44px auto 0;
 }
 
 .timeline-panel {
   min-width: 0;
   display: grid;
   align-content: start;
-  gap: var(--space-4);
+  gap: 28px;
 }
 
 .inspector {
   min-width: 0;
   align-self: start;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-1);
+  /* Editorial: an open column divided from the stage by a single hairline. */
+  border-left: 1px solid var(--color-hairline);
 }
 
 .timeline-header {
@@ -1200,17 +1275,17 @@ button:disabled,
 .eyebrow,
 .empty-kicker {
   color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
 .timeline-header h2 {
-  margin-top: 4px;
-  font-size: 26px;
+  margin-top: 10px;
+  font-size: 32px;
   line-height: 1.05;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .tone-status {
@@ -1239,11 +1314,8 @@ button:disabled,
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3) var(--space-5);
-  padding: var(--space-2);
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-1);
+  padding: 0 0 22px;
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .toolbar-source,
@@ -1357,19 +1429,19 @@ button:disabled,
 .harmony-status-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
+  gap: 10px;
+  padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--color-accent);
+  color: var(--color-text);
 }
 
 .harmony-status-banner strong {
   font-size: 13px;
+  color: var(--color-accent);
 }
 
 .harmony-status-banner span {
-  color: color-mix(in srgb, var(--color-accent-strong) 78%, var(--color-text-muted));
+  color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -1387,10 +1459,9 @@ button:disabled,
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
+  padding: 12px 0 12px 14px;
+  border-left: 2px solid var(--color-hairline);
+  background: transparent;
 }
 
 .midi-track-panel label {
@@ -1432,12 +1503,12 @@ button:disabled,
 }
 
 .message-banner[data-tone="error"] {
-  border-color: var(--color-tension);
-  color: var(--color-tension);
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .message-banner[data-tone="status"] {
-  border-color: var(--color-accent);
+  border-left-color: var(--color-accent);
   color: var(--color-accent);
 }
 
@@ -1445,9 +1516,6 @@ button:disabled,
   position: relative;
   overflow: hidden;
   min-height: 282px;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
 }
 
 .timeline-canvas[data-empty="true"] {
@@ -1477,9 +1545,9 @@ button:disabled,
 .window-title {
   padding-left: 2px;
   color: var(--color-text-muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 
@@ -1487,9 +1555,8 @@ button:disabled,
   overflow-x: auto;
   overflow-y: hidden;
   max-width: 100%;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--color-surface) 70%, transparent);
 }
 
 .ruler-window {
@@ -1640,12 +1707,12 @@ button:disabled,
 }
 
 .piano-key[data-black="true"] {
-  background: color-mix(in srgb, var(--color-text) 80%, var(--color-surface));
-  color: color-mix(in srgb, var(--color-surface) 86%, var(--color-text));
+  background: var(--color-void);
+  color: color-mix(in oklch, var(--color-text-muted) 72%, transparent);
 }
 
 .piano-key[data-root="true"] {
-  color: var(--color-text);
+  color: var(--color-accent);
   font-weight: 850;
 }
 
@@ -1691,8 +1758,12 @@ button:disabled,
   place-items: center;
   border-color: transparent;
   border-radius: 999px;
-  background: var(--color-accent);
-  color: var(--color-surface);
+  /* Melody = white porcelain forms taking shape on the black stage. */
+  background: linear-gradient(180deg, var(--color-ivory), var(--color-ivory-dim));
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 55%, transparent),
+    var(--shadow-1);
+  color: var(--color-void);
   cursor: grab;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1714,8 +1785,10 @@ button:disabled,
 }
 
 .note.is-selected {
-  border-color: color-mix(in srgb, var(--color-text) 22%, var(--color-accent));
-  box-shadow: 0 0 0 2px var(--color-accent-soft);
+  /* Gold rim light marks the chosen form. */
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 0 14px -2px color-mix(in oklch, var(--color-accent) 70%, transparent);
 }
 
 .note-resize-handle {
@@ -1766,9 +1839,10 @@ button:disabled,
   height: 22px;
   margin-inline: 5px;
   place-items: center;
-  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--color-border));
+  border-color: color-mix(in oklch, var(--color-ivory-dim) 26%, var(--color-border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent-soft) 70%, var(--color-surface));
+  /* Harmony = quieter ivory cloth/ribbon under the melody. */
+  background: color-mix(in oklch, var(--color-ivory-dim) 28%, var(--color-surface));
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -1779,11 +1853,14 @@ button:disabled,
 
 .harmony-note.is-selected {
   border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: color-mix(in oklch, var(--color-accent-soft) 62%, var(--color-surface));
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 
 .harmony-note.is-active {
-  color: var(--color-accent);
+  color: var(--color-void);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .chord-block {
@@ -1798,11 +1875,13 @@ button:disabled,
 
 .chord-block.is-selected {
   border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: color-mix(in oklch, var(--color-accent-soft) 60%, var(--color-surface));
 }
 
 .chord-block.is-active {
+  border-color: var(--color-accent);
   color: var(--color-accent);
+  box-shadow: 0 0 16px -4px color-mix(in oklch, var(--color-accent) 60%, transparent);
 }
 
 .harmony-grid.is-outdated .harmony-note,
@@ -1843,7 +1922,7 @@ button:disabled,
 .candidate-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-5);
 }
 
 .candidate {
@@ -1851,16 +1930,18 @@ button:disabled,
   min-height: 104px;
   align-content: start;
   gap: 8px;
-  padding: 14px;
-  border-color: var(--color-hairline);
-  background: var(--color-surface-muted);
+  padding: 16px 16px 18px 0;
+  border: 0;
+  border-top: 2px solid var(--color-hairline);
+  border-radius: 0;
+  background: transparent;
   text-align: left;
 }
 
 .candidate.is-selected {
-  border-color: var(--color-accent);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-1);
+  border-top-color: var(--color-accent);
+  background: transparent;
+  box-shadow: none;
 }
 
 .candidate.is-selected span {
@@ -1894,13 +1975,15 @@ button:disabled,
 }
 
 .inspector {
-  padding: 20px;
+  padding: 2px 4px 8px clamp(28px, 3vw, 48px);
 }
 
 .inspector h2 {
-  margin-top: 10px;
-  font-size: 38px;
+  margin-top: 14px;
+  font-size: 46px;
+  font-weight: 500;
   line-height: 1;
+  letter-spacing: -0.01em;
 }
 
 .candidate-summary {
@@ -1912,19 +1995,17 @@ button:disabled,
 
 .inspector-rows {
   display: grid;
-  gap: 1px;
-  margin-top: 20px;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
+  margin-top: 26px;
+  border-top: 1px solid var(--color-hairline);
 }
 
 .inspector-rows div {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px;
-  background: var(--color-surface-muted);
+  padding: 15px 0;
+  border-bottom: 1px solid var(--color-hairline);
+  background: transparent;
 }
 
 .inspector-rows span {
@@ -2018,18 +2099,6 @@ summary:focus-visible {
 }
 
 @media (max-width: 1120px) {
-  .landing-hero {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 36px;
-    min-height: auto;
-    padding: 24px 0 48px;
-  }
-
-  .hero-motif {
-    max-width: 460px;
-  }
-
   .workflow-section {
     grid-template-columns: 1fr;
     gap: 34px;
@@ -2103,6 +2172,39 @@ summary:focus-visible {
   }
 }
 
+/* Mobile hero: the portrait still-life keeps its dark space at the top, so the
+   text anchors to the top and the scrim runs top-to-bottom. */
+@media (max-width: 767px) {
+  .landing-hero {
+    align-items: flex-start;
+    min-height: calc(100dvh - 132px);
+  }
+
+  .landing-hero::before {
+    background: linear-gradient(
+      180deg,
+      var(--color-void) 0%,
+      var(--color-void) 16%,
+      color-mix(in oklch, var(--color-void) 78%, transparent) 44%,
+      transparent 72%
+    );
+  }
+
+  .landing-hero-inner {
+    padding-top: 24px;
+  }
+
+  .landing-poster {
+    max-width: none;
+    gap: 16px;
+    align-content: start;
+  }
+
+  .still-life img {
+    object-position: center 78%;
+  }
+}
+
 @media (max-width: 640px) {
   .landing-shell {
     padding: 16px;
@@ -2113,14 +2215,9 @@ summary:focus-visible {
     flex-direction: column;
   }
 
-  .landing-hero {
-    min-height: auto;
-    padding: 48px 0 42px;
-  }
-
   .landing-poster h2 {
     max-width: 360px;
-    font-size: clamp(58px, 19vw, 76px);
+    font-size: clamp(54px, 15vw, 72px);
   }
 
   .landing-poster .primary-button,

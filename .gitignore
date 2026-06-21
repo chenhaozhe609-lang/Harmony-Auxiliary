@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .vite/
+.pnpm-store/
 *.local
 .env
 .env.*
@@ -16,4 +17,7 @@ pnpm-debug.log*
 # Internal planning docs (PRD + task breakdowns) and local tooling
 docs/
 .claude/
+
+# Working source images (the build uses the optimized copies in src/assets/)
+Assets/
 
