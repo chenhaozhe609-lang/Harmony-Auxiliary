@@ -28,12 +28,12 @@ function note(startBeat: number, durationBeats: number): NoteEvent {
 }
 
 describe("timeline grid metrics", () => {
-  it("keeps a four-measure minimum for short sketches", () => {
+  it("keeps an eight-measure minimum for short sketches", () => {
     const metrics = createTimelineGridMetrics(3.5, 4);
 
-    expect(metrics.measureCount).toBe(4);
-    expect(metrics.totalBeats).toBe(16);
-    expect(metrics.columnCount).toBe(16 * TIMELINE_SUBDIVISIONS_PER_BEAT);
+    expect(metrics.measureCount).toBe(8);
+    expect(metrics.totalBeats).toBe(32);
+    expect(metrics.columnCount).toBe(32 * TIMELINE_SUBDIVISIONS_PER_BEAT);
   });
 
   it("expands to fit longer melodies and harmony", () => {

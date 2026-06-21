@@ -3,7 +3,9 @@ import type { HarmonyCandidate, NoteEvent } from "../music/types";
 export const TIMELINE_LABEL_WIDTH = 68;
 export const TIMELINE_SUBDIVISIONS_PER_BEAT = 2;
 export const TIMELINE_SUBDIVISION_WIDTH = 44;
-export const MIN_TIMELINE_MEASURES = 4;
+// Default project length: 8 bars (the fixed 44px subdivision width makes ~4
+// bars fill a desktop viewport, so bars 5–8 are a horizontal scroll away). (§11)
+export const MIN_TIMELINE_MEASURES = 8;
 export const MIN_NOTE_DURATION_BEATS = 1 / TIMELINE_SUBDIVISIONS_PER_BEAT;
 
 export type TimelineGridMetrics = {
