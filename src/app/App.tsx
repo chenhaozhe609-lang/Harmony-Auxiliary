@@ -597,6 +597,17 @@ function App() {
   // Gates are derived from AppState — activeStep is only a view cursor, never a
   // second source of truth.
   const guided = viewMode === "guided";
+
+  // Expert mode (TASK6 §10): the inspector is an on-demand side-sheet that
+  // slides in only when the user explicitly clicks a chord/voice, so the piano
+  // roll owns the full width while idle (and after a bare generate). Guided mode
+  // keeps its in-flow inspector column.
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const openInspectorOnChord = (chordId: string) => {
+    dispatch({ type: "select-chord", chordId });
+    setInspectorOpen(true);
+  };
+
   const GUIDE_STEPS = ["input", "settings", "generate", "audition", "select", "export"] as const;
   const stepGates = [
     hasMelody, // input -> settings
@@ -1399,7 +1410,11 @@ function App() {
         </nav>
       </header>
 
-      <section className={`workspace-grid${guided && !showInspector ? " is-single" : ""}`}>
+      <section
+        className={`workspace-grid${guided && !showInspector ? " is-single" : ""}${
+          !guided ? " is-expert" : ""
+        }`}
+      >
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
             <div>
@@ -1836,7 +1851,7 @@ function App() {
                                 gridRow: harmonyVoiceGridRow(voice.voice),
                               }}
                               title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
-                              onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
+                              onClick={() => openInspectorOnChord(placedChord.id)}
                             >
                               {voice.noteName}
                             </button>
@@ -1853,7 +1868,7 @@ function App() {
                               gridColumn: placedChordGridColumn(placedChord),
                               gridRow: HARMONY_VOICE_ROWS.length + 1,
                             }}
-                            onClick={() => dispatch({ type: "select-chord", chordId: placedChord.id })}
+                            onClick={() => openInspectorOnChord(placedChord.id)}
                           >
                             <strong>{placedChord.chord.symbol}</strong>
                             <span>{placedChord.chord.roman}</span>
@@ -1916,7 +1931,23 @@ function App() {
         </section>
 
         {showInspector ? (
-        <aside className="inspector" aria-label="Selected harmony details">
+        <aside
+          className={`inspector${!guided ? " inspector-sheet" : ""}${
+            !guided && inspectorOpen ? " is-open" : ""
+          }`}
+          aria-label="Selected harmony details"
+          aria-hidden={!guided && !inspectorOpen ? true : undefined}
+        >
+          {!guided ? (
+            <button
+              type="button"
+              className="inspector-close"
+              aria-label={t("auth.close")}
+              onClick={() => setInspectorOpen(false)}
+            >
+              ×
+            </button>
+          ) : null}
           <span className="eyebrow">{t("inspector.label")}</span>
           {selectedCandidate && selectedChord ? (
             <>
