@@ -2113,6 +2113,7 @@ button:disabled,
    internally; the page itself never scrolls. (TASK6 §11 Phase A2) */
 .app-shell.expert {
   --stage-pad: clamp(12px, 2vw, 28px);
+  height: 100vh; /* fallback for browsers without dvh */
   height: 100dvh;
   padding: 0;
   display: flex;
@@ -2202,10 +2203,19 @@ button:disabled,
   overflow: hidden;
 }
 
+/* Flex column (not grid) so the melody window robustly fills the remaining
+   height and scrolls — `height:100%` over grid rows can fail to bound the
+   window in some layout passes, leaving it clipped with no scroll. */
 .workspace-grid.is-expert .timeline-stack {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   gap: 0;
+}
+
+.workspace-grid.is-expert .ruler-window {
+  flex: 0 0 auto;
 }
 
 /* Drop the inline "Melody"/"Harmony" titles inside the roll — the ruler sits
@@ -2215,8 +2225,9 @@ button:disabled,
 }
 
 .workspace-grid.is-expert .melody-window {
+  flex: 1 1 auto;
   max-height: none;
-  height: 100%;
+  height: auto;
   min-height: 0;
 }
 
