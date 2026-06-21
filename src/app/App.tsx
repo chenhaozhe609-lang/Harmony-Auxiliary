@@ -928,14 +928,27 @@ function App() {
     window.addEventListener("pointerup", onUp);
   };
 
-  // Keep the navigator in sync when the timeline width or layout changes.
+  // Keep the navigator in sync when the timeline width or layout changes. A
+  // post-layout frame plus a ResizeObserver are needed because an empty project
+  // (e.g. logged in with no melody) never fires a scroll or melody change, so a
+  // single synchronous measurement can run before the roll has its real width.
   useEffect(() => {
-    updateNavView();
-    const onResize = () => updateNavView();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const el = melodyScrollRef.current;
+    const measure = () => updateNavView();
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    let observer: ResizeObserver | undefined;
+    if (el && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(measure);
+      observer.observe(el);
+    }
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen]);
+  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen, showEditableGrid]);
 
   const auditionPitch = (midi: number) => {
     void audioEngineRef.current?.previewNote(midi, state.settings.playbackTone);

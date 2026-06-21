@@ -2211,11 +2211,13 @@ button:disabled,
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  min-width: 0;
   gap: 0;
 }
 
 .workspace-grid.is-expert .ruler-window {
   flex: 0 0 auto;
+  min-width: 0; /* shrink below the wide ruler content so overflow-x scrolls */
 }
 
 /* Drop the inline "Melody"/"Harmony" titles inside the roll — the ruler sits
@@ -2229,6 +2231,7 @@ button:disabled,
   max-height: none;
   height: auto;
   min-height: 0;
+  min-width: 0; /* bound to the panel width so the wide roll scrolls horizontally */
 }
 
 /* Thin dark scrollbar that belongs to the roll, not the page. */
