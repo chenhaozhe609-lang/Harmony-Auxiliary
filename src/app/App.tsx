@@ -98,8 +98,8 @@ const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
 
 // Three chromatic octaves (C3–B5) so the melody roll behaves like an FL Studio piano roll:
 // 12 semitone rows per octave, black keys distinguished from white keys.
-const LOWEST_PITCH_MIDI = 48; // C3
-const HIGHEST_PITCH_MIDI = 83; // B5
+const LOWEST_PITCH_MIDI = 36; // C2
+const HIGHEST_PITCH_MIDI = 96; // C7 — a DAW-scale range so the roll always scrolls vertically
 const PITCH_ROW_HEIGHT = 22;
 const BLACK_KEY_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
 
@@ -576,6 +576,7 @@ function App() {
     [timelineEndBeat, state.settings.timeSignature.numerator],
   );
   const timelineGridStyle = {
+    "--pitch-row-count": PITCH_ROWS.length,
     "--timeline-grid-columns": `${timelineMetrics.labelWidth}px repeat(${timelineMetrics.columnCount}, ${timelineMetrics.subdivisionWidth}px)`,
     "--timeline-content-width": `${timelineMetrics.contentWidth}px`,
     "--timeline-label-width": `${timelineMetrics.labelWidth}px`,

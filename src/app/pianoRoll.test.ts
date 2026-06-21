@@ -9,10 +9,10 @@ describe("piano roll pitch dragging", () => {
     expect(midiForDraggedPitch(64, 22, 22)).toBe(63);
   });
 
-  it("clamps dragged notes to the C3–B5 piano roll range", () => {
-    // Top of range is B5 (83); a large upward drag clamps there.
-    expect(midiForDraggedPitch(81, -660, 22)).toBe(83);
-    // Bottom of range is C3 (48); a large downward drag clamps there.
-    expect(midiForDraggedPitch(50, 660, 22)).toBe(48);
+  it("clamps dragged notes to the C2–C7 piano roll range", () => {
+    // Top of range is C7 (96); a large upward drag clamps there.
+    expect(midiForDraggedPitch(90, -660, 22)).toBe(96);
+    // Bottom of range is C2 (36); a large downward drag clamps there.
+    expect(midiForDraggedPitch(42, 660, 22)).toBe(36);
   });
 });

@@ -1695,8 +1695,8 @@ button:disabled,
 
 .melody-grid {
   --pitch-row-height: 22px;
-  grid-template-rows: repeat(36, var(--pitch-row-height));
-  min-height: calc(var(--pitch-row-height) * 36);
+  grid-template-rows: repeat(var(--pitch-row-count, 36), var(--pitch-row-height));
+  min-height: calc(var(--pitch-row-height) * var(--pitch-row-count, 36));
 }
 
 .melody-grid[data-editable="true"] {
@@ -1711,7 +1711,7 @@ button:disabled,
   grid-column: 1;
   grid-row: 1 / -1;
   display: grid;
-  grid-template-rows: repeat(36, var(--pitch-row-height));
+  grid-template-rows: repeat(var(--pitch-row-count, 36), var(--pitch-row-height));
   background: var(--color-surface);
 }
 
@@ -1753,8 +1753,8 @@ button:disabled,
   grid-column: 2 / -1;
   grid-row: 1 / -1;
   display: grid;
-  grid-template-rows: repeat(36, var(--pitch-row-height));
-  min-height: calc(var(--pitch-row-height) * 36);
+  grid-template-rows: repeat(var(--pitch-row-count, 36), var(--pitch-row-height));
+  min-height: calc(var(--pitch-row-height) * var(--pitch-row-count, 36));
 }
 
 .piano-roll-cells span {
@@ -2223,7 +2223,8 @@ button:disabled,
 /* Thin dark scrollbar that belongs to the roll, not the page. */
 .workspace-grid.is-expert .melody-window {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklch, var(--color-ivory) 24%, transparent) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in oklch, var(--color-ivory) 26%, transparent) transparent;
 }
 
 .workspace-grid.is-expert .melody-window::-webkit-scrollbar {

@@ -158,15 +158,17 @@ for (const result of results) {
   if (tonePreset !== "acoustic-grand") {
     errors.push(`${viewport}: default tone preset is ${tonePreset}, expected acoustic-grand.`);
   }
-  if (pianoRoll.keyCount !== 36) {
-    errors.push(`${viewport}: expected 36 chromatic keys, got ${pianoRoll.keyCount}.`);
+  // DAW-scale range C2..C7 (TASK6 §11 Phase A2): a 61-key, 5-octave roll so the
+  // melody editor always scrolls vertically inside the fixed-height stage.
+  if (pianoRoll.keyCount !== 61) {
+    errors.push(`${viewport}: expected 61 chromatic keys, got ${pianoRoll.keyCount}.`);
   }
-  if (pianoRoll.blackKeyCount !== 15) {
-    errors.push(`${viewport}: expected 15 black keys across 3 octaves, got ${pianoRoll.blackKeyCount}.`);
+  if (pianoRoll.blackKeyCount !== 25) {
+    errors.push(`${viewport}: expected 25 black keys across 5 octaves, got ${pianoRoll.blackKeyCount}.`);
   }
-  if (pianoRoll.firstKey !== "B5" || pianoRoll.lastKey !== "C3") {
+  if (pianoRoll.firstKey !== "C7" || pianoRoll.lastKey !== "C2") {
     errors.push(
-      `${viewport}: piano roll range is ${pianoRoll.firstKey}..${pianoRoll.lastKey}, expected B5..C3.`,
+      `${viewport}: piano roll range is ${pianoRoll.firstKey}..${pianoRoll.lastKey}, expected C7..C2.`,
     );
   }
   if (!windows.separateWindows) {
