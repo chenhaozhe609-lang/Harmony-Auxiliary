@@ -270,6 +270,9 @@ function App() {
   const harmonyScrollRef = useRef<HTMLDivElement | null>(null);
   const scrollSyncRef = useRef(false);
   const melodyCenteredRef = useRef(false);
+  const navTrackRef = useRef<HTMLDivElement | null>(null);
+  // Mini timeline navigator: the visible viewport over the full timeline width.
+  const [navView, setNavView] = useState({ left: 0, view: 1, total: 1 });
   const t = (key: string) => translate(language, key);
   const prefersReducedMotion = useMemo(
     () =>
@@ -878,6 +881,12 @@ function App() {
     return PITCH_ROWS[rowIndex];
   };
 
+  const updateNavView = () => {
+    const el = melodyScrollRef.current;
+    if (!el) return;
+    setNavView({ left: el.scrollLeft, view: el.clientWidth, total: el.scrollWidth });
+  };
+
   const syncHorizontalScroll = (event: ReactUIEvent<HTMLDivElement>) => {
     if (scrollSyncRef.current) return;
     scrollSyncRef.current = true;
@@ -889,7 +898,44 @@ function App() {
       }
     }
     scrollSyncRef.current = false;
+    updateNavView();
   };
+
+  // Drag (or click) the navigator to pan the shared horizontal viewport; setting
+  // scrollLeft fires syncHorizontalScroll, which keeps melody + harmony aligned.
+  const handleNavPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const track = navTrackRef.current;
+    const el = melodyScrollRef.current;
+    if (!track || !el || el.scrollWidth <= el.clientWidth) return;
+    event.preventDefault();
+    const trackRect = track.getBoundingClientRect();
+    const ratio = el.scrollWidth / trackRect.width;
+    const onThumb = (event.target as HTMLElement).closest(".timeline-nav-thumb");
+    if (!onThumb) {
+      // Click on the track: centre the viewport under the cursor.
+      el.scrollLeft = (event.clientX - trackRect.left) * ratio - el.clientWidth / 2;
+    }
+    const startX = event.clientX;
+    const startScroll = el.scrollLeft;
+    const onMove = (moveEvent: PointerEvent) => {
+      el.scrollLeft = startScroll + (moveEvent.clientX - startX) * ratio;
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  // Keep the navigator in sync when the timeline width or layout changes.
+  useEffect(() => {
+    updateNavView();
+    const onResize = () => updateNavView();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen]);
 
   const auditionPitch = (midi: number) => {
     void audioEngineRef.current?.previewNote(midi, state.settings.playbackTone);
@@ -1778,6 +1824,25 @@ function App() {
               {state.errors.map((error) => (
                 <span key={error.id}>{error.message}</span>
               ))}
+            </div>
+          ) : null}
+
+          {!guided && showPianoRoll && showEditableGrid && navView.total > navView.view + 1 ? (
+            <div
+              className="timeline-nav"
+              ref={navTrackRef}
+              role="scrollbar"
+              aria-label="Timeline viewport"
+              aria-orientation="horizontal"
+              onPointerDown={handleNavPointerDown}
+            >
+              <div
+                className="timeline-nav-thumb"
+                style={{
+                  left: `${Math.max(0, Math.min(100, (navView.left / navView.total) * 100))}%`,
+                  width: `${Math.max(8, Math.min(100, (navView.view / navView.total) * 100))}%`,
+                }}
+              />
             </div>
           ) : null}
 

@@ -2256,6 +2256,61 @@ button:disabled,
   background: color-mix(in oklch, var(--color-ivory) 42%, transparent);
 }
 
+/* On desktop the mini navigator replaces the native horizontal scrollbar; hide
+   the native bars there. On mobile (no navigator — see below) keep them so
+   touch/pointer panning still has an affordance. */
+@media (min-width: 641px) {
+  .workspace-grid.is-expert .melody-window::-webkit-scrollbar:horizontal,
+  .harmony-window::-webkit-scrollbar:horizontal {
+    display: none;
+  }
+
+  .harmony-window {
+    scrollbar-width: none;
+  }
+}
+
+/* Mini timeline navigator: a draggable viewport indicator over the full
+   timeline width, sitting just above the roll (TASK6 §11). */
+.timeline-nav {
+  flex: 0 0 auto;
+  position: relative;
+  height: 10px;
+  margin: 0 0 4px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-ivory) 5%, transparent);
+  border: 1px solid var(--color-hairline);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.timeline-nav-thumb {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-ivory) 26%, transparent);
+  cursor: grab;
+  transition: background 0.2s var(--ease-out);
+}
+
+.timeline-nav-thumb:hover {
+  background: color-mix(in oklch, var(--color-ivory) 42%, transparent);
+}
+
+.timeline-nav:active .timeline-nav-thumb {
+  cursor: grabbing;
+  background: color-mix(in oklch, var(--color-ivory) 48%, transparent);
+}
+
+/* The navigator is a desktop affordance; on narrow/touch screens you pan the
+   roll directly, and the roll needs every vertical pixel. */
+@media (max-width: 640px) {
+  .timeline-nav {
+    display: none;
+  }
+}
+
 /* Inspector → glass side-sheet, off-canvas until a chord is selected. */
 .workspace-grid.is-expert .inspector {
   position: fixed;
