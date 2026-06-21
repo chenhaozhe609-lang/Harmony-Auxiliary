@@ -1328,6 +1328,62 @@ function App() {
   // expert bottom drawer (TASK6 §11 Phase A). Rendered in exactly one place at a
   // time, so the harmonyScrollRef stays single-instance. Carries timelineGridStyle
   // when placed in the drawer (outside the timeline-stack) for column alignment.
+  // Transport: rendered inline in the stage toolbar (guided) or in the harmony
+  // drawer header (expert). One source, one instance at a time.
+  const transportEl = (
+    <div className="toolbar-transport" aria-label="Playback controls">
+      <div className="jump-group" role="group" aria-label="Playback start">
+        <button
+          type="button"
+          disabled={!canPlayTimeline || state.playback.status === "starting"}
+          onClick={() => void handlePlayFromStart()}
+        >
+          {t("action.playFromStart")}
+        </button>
+        <button
+          type="button"
+          disabled={!canPlayTimeline || state.playback.status === "starting"}
+          onClick={() => void handlePlayFromCurrentMeasure()}
+        >
+          {t("action.playFromCurrentBar")}
+        </button>
+      </div>
+      <button
+        type="button"
+        className="play-button"
+        aria-label="Play timeline"
+        disabled={!canPlayTimeline}
+        onClick={playSelectedCandidate}
+      >
+        {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
+      </button>
+      <div className="mute-group" role="group" aria-label="Mute tracks">
+        <button
+          type="button"
+          className="mute-chip"
+          aria-pressed={state.playback.melodyMuted}
+          disabled={!canPlayTimeline}
+          onClick={toggleMelodyMute}
+        >
+          {t("transport.melody")}
+        </button>
+        <button
+          type="button"
+          className="mute-chip"
+          aria-pressed={state.playback.harmonyMuted}
+          disabled={!harmonyIsReady}
+          onClick={toggleHarmonyMute}
+        >
+          {t("transport.harmony")}
+        </button>
+      </div>
+      <span className="beat-readout" aria-live="off">
+        {state.playback.currentBeat.toFixed(1)}
+        <small>{t("timeline.beat")}</small>
+      </span>
+    </div>
+  );
+
   const harmonyWindowEl = (
     <div
       className="timeline-window harmony-window"
@@ -1622,59 +1678,9 @@ function App() {
             </div>
             ) : null}
 
-            {showTransport ? (
-            <div className="toolbar-transport" aria-label="Playback controls">
-              <div className="jump-group" role="group" aria-label="Playback start">
-                <button
-                  type="button"
-                  disabled={!canPlayTimeline || state.playback.status === "starting"}
-                  onClick={() => void handlePlayFromStart()}
-                >
-                  {t("action.playFromStart")}
-                </button>
-                <button
-                  type="button"
-                  disabled={!canPlayTimeline || state.playback.status === "starting"}
-                  onClick={() => void handlePlayFromCurrentMeasure()}
-                >
-                  {t("action.playFromCurrentBar")}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="play-button"
-                aria-label="Play timeline"
-                disabled={!canPlayTimeline}
-                onClick={playSelectedCandidate}
-              >
-                {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
-              </button>
-              <div className="mute-group" role="group" aria-label="Mute tracks">
-                <button
-                  type="button"
-                  className="mute-chip"
-                  aria-pressed={state.playback.melodyMuted}
-                  disabled={!canPlayTimeline}
-                  onClick={toggleMelodyMute}
-                >
-                  {t("transport.melody")}
-                </button>
-                <button
-                  type="button"
-                  className="mute-chip"
-                  aria-pressed={state.playback.harmonyMuted}
-                  disabled={!harmonyIsReady}
-                  onClick={toggleHarmonyMute}
-                >
-                  {t("transport.harmony")}
-                </button>
-              </div>
-              <span className="beat-readout" aria-live="off">
-                {state.playback.currentBeat.toFixed(1)}
-                <small>{t("timeline.beat")}</small>
-              </span>
-            </div>
-            ) : null}
+            {/* Expert moves the transport into the harmony drawer header; guided
+                keeps it inline in the stage toolbar (TASK6 §11). */}
+            {showTransport && guided ? transportEl : null}
           </div>
           ) : null}
 
@@ -1956,21 +1962,27 @@ function App() {
               style={timelineGridStyle}
             >
               <div className="harmony-drawer-inner">
-                <button
-                  type="button"
-                  className="harmony-drawer-handle"
-                  aria-expanded={harmonyDrawerOpen}
-                  aria-controls="harmony-drawer-body"
-                  onClick={() => setHarmonyDrawerOpen((open) => !open)}
-                >
-                  <span className="window-title">{t("lane.harmony")}</span>
-                  <span className="harmony-drawer-preview">
-                    {selectedCandidate
-                      ? candidateProgression(selectedCandidate)
-                      : t("lane.placeholder")}
-                  </span>
-                  <span className="harmony-drawer-caret" aria-hidden="true" />
-                </button>
+                <span className="harmony-drawer-grip" aria-hidden="true" />
+                <div className="harmony-drawer-header">
+                  <button
+                    type="button"
+                    className="harmony-drawer-handle"
+                    aria-expanded={harmonyDrawerOpen}
+                    aria-controls="harmony-drawer-body"
+                    onClick={() => setHarmonyDrawerOpen((open) => !open)}
+                  >
+                    <span className="window-title">{t("lane.harmony")}</span>
+                    {!harmonyDrawerOpen ? (
+                      <span className="harmony-drawer-preview">
+                        {selectedCandidate
+                          ? candidateProgression(selectedCandidate)
+                          : t("lane.placeholder")}
+                      </span>
+                    ) : null}
+                    <span className="harmony-drawer-caret" aria-hidden="true" />
+                  </button>
+                  {showTransport ? transportEl : null}
+                </div>
                 <div className="harmony-drawer-body" id="harmony-drawer-body">
                   {harmonyWindowEl}
                 </div>
