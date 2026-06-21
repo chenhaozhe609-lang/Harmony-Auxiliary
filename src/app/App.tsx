@@ -608,6 +608,15 @@ function App() {
     setInspectorOpen(true);
   };
 
+  // Expert stage (TASK6 §11 Phase A): the melody roll is the full-viewport body
+  // and harmony lives in a bottom drawer. It auto-opens once harmony exists so
+  // the result is visible (and the chord blocks stay queryable for verify).
+  const [harmonyDrawerOpen, setHarmonyDrawerOpen] = useState(false);
+  const hasHarmony = Boolean(selectedCandidate && selectedChord);
+  useEffect(() => {
+    if (hasHarmony) setHarmonyDrawerOpen(true);
+  }, [hasHarmony]);
+
   const GUIDE_STEPS = ["input", "settings", "generate", "audition", "select", "export"] as const;
   const stepGates = [
     hasMelody, // input -> settings
@@ -1315,8 +1324,79 @@ function App() {
     );
   }
 
+  // The harmony piano roll, shared between the guided inline layout and the
+  // expert bottom drawer (TASK6 §11 Phase A). Rendered in exactly one place at a
+  // time, so the harmonyScrollRef stays single-instance. Carries timelineGridStyle
+  // when placed in the drawer (outside the timeline-stack) for column alignment.
+  const harmonyWindowEl = (
+    <div
+      className="timeline-window harmony-window"
+      ref={harmonyScrollRef}
+      onScroll={syncHorizontalScroll}
+      aria-label="Harmony voices"
+    >
+      <div className={`harmony-grid${harmonyIsOutdated ? " is-outdated" : ""}`}>
+        <div className="lane-label harmony-lane-label">
+          <div className="voice-labels" aria-hidden="true">
+            {HARMONY_VOICE_ROWS.map((voice) => (
+              <span key={voice}>{voice}</span>
+            ))}
+            <span>Chord</span>
+          </div>
+        </div>
+        {hasMelody ? (
+          <div className="playhead" aria-hidden="true" style={{ left: `${playheadLeft}px` }} />
+        ) : null}
+        {selectedCandidate && selectedChord ? (
+          <>
+            {selectedCandidate.chords.flatMap((placedChord) =>
+              makeDisplayVoicing(placedChord).map((voice) => (
+                <button
+                  type="button"
+                  className={`harmony-note${
+                    selectedChord.id === placedChord.id ? " is-selected" : ""
+                  }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
+                  key={`${placedChord.id}-${voice.voice}`}
+                  style={{
+                    gridColumn: placedChordGridColumn(placedChord),
+                    gridRow: harmonyVoiceGridRow(voice.voice),
+                  }}
+                  title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
+                  onClick={() => openInspectorOnChord(placedChord.id)}
+                >
+                  {voice.noteName}
+                </button>
+              )),
+            )}
+            {selectedCandidate.chords.map((placedChord) => (
+              <button
+                type="button"
+                className={`chord-block${
+                  selectedChord.id === placedChord.id ? " is-selected" : ""
+                }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
+                key={placedChord.id}
+                style={{
+                  gridColumn: placedChordGridColumn(placedChord),
+                  gridRow: HARMONY_VOICE_ROWS.length + 1,
+                }}
+                onClick={() => openInspectorOnChord(placedChord.id)}
+              >
+                <strong>{placedChord.chord.symbol}</strong>
+                <span>{placedChord.chord.roman}</span>
+              </button>
+            ))}
+          </>
+        ) : (
+          <div className="harmony-placeholder">
+            {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell${!guided ? " expert" : ""}`}>
       <header className="command-bar" aria-label="Main controls">
         <div className="brand-lockup">
           <span className="brand-mark">H</span>
@@ -1813,75 +1893,14 @@ function App() {
                   </div>
                 </div>
 
-                <div className="window-title">{t("lane.harmony")}</div>
-                <div
-                  className="timeline-window harmony-window"
-                  ref={harmonyScrollRef}
-                  onScroll={syncHorizontalScroll}
-                  aria-label="Harmony voices"
-                >
-                  <div className={`harmony-grid${harmonyIsOutdated ? " is-outdated" : ""}`}>
-                    <div className="lane-label harmony-lane-label">
-                      <div className="voice-labels" aria-hidden="true">
-                        {HARMONY_VOICE_ROWS.map((voice) => (
-                          <span key={voice}>{voice}</span>
-                        ))}
-                        <span>Chord</span>
-                      </div>
-                    </div>
-                    {hasMelody ? (
-                      <div
-                        className="playhead"
-                        aria-hidden="true"
-                        style={{ left: `${playheadLeft}px` }}
-                      />
-                    ) : null}
-                    {selectedCandidate && selectedChord ? (
-                      <>
-                        {selectedCandidate.chords.flatMap((placedChord) =>
-                          makeDisplayVoicing(placedChord).map((voice) => (
-                            <button
-                              type="button"
-                              className={`harmony-note${
-                                selectedChord.id === placedChord.id ? " is-selected" : ""
-                              }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
-                              key={`${placedChord.id}-${voice.voice}`}
-                              style={{
-                                gridColumn: placedChordGridColumn(placedChord),
-                                gridRow: harmonyVoiceGridRow(voice.voice),
-                              }}
-                              title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
-                              onClick={() => openInspectorOnChord(placedChord.id)}
-                            >
-                              {voice.noteName}
-                            </button>
-                          )),
-                        )}
-                        {selectedCandidate.chords.map((placedChord) => (
-                          <button
-                            type="button"
-                            className={`chord-block${
-                              selectedChord.id === placedChord.id ? " is-selected" : ""
-                            }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
-                            key={placedChord.id}
-                            style={{
-                              gridColumn: placedChordGridColumn(placedChord),
-                              gridRow: HARMONY_VOICE_ROWS.length + 1,
-                            }}
-                            onClick={() => openInspectorOnChord(placedChord.id)}
-                          >
-                            <strong>{placedChord.chord.symbol}</strong>
-                            <span>{placedChord.chord.roman}</span>
-                          </button>
-                        ))}
-                      </>
-                    ) : (
-                      <div className="harmony-placeholder">
-                        {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {/* Guided keeps harmony inline; expert moves it to the bottom
+                    drawer below (TASK6 §11 Phase A). */}
+                {guided ? (
+                  <>
+                    <div className="window-title">{t("lane.harmony")}</div>
+                    {harmonyWindowEl}
+                  </>
+                ) : null}
               </div>
             )}
           </div>
@@ -1927,6 +1946,36 @@ function App() {
                     </button>
                   ))}
           </div>
+          ) : null}
+
+          {/* Harmony bottom drawer — last child so it sticks to the column's
+              bottom, sharing the melody's exact left origin (TASK6 §11 Phase A). */}
+          {!guided && showPianoRoll && showEditableGrid ? (
+            <div
+              className={`harmony-drawer${harmonyDrawerOpen ? " is-open" : ""}`}
+              style={timelineGridStyle}
+            >
+              <div className="harmony-drawer-inner">
+                <button
+                  type="button"
+                  className="harmony-drawer-handle"
+                  aria-expanded={harmonyDrawerOpen}
+                  aria-controls="harmony-drawer-body"
+                  onClick={() => setHarmonyDrawerOpen((open) => !open)}
+                >
+                  <span className="window-title">{t("lane.harmony")}</span>
+                  <span className="harmony-drawer-preview">
+                    {selectedCandidate
+                      ? candidateProgression(selectedCandidate)
+                      : t("lane.placeholder")}
+                  </span>
+                  <span className="harmony-drawer-caret" aria-hidden="true" />
+                </button>
+                <div className="harmony-drawer-body" id="harmony-drawer-body">
+                  {harmonyWindowEl}
+                </div>
+              </div>
+            </div>
           ) : null}
         </section>
 

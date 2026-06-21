@@ -2109,8 +2109,55 @@ button:disabled,
    change so the verify scripts keep matching. */
 .workspace-grid.is-expert {
   grid-template-columns: minmax(0, 1fr);
-  max-width: 1180px;
-  padding-bottom: 104px; /* clearance for the floating transport bar */
+  max-width: none; /* full-bleed FL-Studio stage (TASK6 §11) */
+  margin-top: 14px;
+  padding-bottom: 150px; /* clearance for the floating transport + collapsed harmony drawer */
+}
+
+/* Full-bleed stage + compressed chrome: the melody roll fills the screen like a
+   DAW piano roll. Scoped to the expert app-shell so guided is untouched. */
+.app-shell.expert {
+  --stage-pad: clamp(12px, 2vw, 28px);
+  padding: 14px var(--stage-pad) 0;
+}
+
+.app-shell.expert .command-bar {
+  max-width: none;
+  gap: var(--space-4);
+  padding-bottom: 12px;
+}
+
+.app-shell.expert .brand-lockup {
+  min-width: 0;
+}
+
+/* Drop the brand subtitle and shrink the mark to claw back command-bar height. */
+.app-shell.expert .brand-lockup p {
+  display: none;
+}
+
+.app-shell.expert .brand-mark {
+  width: 30px;
+  height: 30px;
+}
+
+.app-shell.expert .brand-lockup h1 {
+  font-size: 16px;
+}
+
+/* Compress the timeline header so the roll gets the vertical space. */
+.app-shell.expert .timeline-header {
+  align-items: center;
+}
+
+.app-shell.expert .timeline-header h2 {
+  margin-top: 2px;
+  font-size: 20px;
+}
+
+/* The melody roll fills the viewport (minus the compressed chrome + bottom bars). */
+.workspace-grid.is-expert .melody-window {
+  max-height: max(320px, calc(100dvh - 250px));
 }
 
 /* Inspector → glass side-sheet, off-canvas until a chord is selected. */
@@ -2160,10 +2207,12 @@ button:disabled,
   background: color-mix(in oklch, var(--color-ivory) 8%, transparent);
 }
 
-/* Transport → floating glass bar pinned to the bottom centre. */
+/* Transport → floating glass bar, pinned just above the collapsed harmony
+   drawer; it rises further when the drawer is expanded (option A — they stay
+   independent for now). */
 .workspace-grid.is-expert .toolbar-transport {
   position: fixed;
-  bottom: 18px;
+  bottom: 70px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -2195,6 +2244,100 @@ button:disabled,
 
 .workspace-grid.is-expert .candidate small {
   display: none;
+}
+
+/* ── Harmony bottom drawer (TASK6 §11 Phase A) ──────────────────────────────
+   Harmony moves out of the melody stage into a glass drawer pinned to the
+   bottom: a slim handle when collapsed, sliding up to reveal the harmony roll.
+   Only rendered in expert, so it needs no `.is-expert` scope. */
+/* Sticky in the melody's own column → the harmony grid inherits the melody
+   grid's exact left origin, so the two stay time-aligned at every breakpoint
+   without any padding gymnastics. */
+.harmony-drawer {
+  position: sticky;
+  bottom: 0;
+  z-index: 25;
+  min-width: 0; /* grid item: let the wide harmony roll scroll, not expand the panel */
+  background: color-mix(in oklch, var(--color-void) 78%, transparent);
+  border-top: 1px solid color-mix(in oklch, var(--color-ivory) 12%, transparent);
+  box-shadow: 0 -18px 50px -24px color-mix(in oklch, black 82%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  backdrop-filter: blur(24px) saturate(1.2);
+}
+
+.harmony-drawer-inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* let the wide harmony grid scroll internally, not push the page */
+}
+
+.harmony-drawer-handle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.harmony-drawer-handle .window-title {
+  flex-shrink: 0;
+}
+
+.harmony-drawer-preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.harmony-drawer-caret {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid var(--color-text-muted);
+  border-bottom: 1.5px solid var(--color-text-muted);
+  transform: rotate(-135deg); /* points up: "expand" */
+  transition: transform 0.32s var(--ease-out);
+}
+
+.harmony-drawer.is-open .harmony-drawer-caret {
+  transform: rotate(45deg); /* points down: "collapse" */
+}
+
+/* Collapsed → height 0; open → reveal the roll. No horizontal padding here:
+   the grid must stay flush with the melody grid's left origin. */
+.harmony-drawer-body {
+  min-width: 0;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.4s var(--ease-out), padding 0.4s var(--ease-out);
+}
+
+.harmony-drawer.is-open .harmony-drawer-body {
+  max-height: 220px;
+  padding-bottom: 16px;
+}
+
+/* Lift the floating transport just above the open drawer (option A — they stay
+   independent for now; product owner will plan bottom layout holistically). */
+.workspace-grid.is-expert:has(.harmony-drawer.is-open) .toolbar-transport {
+  bottom: 214px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .harmony-drawer-body,
+  .harmony-drawer-caret {
+    transition: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
