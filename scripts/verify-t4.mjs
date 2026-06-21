@@ -1,5 +1,7 @@
 import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.60.0/node_modules/playwright/index.mjs";
 
+const BASE_URL = process.env.VERIFY_URL ?? "http://127.0.0.1:5181";
+
 const browser = await chromium.launch({
   executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   headless: true,
@@ -21,11 +23,14 @@ async function inspectViewport(viewport) {
     window.indexedDB.deleteDatabase("harmony-auxiliary/projects");
   });
 
-  await page.goto("http://127.0.0.1:5181", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Open Workspace" }).click();
+  await page.goto(BASE_URL, { waitUntil: "networkidle" });
+  // Task 5 soft gate: enter via the demo path (loads a melody), then switch to
+  // the expert view so the full single-screen workspace is shown at once.
+  await page.waitForSelector(".auth-overlay");
+  await page.locator(".auth-demo-link").click();
+  await page.getByRole("button", { name: "专家" }).click();
 
-  // Load the demo melody, then generate harmony so both windows have content.
-  await page.getByRole("button", { name: /载入示例旋律|Load Demo Melody/ }).click();
+  // Generate harmony so both windows have content (demo melody is preloaded).
   await page.waitForSelector(".melody-window .note");
   await page.getByRole("button", { name: /^生成$|^Generate$/ }).click();
   await page.waitForSelector(".harmony-window .chord-block", { timeout: 5000 });

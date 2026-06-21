@@ -12,6 +12,8 @@ import { legacyDensityToRhythm } from "../music/harmony/segmentMelody";
 
 const STORAGE_KEY = "harmony-auxiliary/preferences/v1";
 
+export type WorkspaceViewMode = "guided" | "expert";
+
 export type StoredPreferences = {
   keyTonic: PitchClass;
   mode: Mode;
@@ -25,6 +27,7 @@ export type StoredPreferences = {
   inputMode: InputMode;
   playbackTone: PlaybackTonePreset;
   language: Language;
+  viewMode: WorkspaceViewMode;
 };
 
 export const defaultPreferences: StoredPreferences = {
@@ -40,6 +43,7 @@ export const defaultPreferences: StoredPreferences = {
   inputMode: "midi",
   playbackTone: "acoustic-grand",
   language: "zh",
+  viewMode: "guided",
 };
 
 function isPitchClass(value: unknown): value is PitchClass {
@@ -97,13 +101,18 @@ export function loadPreferences(): StoredPreferences {
         ? parsed.playbackTone
         : defaultPreferences.playbackTone,
       language: parsed.language === "en" ? "en" : "zh",
+      viewMode: parsed.viewMode === "expert" ? "expert" : "guided",
     };
   } catch {
     return defaultPreferences;
   }
 }
 
-export function savePreferences(settings: ProjectSettings, language = defaultPreferences.language): void {
+export function savePreferences(
+  settings: ProjectSettings,
+  language = defaultPreferences.language,
+  viewMode: WorkspaceViewMode = defaultPreferences.viewMode,
+): void {
   if (typeof window === "undefined") return;
 
   const preferences: StoredPreferences = {
@@ -116,6 +125,7 @@ export function savePreferences(settings: ProjectSettings, language = defaultPre
     inputMode: settings.inputMode,
     playbackTone: settings.playbackTone,
     language,
+    viewMode,
   };
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));

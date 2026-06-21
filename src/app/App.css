@@ -634,6 +634,538 @@ button:disabled,
   opacity: 0.46;
 }
 
+/* Auth + account UI (Task 5 / T5.2) */
+.ghost-button {
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  transition: background 150ms ease-out, border-color 150ms ease-out;
+}
+
+.ghost-button:hover {
+  border-color: var(--color-border);
+  background: color-mix(in oklch, var(--color-accent-soft) 40%, transparent);
+}
+
+.landing-nav-actions,
+.landing-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.account-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.account-email {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+}
+
+.demo-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--color-tension);
+  color: var(--color-surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in oklch, var(--color-text) 38%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.auth-card {
+  position: relative;
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 26px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2);
+}
+
+.auth-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.auth-prompt-copy {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.auth-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.auth-close:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+
+.auth-form input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.auth-form label small {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+.auth-form .primary-button {
+  margin-top: 4px;
+  width: 100%;
+}
+
+.auth-message {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.auth-message[data-tone="error"] {
+  color: var(--color-danger);
+}
+
+.auth-message[data-tone="status"] {
+  color: var(--color-accent-strong);
+}
+
+.auth-toggle {
+  border: none;
+  background: transparent;
+  color: var(--color-accent-strong);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.auth-dismiss,
+.auth-demo-link {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-demo-link {
+  color: var(--color-accent-strong);
+  font-weight: 600;
+}
+
+.auth-privacy {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+/* Cloud projects drawer (Task 5 / T5.3) */
+.projects-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in oklch, var(--color-text) 32%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.projects-drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  box-shadow: var(--shadow-2);
+  overflow-y: auto;
+}
+
+.projects-drawer-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.projects-drawer-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.projects-drawer-header .auth-close {
+  position: static;
+}
+
+.projects-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.projects-empty {
+  margin: 12px 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.project-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.project-item.is-active {
+  border-color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent-soft) 30%, var(--color-surface));
+}
+
+.project-open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  color: var(--color-text);
+}
+
+.project-open strong {
+  font-size: 0.96rem;
+}
+
+.project-open small {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+}
+
+.project-rename-input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-active-badge {
+  margin-right: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-surface);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.project-mini-button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.project-mini-button:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.project-mini-button.project-delete:hover:not(:disabled) {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.projects-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.projects-privacy,
+.guide-privacy-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.projects-footer .project-delete {
+  align-self: flex-start;
+}
+
+.guide-privacy-note {
+  margin: 0 0 12px;
+}
+
+/* Guided flow (Task 5 / T5.4) */
+.workspace-grid.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.guide-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.guide-rail-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  transition: border-color 150ms ease-out, background 150ms ease-out, color 150ms ease-out;
+}
+
+.guide-rail-step .guide-rail-num {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.guide-rail-step.is-done {
+  color: var(--color-accent-strong);
+  border-color: var(--color-accent-soft);
+  background: color-mix(in oklch, var(--color-accent-soft) 45%, var(--color-surface));
+}
+
+.guide-rail-step.is-done .guide-rail-num {
+  background: var(--color-accent);
+  color: var(--color-surface);
+}
+
+.guide-rail-step.is-current {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+  color: var(--color-surface);
+  font-weight: 650;
+}
+
+.guide-rail-step.is-current .guide-rail-num {
+  background: var(--color-surface);
+  color: var(--color-accent-strong);
+}
+
+.guide-rail-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.guide-coach {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--color-accent-soft) 22%, var(--color-surface));
+}
+
+.guide-coach-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-coach-index {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.guide-coach-head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.guide-coach-head p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.guide-coach-body {
+  padding-top: 2px;
+}
+
+/* The shared settings grid is an absolute popover inside the command-bar tray;
+   inside the coach card it must lay out in normal flow instead. */
+.guide-coach .settings-grid {
+  position: static;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.guide-generate .primary-button {
+  height: 44px;
+  padding: 0 28px;
+  font-size: 1rem;
+}
+
+.guide-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guide-progression {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+
+.guide-progression span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.guide-progression strong {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.guide-coach-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-hairline);
+  margin-top: 2px;
+}
+
+.guide-coach-nav .primary-button,
+.guide-coach-nav .secondary-button {
+  min-width: 96px;
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 344px;

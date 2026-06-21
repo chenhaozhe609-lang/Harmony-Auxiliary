@@ -9,8 +9,26 @@ import {
   type UIEvent as ReactUIEvent,
 } from "react";
 import { appReducer, createInitialState } from "./appState";
-import { clearPreferences, defaultPreferences, loadPreferences, savePreferences } from "./preferencesRepository";
+import {
+  clearPreferences,
+  defaultPreferences,
+  loadPreferences,
+  savePreferences,
+  type WorkspaceViewMode,
+} from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
+import { useAuth } from "./auth/AuthProvider";
+import { AuthPanel } from "./auth/AuthPanel";
+import { ProjectsPanel } from "./projects/ProjectsPanel";
+import {
+  createProject,
+  deleteAllProjects,
+  deleteProject,
+  listProjects,
+  renameProject,
+  updateProject,
+  type CloudProject,
+} from "../services/projectsRepository";
 import {
   describeFit,
   describeFunction,
@@ -215,8 +233,22 @@ function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, () =>
     createInitialState(initialPreferences),
   );
+  const { status: authStatus, user, signOut } = useAuth();
   const [screen, setScreen] = useState<"landing" | "workspace">("landing");
+  const [isDemo, setIsDemo] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authIntent, setAuthIntent] = useState<"prompt" | "enter">("prompt");
+  const [landingPrompted, setLandingPrompted] = useState(false);
+  const [cloudProjects, setCloudProjects] = useState<CloudProject[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsBusy, setProjectsBusy] = useState(false);
+  const [migrationOffered, setMigrationOffered] = useState(false);
+  const [showMigratePrompt, setShowMigratePrompt] = useState(false);
   const [language, setLanguage] = useState<Language>(initialPreferences.language);
+  const [viewMode, setViewMode] = useState<WorkspaceViewMode>(initialPreferences.viewMode);
+  const [activeStep, setActiveStep] = useState(0);
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -241,8 +273,8 @@ function App() {
   const t = (key: string) => translate(language, key);
 
   useEffect(() => {
-    savePreferences(state.settings, language);
-  }, [state.settings, language]);
+    savePreferences(state.settings, language, viewMode);
+  }, [state.settings, language, viewMode]);
 
   useEffect(() => {
     audioEngineRef.current = new AudioEngine();
@@ -330,6 +362,182 @@ function App() {
     melodyCenteredRef.current = true;
   }, [state.melody]);
 
+  // Soft gate: on the landing screen, prompt anonymous visitors once to sign in.
+  // The prompt is dismissible and never blocks the demo path.
+  useEffect(() => {
+    if (screen === "landing" && authStatus === "anonymous" && !landingPrompted) {
+      setAuthIntent("prompt");
+      setAuthOpen(true);
+      setLandingPrompted(true);
+    }
+  }, [screen, authStatus, landingPrompted]);
+
+  // Signing out (or losing the session) while inside the real workspace returns
+  // the user to the landing screen. Demo sessions stay put.
+  useEffect(() => {
+    if (screen === "workspace" && authStatus === "anonymous" && !isDemo) {
+      setScreen("landing");
+    }
+  }, [screen, authStatus, isDemo]);
+
+  const canSaveToCloud = authStatus === "authenticated";
+
+  const enterWorkspace = () => {
+    // Unconfigured builds (no Supabase secrets) pass straight through for dev/CI.
+    if (authStatus === "authenticated" || authStatus === "unconfigured") {
+      setIsDemo(false);
+      setActiveStep(0);
+      setScreen("workspace");
+      return;
+    }
+    setAuthIntent("enter");
+    setAuthOpen(true);
+  };
+
+  const enterDemo = () => {
+    setAuthOpen(false);
+    setIsDemo(true);
+    setActiveStep(0);
+    setScreen("workspace");
+    if (state.melody.length === 0) {
+      dispatch({ type: "load-melody", melody: demoMelody });
+    }
+  };
+
+  const handleAuthenticated = () => {
+    setAuthOpen(false);
+    if (authIntent === "enter") {
+      setIsDemo(false);
+      if (screen !== "workspace") setActiveStep(0);
+      setScreen("workspace");
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setIsDemo(false);
+    setScreen("landing");
+    setLandingPrompted(true);
+    setProjectsOpen(false);
+  };
+
+  const notifyCloud = (messageKey: string, tone: "status" | "error") => {
+    dispatch({ type: "set-error", id: "cloud", message: t(messageKey), tone });
+    window.setTimeout(() => dispatch({ type: "clear-error", id: "cloud" }), 2200);
+  };
+
+  const loadCloudProjects = async () => {
+    setProjectsLoading(true);
+    try {
+      setCloudProjects(await listProjects());
+    } catch {
+      notifyCloud("message.cloudLoadFailure", "error");
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const handleSaveNewProject = async () => {
+    if (state.melody.length === 0 || projectsBusy) return;
+    setProjectsBusy(true);
+    try {
+      const project = await createProject(
+        state.importState.fileName ?? t("projects.defaultTitle"),
+        createProjectSnapshot(state),
+      );
+      setCloudProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+      setActiveProjectId(project.id);
+      setShowMigratePrompt(false);
+      notifyCloud("message.cloudSaveSuccess", "status");
+    } catch {
+      notifyCloud("message.cloudSaveFailure", "error");
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
+  const handleUpdateCurrentProject = async () => {
+    if (!activeProjectId || state.melody.length === 0 || projectsBusy) return;
+    setProjectsBusy(true);
+    try {
+      const project = await updateProject(activeProjectId, createProjectSnapshot(state));
+      setCloudProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+      notifyCloud("message.cloudSaveSuccess", "status");
+    } catch {
+      notifyCloud("message.cloudSaveFailure", "error");
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
+  const handleOpenProject = (id: string) => {
+    const project = cloudProjects.find((item) => item.id === id);
+    if (!project) return;
+    resetPlayback();
+    setSelectedNoteId(null);
+    setCurrentMidiFile(null);
+    dispatch({ type: "restore-snapshot", snapshot: project.snapshot });
+    setActiveProjectId(project.id);
+    setActiveStep(project.snapshot.candidates.length > 0 ? 3 : 0);
+    setProjectsOpen(false);
+    notifyCloud("message.cloudOpenSuccess", "status");
+  };
+
+  const handleRenameProject = async (id: string, title: string) => {
+    setProjectsBusy(true);
+    try {
+      const project = await renameProject(id, title);
+      setCloudProjects((prev) => prev.map((item) => (item.id === id ? project : item)));
+    } catch {
+      notifyCloud("message.cloudSaveFailure", "error");
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    setProjectsBusy(true);
+    try {
+      await deleteProject(id);
+      setCloudProjects((prev) => prev.filter((item) => item.id !== id));
+      if (activeProjectId === id) setActiveProjectId(null);
+      notifyCloud("message.cloudDeleteSuccess", "status");
+    } catch {
+      notifyCloud("message.cloudDeleteFailure", "error");
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
+  // Load the signed-in user's projects; clear cloud state on sign-out.
+  useEffect(() => {
+    if (authStatus === "authenticated") {
+      void loadCloudProjects();
+    } else {
+      setCloudProjects([]);
+      setActiveProjectId(null);
+      setProjectsOpen(false);
+      setMigrationOffered(false);
+      setShowMigratePrompt(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authStatus]);
+
+  // Offer a one-time migration when a signed-in user has unsaved local work.
+  useEffect(() => {
+    if (
+      authStatus === "authenticated" &&
+      !isDemo &&
+      screen === "workspace" &&
+      state.melody.length > 0 &&
+      !activeProjectId &&
+      !migrationOffered
+    ) {
+      setShowMigratePrompt(true);
+      setMigrationOffered(true);
+    }
+  }, [authStatus, isDemo, screen, state.melody.length, activeProjectId, migrationOffered]);
+
   const hasMelody = state.melody.length > 0;
   const showEditableGrid = hasMelody || state.settings.inputMode === "manual";
   const showCandidates = state.candidates.length > 0;
@@ -379,10 +587,41 @@ function App() {
         )?.id ?? null
       : null;
 
+  // Guided flow (Task 5 / T5.4): a step cursor over the same workspace state.
+  // Gates are derived from AppState — activeStep is only a view cursor, never a
+  // second source of truth.
+  const guided = viewMode === "guided";
+  const GUIDE_STEPS = ["input", "settings", "generate", "audition", "select", "export"] as const;
+  const stepGates = [
+    hasMelody, // input -> settings
+    hasMelody, // settings -> generate
+    showCandidates, // generate -> audition
+    Boolean(selectedCandidate), // audition -> select
+    Boolean(selectedCandidate), // select -> export
+    false, // export is the last step
+  ];
+  let furthestReachable = 0;
+  while (furthestReachable < GUIDE_STEPS.length - 1 && stepGates[furthestReachable]) {
+    furthestReachable += 1;
+  }
+  const guideStep = Math.min(activeStep, furthestReachable);
+  const canAdvanceStep = stepGates[guideStep];
+  const goToStep = (index: number) => setActiveStep(Math.max(0, Math.min(furthestReachable, index)));
+
+  // Region visibility. In expert mode (`!guided`) everything is shown, exactly
+  // as before the guided flow existed.
+  const showSourceTools = !guided || guideStep === 0;
+  const showTransport = !guided || guideStep === 3 || guideStep === 4;
+  const showPianoRoll = !guided || guideStep <= 4;
+  const showCandidateStrip = !guided || guideStep === 3 || guideStep === 4;
+  const showInspector = !guided || guideStep === 4;
+  const showStageToolbar = showSourceTools || showTransport;
+
   const handleLoadDemo = () => {
     resetPlayback();
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
+    setActiveStep(0);
     dispatch({ type: "load-melody", melody: demoMelody });
   };
 
@@ -390,6 +629,7 @@ function App() {
     resetPlayback();
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
+    setActiveStep(0);
     dispatch({ type: "load-melody", melody: longDemoMelody });
   };
 
@@ -408,6 +648,8 @@ function App() {
         candidates: generateHarmonyCandidates(state.melody, state.settings),
       });
       setIsGenerating(false);
+      // Advance the guided flow to the audition step once candidates exist.
+      setActiveStep((current) => (current < 3 ? 3 : current));
     }, 400);
   };
 
@@ -489,6 +731,8 @@ function App() {
   };
 
   const handleClearLocalData = async () => {
+    // Local clear never touches cloud projects or the current session.
+    if (!window.confirm(t("message.clearLocalConfirm"))) return;
     resetPlayback();
     try {
       await clearAllProjectData();
@@ -509,6 +753,21 @@ function App() {
     }
   };
 
+  const handleClearCloudData = async () => {
+    if (!window.confirm(t("message.clearCloudConfirm"))) return;
+    setProjectsBusy(true);
+    try {
+      await deleteAllProjects();
+      setCloudProjects([]);
+      setActiveProjectId(null);
+      notifyCloud("message.clearCloudSuccess", "status");
+    } catch {
+      notifyCloud("message.clearCloudFailure", "error");
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
   const applyMidiImport = (
     result: MidiImportResult,
     file: File,
@@ -516,6 +775,7 @@ function App() {
   ) => {
     resetPlayback();
     setSelectedNoteId(null);
+    setActiveStep(0);
     setCurrentMidiFile({ file, arrayBuffer });
     dispatch({
       type: "set-midi-import",
@@ -806,6 +1066,211 @@ function App() {
     dispatch({ type: "select-candidate", candidateId });
   };
 
+  // Shared project-settings fields, used by both the expert command-bar tray and
+  // the guided "settings" step so there is one source of truth for the controls.
+  const renderSettingsFields = () => (
+    <div className="settings-grid">
+      <label>
+        {t("settings.key")}
+        <select
+          value={state.settings.keyTonic}
+          onChange={(event) =>
+            dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
+          }
+        >
+          {KEY_OPTIONS.map((pitchClass) => (
+            <option value={pitchClass} key={pitchClass}>
+              {pitchClassToName(pitchClass)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        {t("settings.mode")}
+        <select
+          value={state.settings.mode}
+          onChange={(event) =>
+            dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
+          }
+        >
+          <option value="major">{t("settings.major")}</option>
+          <option value="minor" disabled>
+            {t("settings.minorLater")}
+          </option>
+        </select>
+      </label>
+      <label>
+        {t("settings.tempo")}
+        <input
+          type="number"
+          value={state.settings.tempo}
+          min={40}
+          max={220}
+          onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
+        />
+      </label>
+      <label>
+        {t("settings.density")}
+        <select
+          value={state.settings.harmonyRhythm}
+          onChange={(event) =>
+            dispatch({
+              type: "set-harmony-rhythm",
+              harmonyRhythm: event.target.value as HarmonyRhythmPattern,
+            })
+          }
+        >
+          <option value="bar">{t("settings.bar")}</option>
+          <option value="strong-beats">{t("settings.strongBeats")}</option>
+          <option value="every-beat">{t("settings.everyBeat")}</option>
+          <option value="cadence-aware">{t("settings.cadenceAware")}</option>
+          <option value="sparse">{t("settings.sparse")}</option>
+        </select>
+      </label>
+      <label>
+        {t("settings.tone")}
+        <select
+          value={state.settings.playbackTone}
+          onChange={(event) => {
+            if (state.playback.status === "playing") pausePlayback();
+            dispatch({
+              type: "set-playback-tone",
+              playbackTone: event.target.value as PlaybackTonePreset,
+            });
+          }}
+        >
+          {PLAYBACK_TONE_OPTIONS.map((tone) => (
+            <option value={tone} key={tone}>
+              {t(`tone.${tone}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+
+  const guideStepKey = GUIDE_STEPS[guideStep];
+
+  const renderStepCoach = () => (
+    <div className="guide-coach" data-step={guideStepKey}>
+      <div className="guide-coach-head">
+        <span className="guide-coach-index">
+          {t("guide.step")} {guideStep + 1} {t("guide.of")} {GUIDE_STEPS.length}
+        </span>
+        <h3>{t(`guide.${guideStepKey}.title`)}</h3>
+        <p>{t(`guide.${guideStepKey}.tip`)}</p>
+      </div>
+
+      {guideStepKey === "settings" ? (
+        <div className="guide-coach-body">{renderSettingsFields()}</div>
+      ) : null}
+
+      {guideStepKey === "generate" ? (
+        <div className="guide-coach-body guide-generate">
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!hasMelody || isGenerating}
+            onClick={handleGenerate}
+          >
+            {isGenerating ? t("action.generating") : t("action.generate")}
+          </button>
+        </div>
+      ) : null}
+
+      {guideStepKey === "export" ? (
+        <div className="guide-coach-body guide-export">
+          {selectedCandidate ? (
+            <p className="guide-progression">
+              <span>{t("guide.progression")}</span>
+              <strong>{candidateProgression(selectedCandidate)}</strong>
+            </p>
+          ) : null}
+          <p className="guide-privacy-note">
+            {isDemo ? t("privacy.demoNote") : authStatus === "authenticated" ? t("privacy.accountNote") : t("privacy.localNote")}
+          </p>
+          <div className="guide-export-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void handleCopyProgression()}
+            >
+              {t("action.copyProgression")}
+            </button>
+            <button type="button" className="secondary-button" onClick={handleExportMidi}>
+              {t("action.exportMidi")}
+            </button>
+            {isDemo ? (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={authStatus === "unconfigured"}
+                onClick={() => {
+                  setAuthIntent("enter");
+                  setAuthOpen(true);
+                }}
+              >
+                {t("auth.signIn")}
+              </button>
+            ) : authStatus === "authenticated" ? (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!hasMelody || projectsBusy}
+                onClick={() => void handleSaveNewProject()}
+              >
+                {projectsBusy ? t("projects.saving") : t("projects.saveNew")}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="guide-coach-nav">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={guideStep === 0}
+          onClick={() => goToStep(guideStep - 1)}
+        >
+          {t("guide.back")}
+        </button>
+        <button
+          type="button"
+          className="primary-button"
+          disabled={!canAdvanceStep}
+          onClick={() => goToStep(guideStep + 1)}
+        >
+          {t("guide.next")}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderStepRail = () => (
+    <nav className="guide-rail" aria-label={t("view.guided")}>
+      {GUIDE_STEPS.map((key, index) => {
+        const reachable = index <= furthestReachable;
+        const isCurrent = index === guideStep;
+        return (
+          <button
+            type="button"
+            key={key}
+            className={`guide-rail-step${isCurrent ? " is-current" : ""}${
+              index < guideStep ? " is-done" : ""
+            }`}
+            aria-current={isCurrent ? "step" : undefined}
+            disabled={!reachable}
+            onClick={() => goToStep(index)}
+          >
+            <span className="guide-rail-num">{index + 1}</span>
+            <span className="guide-rail-label">{t(`guide.${key}.title`)}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   if (screen === "landing") {
     return (
       <main className="landing-shell">
@@ -817,9 +1282,27 @@ function App() {
               <p>Local-first harmony assistant</p>
             </div>
           </div>
-          <button type="button" className="secondary-button" onClick={() => setScreen("workspace")}>
-            Open Workspace
-          </button>
+          <div className="landing-nav-actions">
+            {authStatus === "authenticated" && user?.email ? (
+              <button type="button" className="secondary-button" onClick={() => void handleSignOut()}>
+                {translate(language, "auth.signOut")}
+              </button>
+            ) : authStatus === "anonymous" ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setAuthIntent("prompt");
+                  setAuthOpen(true);
+                }}
+              >
+                {translate(language, "auth.signIn")}
+              </button>
+            ) : null}
+            <button type="button" className="secondary-button" onClick={enterWorkspace}>
+              Open Workspace
+            </button>
+          </div>
         </header>
 
         <section className="landing-hero" aria-label="Product introduction">
@@ -833,9 +1316,14 @@ function App() {
               Turn a melody or MIDI sketch into playable harmony, with the theory shown for
               every chord.
             </p>
-            <button type="button" className="primary-button" onClick={() => setScreen("workspace")}>
-              Start Harmonizing
-            </button>
+            <div className="landing-cta-row">
+              <button type="button" className="primary-button" onClick={enterWorkspace}>
+                Start Harmonizing
+              </button>
+              <button type="button" className="ghost-button" onClick={enterDemo}>
+                {translate(language, "auth.demoCta")}
+              </button>
+            </div>
           </div>
           <div className="hero-motif" aria-hidden="true">
             <span data-fn="T">Cmaj7</span>
@@ -890,6 +1378,15 @@ function App() {
             <p>Tonic color, stable fit, ready to export.</p>
           </div>
         </section>
+
+        {authOpen ? (
+          <AuthPanel
+            language={language}
+            onClose={() => setAuthOpen(false)}
+            onAuthenticated={handleAuthenticated}
+            onDemo={enterDemo}
+          />
+        ) : null}
       </main>
     );
   }
@@ -921,99 +1418,75 @@ function App() {
               EN
             </button>
           </div>
-          <details className="settings-tray">
-            <summary>{t("settings.projectSettings")}</summary>
-            <div className="settings-grid">
-              <label>
-                {t("settings.key")}
-                <select
-                  value={state.settings.keyTonic}
-                  onChange={(event) =>
-                    dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
-                  }
-                >
-                  {KEY_OPTIONS.map((pitchClass) => (
-                    <option value={pitchClass} key={pitchClass}>
-                      {pitchClassToName(pitchClass)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t("settings.mode")}
-                <select
-                  value={state.settings.mode}
-                  onChange={(event) =>
-                    dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
-                  }
-                >
-                  <option value="major">{t("settings.major")}</option>
-                  <option value="minor" disabled>
-                    {t("settings.minorLater")}
-                  </option>
-                </select>
-              </label>
-              <label>
-                {t("settings.tempo")}
-                <input
-                  type="number"
-                  value={state.settings.tempo}
-                  min={40}
-                  max={220}
-                  onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
-                />
-              </label>
-              <label>
-                {t("settings.density")}
-                <select
-                  value={state.settings.harmonyRhythm}
-                  onChange={(event) =>
-                    dispatch({
-                      type: "set-harmony-rhythm",
-                      harmonyRhythm: event.target.value as HarmonyRhythmPattern,
-                    })
-                  }
-                >
-                  <option value="bar">{t("settings.bar")}</option>
-                  <option value="strong-beats">{t("settings.strongBeats")}</option>
-                  <option value="every-beat">{t("settings.everyBeat")}</option>
-                  <option value="cadence-aware">{t("settings.cadenceAware")}</option>
-                  <option value="sparse">{t("settings.sparse")}</option>
-                </select>
-              </label>
-              <label>
-                {t("settings.tone")}
-                <select
-                  value={state.settings.playbackTone}
-                  onChange={(event) => {
-                    if (state.playback.status === "playing") pausePlayback();
-                    dispatch({
-                      type: "set-playback-tone",
-                      playbackTone: event.target.value as PlaybackTonePreset,
-                    });
+          {isDemo ? (
+            <div className="account-cluster" aria-label={t("auth.account")}>
+              <span className="demo-badge">{t("auth.demoBadge")}</span>
+              {authStatus !== "unconfigured" ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setAuthIntent("enter");
+                    setAuthOpen(true);
                   }}
                 >
-                  {PLAYBACK_TONE_OPTIONS.map((tone) => (
-                    <option value={tone} key={tone}>
-                      {t(`tone.${tone}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {t("auth.signIn")}
+                </button>
+              ) : null}
             </div>
-          </details>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={!hasMelody || isGenerating}
-            onClick={handleGenerate}
-          >
-            {isGenerating ? t("action.generating") : t("action.generate")}
-          </button>
+          ) : authStatus === "authenticated" && user?.email ? (
+            <div className="account-cluster" aria-label={t("auth.account")}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setProjectsOpen(true)}
+              >
+                {t("action.projects")}
+              </button>
+              <span className="account-email" title={user.email}>
+                {user.email}
+              </span>
+              <button type="button" className="secondary-button" onClick={() => void handleSignOut()}>
+                {t("auth.signOut")}
+              </button>
+            </div>
+          ) : null}
+          <div className="segmented-control" aria-label={t("view.label")}>
+            <button
+              type="button"
+              aria-pressed={viewMode === "guided"}
+              onClick={() => setViewMode("guided")}
+            >
+              {t("view.guided")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={viewMode === "expert"}
+              onClick={() => setViewMode("expert")}
+            >
+              {t("view.expert")}
+            </button>
+          </div>
+          {!guided ? (
+            <>
+              <details className="settings-tray">
+                <summary>{t("settings.projectSettings")}</summary>
+                {renderSettingsFields()}
+              </details>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!hasMelody || isGenerating}
+                onClick={handleGenerate}
+              >
+                {isGenerating ? t("action.generating") : t("action.generate")}
+              </button>
+            </>
+          ) : null}
         </nav>
       </header>
 
-      <section className="workspace-grid">
+      <section className={`workspace-grid${guided && !showInspector ? " is-single" : ""}`}>
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
             <div>
@@ -1031,7 +1504,16 @@ function App() {
             ) : null}
           </div>
 
+          {guided ? (
+            <>
+              {renderStepRail()}
+              {renderStepCoach()}
+            </>
+          ) : null}
+
+          {showStageToolbar ? (
           <div className="stage-toolbar">
+            {showSourceTools ? (
             <div className="toolbar-source" aria-label="Input source">
               <div className="segmented-control" aria-label="Input mode">
                 <button
@@ -1130,7 +1612,9 @@ function App() {
                 </div>
               </details>
             </div>
+            ) : null}
 
+            {showTransport ? (
             <div className="toolbar-transport" aria-label="Playback controls">
               <div className="jump-group" role="group" aria-label="Playback start">
                 <button
@@ -1182,7 +1666,9 @@ function App() {
                 <small>{t("timeline.beat")}</small>
               </span>
             </div>
+            ) : null}
           </div>
+          ) : null}
 
           {harmonyIsOutdated ? (
             <div className="harmony-status-banner" role="status">
@@ -1243,6 +1729,31 @@ function App() {
             </div>
           ) : null}
 
+          {showMigratePrompt ? (
+            <div className="recovery-banner" role="status">
+              <div>
+                <strong>{t("projects.migratePrompt")}</strong>
+              </div>
+              <div className="input-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={projectsBusy}
+                  onClick={() => void handleSaveNewProject()}
+                >
+                  {t("projects.migrateCta")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setShowMigratePrompt(false)}
+                >
+                  {t("projects.migrateDismiss")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {state.errors.length > 0 ? (
             <div
               className="message-banner"
@@ -1255,6 +1766,7 @@ function App() {
             </div>
           ) : null}
 
+          {showPianoRoll ? (
           <div className="timeline-canvas" data-empty={!hasMelody}>
             {!showEditableGrid ? (
               <div className="empty-state">
@@ -1445,7 +1957,9 @@ function App() {
               </div>
             )}
           </div>
+          ) : null}
 
+          {showCandidateStrip ? (
           <div className="candidate-strip" aria-label="Harmony candidates">
             {isGenerating
               ? ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
@@ -1485,8 +1999,10 @@ function App() {
                     </button>
                   ))}
           </div>
+          ) : null}
         </section>
 
+        {showInspector ? (
         <aside className="inspector" aria-label="Selected harmony details">
           <span className="eyebrow">{t("inspector.label")}</span>
           {selectedCandidate && selectedChord ? (
@@ -1587,7 +2103,34 @@ function App() {
             </div>
           )}
         </aside>
+        ) : null}
       </section>
+
+      {authOpen ? (
+        <AuthPanel
+          language={language}
+          onClose={() => setAuthOpen(false)}
+          onAuthenticated={handleAuthenticated}
+        />
+      ) : null}
+
+      {projectsOpen ? (
+        <ProjectsPanel
+          language={language}
+          projects={cloudProjects}
+          activeProjectId={activeProjectId}
+          loading={projectsLoading}
+          busy={projectsBusy}
+          canSaveCurrent={hasMelody}
+          onClose={() => setProjectsOpen(false)}
+          onOpen={handleOpenProject}
+          onRename={(id, title) => void handleRenameProject(id, title)}
+          onDelete={(id) => void handleDeleteProject(id)}
+          onSaveNew={() => void handleSaveNewProject()}
+          onUpdateCurrent={() => void handleUpdateCurrentProject()}
+          onDeleteAll={() => void handleClearCloudData()}
+        />
+      ) : null}
     </main>
   );
 }
