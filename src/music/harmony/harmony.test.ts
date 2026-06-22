@@ -159,16 +159,38 @@ describe("candidate generation", () => {
       "T",
     ]);
     expect(["ii", "IV"]).toContain(stable.chords[1].chord.roman);
+    // Viterbi stable mode closes with a plain authentic cadence V7 → I (triad).
     expect(stable.chords.map((placedChord) => placedChord.chord.roman).slice(2)).toEqual([
       "V7",
-      "Imaj7",
+      "I",
     ]);
-    expect(stable.chords[2].explanation.functionReason).toContain(
-      "Classical motion: predominant prepares dominant.",
-    );
-    expect(stable.chords[3].explanation.functionReason).toContain(
-      "Classical motion: dominant resolves to tonic.",
-    );
+    expect(stable.chords[3].chord.root).toBe(0); // the true tonic (C)
+    expect(stable.chords[2].explanation.functionReason).toContain("Predominant prepares dominant.");
+    expect(stable.chords[3].explanation.functionReason).toContain("Dominant resolves to tonic.");
+  });
+
+  it("harmonizes a minor key with a minor tonic and a functional dominant (Task 7)", () => {
+    // C-minor-friendly cadence: G4 → Ab4 → B4 (raised leading tone) → C5.
+    const minorCadence: NoteEvent[] = [
+      { id: "m1", midi: 67, pitchClass: 7, name: "G4", startBeat: 0, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "m2", midi: 68, pitchClass: 8, name: "G#4", startBeat: 4, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "m3", midi: 71, pitchClass: 11, name: "B4", startBeat: 8, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "m4", midi: 72, pitchClass: 0, name: "C5", startBeat: 12, durationBeats: 2, velocity: 0.8, source: "manual" },
+    ];
+    const stable = generateHarmonyCandidates(minorCadence, { ...settings, keyTonic: 0, mode: "minor" })[0];
+    const romans = stable.chords.map((placedChord) => placedChord.chord.roman);
+
+    // Proper minor tonic exists (the old engine wrongly produced major "Imaj7").
+    expect(romans).toContain("i");
+    expect(stable.chords.find((c) => c.chord.roman === "i")?.chord.quality).toBe("minor");
+    expect(romans).not.toContain("Imaj7");
+    // Phrase closes on tonic function.
+    expect(stable.chords.at(-1)?.chord.functionLabel).toBe("T");
+    // Any dominant present is the functional V7 (from harmonic minor) or vii°.
+    const dominant = stable.chords.find((c) => c.chord.functionLabel === "D");
+    if (dominant) {
+      expect(["V7", "vii°"]).toContain(dominant.chord.roman);
+    }
   });
 
   it("generates a full 12-bar candidate progression for the long melody fixture", () => {
