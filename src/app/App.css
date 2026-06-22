@@ -758,6 +758,7 @@ button:disabled,
   background: color-mix(in oklch, black 70%, transparent);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+  animation: fade var(--dur-base) var(--ease-out) both;
 }
 
 /* Deep-smoke glass, unified with the landing's capsule nav (TASK6 §9.8):
@@ -778,6 +779,7 @@ button:disabled,
     var(--shadow-2);
   -webkit-backdrop-filter: blur(28px) saturate(1.3);
   backdrop-filter: blur(28px) saturate(1.3);
+  animation: emerge var(--dur-slow) var(--ease-out) both;
 }
 
 /* No backdrop-filter (or a low-end device where blur over live WebGL is too
@@ -924,6 +926,7 @@ button:disabled,
   background: color-mix(in oklch, black 66%, transparent);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+  animation: fade var(--dur-base) var(--ease-out) both;
 }
 
 /* Same deep-smoke glass as the auth card (TASK6 §9.8). */
@@ -942,6 +945,7 @@ button:disabled,
   -webkit-backdrop-filter: blur(28px) saturate(1.3);
   backdrop-filter: blur(28px) saturate(1.3);
   overflow-y: auto;
+  animation: slide-in-right var(--dur-slow) var(--ease-out) both;
 }
 
 .projects-drawer-header {
@@ -1262,6 +1266,7 @@ button:disabled,
   background: color-mix(in oklch, black 58%, transparent);
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
+  animation: fade var(--dur-base) var(--ease-out) both;
 }
 
 .guide-modal {
@@ -1278,6 +1283,7 @@ button:disabled,
     var(--shadow-2);
   -webkit-backdrop-filter: blur(28px) saturate(1.3);
   backdrop-filter: blur(28px) saturate(1.3);
+  animation: emerge var(--dur-slow) var(--ease-out) both;
 }
 
 /* Inside the modal the coach is the body — drop the in-flow rules/margins. */
@@ -1498,6 +1504,7 @@ button:disabled,
   padding: 10px 0 10px 14px;
   border-left: 2px solid var(--color-accent);
   color: var(--color-text);
+  animation: emerge var(--dur-base) var(--ease-out) both;
 }
 
 .harmony-status-banner strong {
@@ -1526,6 +1533,7 @@ button:disabled,
   gap: 16px;
   padding: 12px 0 12px 14px;
   border-left: 2px solid var(--color-hairline);
+  animation: emerge var(--dur-base) var(--ease-out) both;
   background: transparent;
 }
 
@@ -1824,6 +1832,8 @@ button:disabled,
   place-items: center;
   border-color: transparent;
   border-radius: 999px;
+  /* Each melody note surfaces in place as it is added or loaded. (Task 6 §T6.6) */
+  animation: fade var(--dur-base) var(--ease-out) both;
   /* Melody = white porcelain forms taking shape on the black stage. */
   background: linear-gradient(180deg, var(--color-ivory), var(--color-ivory-dim));
   box-shadow:
@@ -1897,6 +1907,13 @@ button:disabled,
 
 .voice-labels span {
   line-height: 1;
+}
+
+/* Harmony develops in place — voices + chord blocks fade in (no movement, so a
+   dense grid never reads as busy) when a candidate is chosen. (Task 6 §T6.6) */
+.harmony-note,
+.chord-block {
+  animation: fade var(--dur-base) var(--ease-out) both;
 }
 
 .harmony-note {
@@ -1989,6 +2006,21 @@ button:disabled,
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-5);
+}
+
+/* Generate reveal: the three candidate cards surface in a faint stagger — the
+   signature "harmony takes shape" beat. They mount fresh when candidates
+   populate, so the entrance plays once. (Task 6 §T6.6) */
+.candidate-strip > * {
+  animation: emerge var(--dur-slow) var(--ease-out) both;
+}
+
+.candidate-strip > *:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.candidate-strip > *:nth-child(3) {
+  animation-delay: 110ms;
 }
 
 .candidate {

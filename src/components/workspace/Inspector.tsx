@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   describeFit,
   describeFunction,
@@ -5,6 +6,7 @@ import {
   relationshipLabel,
 } from "../../app/explain";
 import type { Language } from "../../app/i18n";
+import { useDialog } from "../../app/useDialog";
 import type { HarmonyCandidate, PlacedChord, ScoredChord } from "../../music/types";
 
 type InspectorProps = {
@@ -38,11 +40,15 @@ export function Inspector({
   onCopyProgression,
   onExportMidi,
 }: InspectorProps) {
+  const sheetRef = useRef<HTMLElement>(null);
+  useDialog(inspectorOpen, onClose, sheetRef);
+
   return (
     <aside
       className={`inspector inspector-sheet${inspectorOpen ? " is-open" : ""}`}
       aria-label="Selected harmony details"
       aria-hidden={!inspectorOpen ? true : undefined}
+      ref={sheetRef}
     >
       <button
         type="button"

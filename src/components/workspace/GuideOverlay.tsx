@@ -1,5 +1,6 @@
-import type { Dispatch } from "react";
+import { useRef, type Dispatch } from "react";
 import type { AppAction } from "../../app/appState";
+import { useDialog } from "../../app/useDialog";
 import type { AuthStatus } from "../../app/auth/AuthProvider";
 import { candidateProgression } from "../../app/pianoRollLayout";
 import { GUIDE_STEPS } from "../../app/workspaceConstants";
@@ -56,6 +57,8 @@ export function GuideOverlay({
   onSaveNewProject,
 }: GuideOverlayProps) {
   const guideStepKey = GUIDE_STEPS[guideStep];
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useDialog(true, onClose, overlayRef);
 
   return (
     <div
@@ -64,6 +67,7 @@ export function GuideOverlay({
       aria-modal="true"
       aria-label={t("view.guided")}
       onClick={onClose}
+      ref={overlayRef}
     >
       <div className="guide-modal" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="auth-close" aria-label={t("auth.close")} onClick={onClose}>

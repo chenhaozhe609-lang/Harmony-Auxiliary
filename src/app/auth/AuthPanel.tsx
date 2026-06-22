@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { translate, type Language } from "../i18n";
 import { useAuth } from "./AuthProvider";
+import { useDialog } from "../useDialog";
 
 type AuthPanelProps = {
   language: Language;
@@ -19,6 +20,8 @@ export function AuthPanel({ language, onClose, onAuthenticated, onDemo }: AuthPa
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "error" | "status"; text: string } | null>(null);
   const t = (key: string) => translate(language, key);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useDialog(true, onClose, overlayRef);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,6 +55,7 @@ export function AuthPanel({ language, onClose, onAuthenticated, onDemo }: AuthPa
       aria-modal="true"
       aria-label={mode === "sign-in" ? t("auth.signInTitle") : t("auth.signUpTitle")}
       onClick={onClose}
+      ref={overlayRef}
     >
       <div className="auth-card" onClick={(event) => event.stopPropagation()}>
         <button type="button" className="auth-close" aria-label={t("auth.close")} onClick={onClose}>

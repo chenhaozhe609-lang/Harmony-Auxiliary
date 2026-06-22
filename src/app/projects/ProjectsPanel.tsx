@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { translate, type Language } from "../i18n";
 import type { CloudProject } from "../../services/projectsRepository";
+import { useDialog } from "../useDialog";
 
 type ProjectsPanelProps = {
   language: Language;
@@ -36,6 +37,8 @@ export function ProjectsPanel({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const t = (key: string) => translate(language, key);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useDialog(true, onClose, overlayRef);
 
   const startRename = (project: CloudProject) => {
     setRenamingId(project.id);
@@ -55,6 +58,7 @@ export function ProjectsPanel({
       aria-modal="true"
       aria-label={t("projects.title")}
       onClick={onClose}
+      ref={overlayRef}
     >
       <aside className="projects-drawer" onClick={(event) => event.stopPropagation()}>
         <header className="projects-drawer-header">

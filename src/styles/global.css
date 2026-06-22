@@ -34,6 +34,12 @@
   --gradient-warm: linear-gradient(102deg, oklch(1 0 0), oklch(0.78 0 0));
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
+  /* Motion (Task 6 §T6.6) — restrained "emergence from black". One easing,
+     short durations, small distances. Everything collapses under reduce. */
+  --dur-fast: 130ms; /* hover / press / colour feedback */
+  --dur-base: 220ms; /* small state changes */
+  --dur-slow: 420ms; /* entrances, sheets, drawers */
+
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: "Cormorant Garamond", "Hoefler Text", "Iowan Old Style", Garamond, "Times New Roman", Georgia, serif;
   --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
@@ -95,7 +101,64 @@ button {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
-  outline: 3px solid var(--color-focus);
+select:focus-visible,
+[tabindex]:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
+}
+
+/* "Emergence from black": white forms surface with a faint rise. The signature
+   entrance, kept deliberately small so it reads as gallery-quiet. (Task 6 §T6.6) */
+@keyframes emerge {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Quieter still: develop in place with no movement (used for dense grid data
+   and modal backdrops, where a rise would read as busy). */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* A side panel sliding in from the right edge (projects drawer). */
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.u-emerge {
+  animation: emerge var(--dur-slow) var(--ease-out) both;
+}
+
+/* Accessibility safety net: with reduced motion preferred, collapse every
+   animation and transition to near-instant so state still changes but nothing
+   moves. This blankets the scattered per-component rules. (Task 6 §T6.6) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
