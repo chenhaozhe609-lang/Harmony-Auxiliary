@@ -15,6 +15,9 @@ const viewports = [
 const stepOf = (page) => page.evaluate(() => document.querySelector(".guide-coach")?.dataset.step ?? null);
 const present = (page, selector) => page.evaluate((s) => Boolean(document.querySelector(s)), selector);
 
+// TASK6 §11 Phase B: the workspace is one unified expert stage; guidance is an
+// on-demand popup wizard (no separate guided view, no view toggle). The wizard's
+// controls dispatch to the same AppState, so the workspace behind it updates.
 async function inspectViewport(viewport) {
   const page = await browser.newPage({
     viewport: { width: viewport.width, height: viewport.height },
@@ -23,61 +26,66 @@ async function inspectViewport(viewport) {
   await page.addInitScript(() => window.localStorage.clear());
   await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
-  // Enter the demo sandbox (guided mode is the default view).
+  // Enter the demo sandbox — it lands directly in the unified expert workspace.
   await page.waitForSelector(".auth-overlay", { timeout: 6000 });
   await page.locator(".auth-demo-link").click();
-  await page.waitForSelector(".app-shell .guide-rail", { timeout: 5000 });
+  await page.waitForSelector(".app-shell .workspace-grid.is-expert", { timeout: 5000 });
+  await page.waitForSelector(".melody-window .note", { timeout: 5000 });
 
   const r = { viewport };
-  r.railSteps = await page.locator(".guide-rail-step").count();
+  r.isExpertWorkspace = await present(page, ".workspace-grid.is-expert");
+  r.hasMelody = (await page.locator(".melody-window .note").count()) > 0;
+  r.hasSourceTools = await present(page, ".toolbar-source");
+  r.hasSettingsTray = await present(page, ".settings-tray");
+  r.hasHarmonyDrawer = await present(page, ".harmony-drawer");
+  r.noViewToggle =
+    !(await present(page, '.segmented-control[aria-label="视图"]')) &&
+    !(await present(page, '.segmented-control[aria-label="View"]'));
+  r.guideClosedInitially = !(await present(page, ".guide-overlay"));
 
-  // Step 1: input — source tools shown, no candidates / inspector yet.
+  // Open the guide wizard popup.
+  await page.locator('button[aria-haspopup="dialog"]').click();
+  await page.waitForSelector(".guide-overlay .guide-rail", { timeout: 5000 });
+  r.railSteps = await page.locator(".guide-overlay .guide-rail-step").count();
   r.step0 = await stepOf(page);
-  r.step0HasSource = await present(page, ".toolbar-source");
-  r.step0NoCandidates = !(await present(page, ".candidate-strip"));
-  r.step0NoInspector = !(await present(page, ".inspector"));
-  r.step0HasMelody = (await page.locator(".melody-window .note").count()) > 0;
 
   const next = () => page.locator(".guide-coach-nav .primary-button").click();
 
-  // Step 2: settings — settings fields surface inside the coach card.
+  // Step 2: settings — settings fields inside the coach.
   await next();
   await page.waitForFunction(() => document.querySelector(".guide-coach")?.dataset.step === "settings");
-  r.step1HasSettings = await present(page, ".guide-coach .settings-grid");
+  r.step1HasSettings = await present(page, ".guide-overlay .settings-grid");
 
-  // Step 3: generate — hero generate button in the coach.
+  // Step 3: generate.
   await next();
   await page.waitForFunction(() => document.querySelector(".guide-coach")?.dataset.step === "generate");
   r.step2HasGenerate = await present(page, ".guide-generate button");
 
-  // Generating advances to the audition step automatically.
+  // Generating advances to audition and updates the workspace behind the popup.
   await page.locator(".guide-generate button").click();
   await page.waitForFunction(
     () => document.querySelector(".guide-coach")?.dataset.step === "audition",
     { timeout: 5000 },
   );
   r.step3 = await stepOf(page);
-  r.step3HasTransport = await present(page, ".toolbar-transport");
-  r.step3HasCandidates = await present(page, ".candidate-strip");
+  r.step3HasCandidate = await present(page, ".candidate-strip .candidate.is-selected");
+  r.step3HasHarmony = await present(page, ".harmony-window .chord-block");
 
-  // Step 5: select — inspector appears.
+  // Step 5: select.
   await next();
   await page.waitForFunction(() => document.querySelector(".guide-coach")?.dataset.step === "select");
-  r.step4HasInspector = await present(page, ".inspector");
+  r.step4 = await stepOf(page);
 
   // Step 6: export — export actions in the coach.
   await next();
   await page.waitForFunction(() => document.querySelector(".guide-coach")?.dataset.step === "export");
   r.step5HasExport = await present(page, ".guide-export-actions");
 
-  // Switch to expert view: the full workspace shows everything at once.
-  await page.getByRole("button", { name: "专家" }).click();
+  // Close the wizard; the workspace (and its generated harmony) persists.
+  await page.locator(".guide-overlay .auth-close").click();
   await page.waitForTimeout(150);
-  r.expertNoRail = !(await present(page, ".guide-rail"));
-  r.expertHasSettingsTray = await present(page, ".settings-tray");
-  r.expertHasBothToolbars =
-    (await present(page, ".toolbar-source")) && (await present(page, ".toolbar-transport"));
-  r.expertHasInspector = await present(page, ".inspector");
+  r.guideClosedAfter = !(await present(page, ".guide-overlay"));
+  r.workspacePersists = await present(page, ".harmony-window .chord-block");
 
   r.overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -100,23 +108,24 @@ await browser.close();
 const errors = [];
 for (const r of results) {
   const v = r.viewport.name;
-  if (r.railSteps !== 6) errors.push(`${v}: expected 6 rail steps, got ${r.railSteps}.`);
-  if (r.step0 !== "input") errors.push(`${v}: first step is ${r.step0}, expected input.`);
-  if (!r.step0HasSource) errors.push(`${v}: input step missing source tools.`);
-  if (!r.step0NoCandidates) errors.push(`${v}: candidate strip visible on input step.`);
-  if (!r.step0NoInspector) errors.push(`${v}: inspector visible on input step.`);
-  if (!r.step0HasMelody) errors.push(`${v}: demo melody not loaded.`);
+  if (!r.isExpertWorkspace) errors.push(`${v}: unified expert workspace not present.`);
+  if (!r.hasMelody) errors.push(`${v}: demo melody not loaded.`);
+  if (!r.hasSourceTools) errors.push(`${v}: source tools missing.`);
+  if (!r.hasSettingsTray) errors.push(`${v}: settings tray missing from the command bar.`);
+  if (!r.hasHarmonyDrawer) errors.push(`${v}: harmony drawer missing.`);
+  if (!r.noViewToggle) errors.push(`${v}: legacy guided/expert view toggle still present.`);
+  if (!r.guideClosedInitially) errors.push(`${v}: guide popup open before requested.`);
+  if (r.railSteps !== 6) errors.push(`${v}: expected 6 guide steps, got ${r.railSteps}.`);
+  if (r.step0 !== "input") errors.push(`${v}: first guide step is ${r.step0}, expected input.`);
   if (!r.step1HasSettings) errors.push(`${v}: settings fields not shown on settings step.`);
   if (!r.step2HasGenerate) errors.push(`${v}: generate button not shown on generate step.`);
   if (r.step3 !== "audition") errors.push(`${v}: did not auto-advance to audition (${r.step3}).`);
-  if (!r.step3HasTransport) errors.push(`${v}: transport missing on audition step.`);
-  if (!r.step3HasCandidates) errors.push(`${v}: candidate strip missing on audition step.`);
-  if (!r.step4HasInspector) errors.push(`${v}: inspector missing on select step.`);
+  if (!r.step3HasCandidate) errors.push(`${v}: no selected candidate after generate.`);
+  if (!r.step3HasHarmony) errors.push(`${v}: harmony chords not rendered after generate.`);
+  if (r.step4 !== "select") errors.push(`${v}: did not reach the select step (${r.step4}).`);
   if (!r.step5HasExport) errors.push(`${v}: export actions missing on export step.`);
-  if (!r.expertNoRail) errors.push(`${v}: guide rail still present in expert view.`);
-  if (!r.expertHasSettingsTray) errors.push(`${v}: settings tray missing in expert view.`);
-  if (!r.expertHasBothToolbars) errors.push(`${v}: expert view missing a toolbar.`);
-  if (!r.expertHasInspector) errors.push(`${v}: inspector missing in expert view.`);
+  if (!r.guideClosedAfter) errors.push(`${v}: guide popup did not close.`);
+  if (!r.workspacePersists) errors.push(`${v}: workspace harmony lost after closing the guide.`);
   if (r.overflow) errors.push(`${v}: horizontal overflow.`);
 }
 
@@ -125,4 +134,4 @@ if (errors.length > 0) {
   console.error("Failed:\n" + errors.join("\n"));
   process.exit(1);
 }
-console.log("T5.4 guided flow OK");
+console.log("T5.4 unified workspace + guide popup OK");

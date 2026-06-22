@@ -19,9 +19,12 @@ results.authHasPrivacyNote = await page.evaluate(() => {
   return Boolean(el && el.textContent && el.textContent.length > 10);
 });
 
-// Enter the demo and walk to the export step; it must state demo work is not saved.
+// Enter the demo, open the guide wizard, and walk to the export step; it must
+// state demo work is not saved. (Guide is a popup now — TASK6 §11 Phase B.)
 await page.locator(".auth-demo-link").click();
-await page.waitForSelector(".guide-rail");
+await page.waitForSelector(".workspace-grid.is-expert .melody-window .note", { timeout: 5000 });
+await page.locator('button[aria-haspopup="dialog"]').click();
+await page.waitForSelector(".guide-overlay .guide-rail", { timeout: 5000 });
 const next = () => page.locator(".guide-coach-nav .primary-button").click();
 await next(); // settings
 await page.waitForFunction(() => document.querySelector(".guide-coach")?.dataset.step === "settings");

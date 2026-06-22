@@ -247,7 +247,9 @@ function App() {
   const [migrationOffered, setMigrationOffered] = useState(false);
   const [showMigratePrompt, setShowMigratePrompt] = useState(false);
   const [language, setLanguage] = useState<Language>(initialPreferences.language);
-  const [viewMode, setViewMode] = useState<WorkspaceViewMode>(initialPreferences.viewMode);
+  // One unified workspace now (TASK6 §11 Phase B); persist a stable expert mode
+  // so any older "guided" preference is migrated forward.
+  const viewMode: WorkspaceViewMode = "expert";
   const [activeStep, setActiveStep] = useState(0);
   const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -597,15 +599,13 @@ function App() {
         )?.id ?? null
       : null;
 
-  // Guided flow (Task 5 / T5.4): a step cursor over the same workspace state.
-  // Gates are derived from AppState — activeStep is only a view cursor, never a
-  // second source of truth.
-  const guided = viewMode === "guided";
+  // TASK6 §11 Phase B: the workspace is one unified expert stage. Guidance is an
+  // on-demand popup wizard (`guideOpen`), not a separate view — so the layout no
+  // longer branches on a "guided" mode.
+  const [guideOpen, setGuideOpen] = useState(false);
 
-  // Expert mode (TASK6 §10): the inspector is an on-demand side-sheet that
-  // slides in only when the user explicitly clicks a chord/voice, so the piano
-  // roll owns the full width while idle (and after a bare generate). Guided mode
-  // keeps its in-flow inspector column.
+  // The inspector is an on-demand side-sheet that slides in only when the user
+  // explicitly clicks a chord/voice, so the piano roll owns the full width.
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const openInspectorOnChord = (chordId: string) => {
     dispatch({ type: "select-chord", chordId });
@@ -638,14 +638,14 @@ function App() {
   const canAdvanceStep = stepGates[guideStep];
   const goToStep = (index: number) => setActiveStep(Math.max(0, Math.min(furthestReachable, index)));
 
-  // Region visibility. In expert mode (`!guided`) everything is shown, exactly
-  // as before the guided flow existed.
-  const showSourceTools = !guided || guideStep === 0;
-  const showTransport = !guided || guideStep === 3 || guideStep === 4;
-  const showPianoRoll = !guided || guideStep <= 4;
-  const showCandidateStrip = !guided || guideStep === 3 || guideStep === 4;
-  const showInspector = !guided || guideStep === 4;
-  const showStageToolbar = showSourceTools || showTransport;
+  // The unified workspace always shows every region; the guide popup only
+  // explains/drives them, it no longer gates visibility.
+  const showSourceTools = true;
+  const showTransport = true;
+  const showPianoRoll = true;
+  const showCandidateStrip = true;
+  const showInspector = true;
+  const showStageToolbar = true;
 
   const handleLoadDemo = () => {
     resetPlayback();
@@ -1512,7 +1512,7 @@ function App() {
   );
 
   return (
-    <main className={`app-shell${!guided ? " expert" : ""}`}>
+    <main className="app-shell expert">
       <header className="command-bar" aria-label="Main controls">
         <div className="brand-lockup">
           <span className="brand-mark">H</span>
@@ -1571,45 +1571,32 @@ function App() {
               </button>
             </div>
           ) : null}
-          <div className="segmented-control" aria-label={t("view.label")}>
-            <button
-              type="button"
-              aria-pressed={viewMode === "guided"}
-              onClick={() => setViewMode("guided")}
-            >
-              {t("view.guided")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={viewMode === "expert"}
-              onClick={() => setViewMode("expert")}
-            >
-              {t("view.expert")}
-            </button>
-          </div>
-          {!guided ? (
-            <>
-              <details className="settings-tray">
-                <summary>{t("settings.projectSettings")}</summary>
-                {renderSettingsFields()}
-              </details>
-              <button
-                type="button"
-                className="primary-button"
-                disabled={!hasMelody || isGenerating}
-                onClick={handleGenerate}
-              >
-                {isGenerating ? t("action.generating") : t("action.generate")}
-              </button>
-            </>
-          ) : null}
+          <button
+            type="button"
+            className="secondary-button"
+            aria-haspopup="dialog"
+            aria-expanded={guideOpen}
+            onClick={() => setGuideOpen(true)}
+          >
+            {t("view.guided")}
+          </button>
+          <details className="settings-tray">
+            <summary>{t("settings.projectSettings")}</summary>
+            {renderSettingsFields()}
+          </details>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={!hasMelody || isGenerating}
+            onClick={handleGenerate}
+          >
+            {isGenerating ? t("action.generating") : t("action.generate")}
+          </button>
         </nav>
       </header>
 
       <section
-        className={`workspace-grid${guided && !showInspector ? " is-single" : ""}${
-          !guided ? " is-expert" : ""
-        }`}
+        className="workspace-grid is-expert"
       >
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
@@ -1627,13 +1614,6 @@ function App() {
               </span>
             ) : null}
           </div>
-
-          {guided ? (
-            <>
-              {renderStepRail()}
-              {renderStepCoach()}
-            </>
-          ) : null}
 
           {showStageToolbar ? (
           <div className="stage-toolbar">
@@ -1738,9 +1718,7 @@ function App() {
             </div>
             ) : null}
 
-            {/* Expert moves the transport into the harmony drawer header; guided
-                keeps it inline in the stage toolbar (TASK6 §11). */}
-            {showTransport && guided ? transportEl : null}
+            {/* Transport lives in the harmony drawer header now. */}
           </div>
           ) : null}
 
@@ -1840,7 +1818,7 @@ function App() {
             </div>
           ) : null}
 
-          {!guided && showPianoRoll && showEditableGrid && navView.total > navView.view + 1 ? (
+          {showPianoRoll && showEditableGrid && navView.total > navView.view + 1 ? (
             <div
               className="timeline-nav"
               ref={navTrackRef}
@@ -1977,15 +1955,6 @@ function App() {
                     ))}
                   </div>
                 </div>
-
-                {/* Guided keeps harmony inline; expert moves it to the bottom
-                    drawer below (TASK6 §11 Phase A). */}
-                {guided ? (
-                  <>
-                    <div className="window-title">{t("lane.harmony")}</div>
-                    {harmonyWindowEl}
-                  </>
-                ) : null}
               </div>
             )}
           </div>
@@ -2035,7 +2004,7 @@ function App() {
 
           {/* Harmony bottom drawer — last child so it sticks to the column's
               bottom, sharing the melody's exact left origin (TASK6 §11 Phase A). */}
-          {!guided && showPianoRoll && showEditableGrid ? (
+          {showPianoRoll && showEditableGrid ? (
             <div
               className={`harmony-drawer${harmonyDrawerOpen ? " is-open" : ""}`}
               style={timelineGridStyle}
@@ -2072,22 +2041,18 @@ function App() {
 
         {showInspector ? (
         <aside
-          className={`inspector${!guided ? " inspector-sheet" : ""}${
-            !guided && inspectorOpen ? " is-open" : ""
-          }`}
+          className={`inspector inspector-sheet${inspectorOpen ? " is-open" : ""}`}
           aria-label="Selected harmony details"
-          aria-hidden={!guided && !inspectorOpen ? true : undefined}
+          aria-hidden={!inspectorOpen ? true : undefined}
         >
-          {!guided ? (
-            <button
-              type="button"
-              className="inspector-close"
-              aria-label={t("auth.close")}
-              onClick={() => setInspectorOpen(false)}
-            >
-              ×
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="inspector-close"
+            aria-label={t("auth.close")}
+            onClick={() => setInspectorOpen(false)}
+          >
+            ×
+          </button>
           <span className="eyebrow">{t("inspector.label")}</span>
           {selectedCandidate && selectedChord ? (
             <>
@@ -2189,6 +2154,29 @@ function App() {
         </aside>
         ) : null}
       </section>
+
+      {guideOpen ? (
+        <div
+          className="guide-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("view.guided")}
+          onClick={() => setGuideOpen(false)}
+        >
+          <div className="guide-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="auth-close"
+              aria-label={t("auth.close")}
+              onClick={() => setGuideOpen(false)}
+            >
+              ×
+            </button>
+            {renderStepRail()}
+            {renderStepCoach()}
+          </div>
+        </div>
+      ) : null}
 
       {authOpen ? (
         <AuthPanel

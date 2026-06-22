@@ -24,11 +24,10 @@ async function inspectViewport(viewport) {
   });
 
   await page.goto(BASE_URL, { waitUntil: "networkidle" });
-  // Task 5 soft gate: enter via the demo path (loads a melody), then switch to
-  // the expert view so the full single-screen workspace is shown at once.
+  // Task 5 soft gate: enter via the demo path (loads a melody). The workspace is
+  // a single unified expert stage now (TASK6 §11 Phase B) — no view toggle.
   await page.waitForSelector(".auth-overlay");
   await page.locator(".auth-demo-link").click();
-  await page.getByRole("button", { name: "专家" }).click();
 
   // Generate harmony so both windows have content (demo melody is preloaded).
   await page.waitForSelector(".melody-window .note");

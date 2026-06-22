@@ -43,7 +43,9 @@ export const defaultPreferences: StoredPreferences = {
   inputMode: "midi",
   playbackTone: "acoustic-grand",
   language: "zh",
-  viewMode: "guided",
+  // The workspace is one unified expert stage now; guidance is an on-demand
+  // popup wizard rather than a separate view. (TASK6 §11 Phase B)
+  viewMode: "expert",
 };
 
 function isPitchClass(value: unknown): value is PitchClass {

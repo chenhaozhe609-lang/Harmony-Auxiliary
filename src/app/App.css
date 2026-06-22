@@ -1268,6 +1268,64 @@ button:disabled,
   min-width: 96px;
 }
 
+/* Guide wizard popup (TASK6 §11 Phase B): the step rail + coach in a glass
+   modal over the unified workspace; its controls dispatch to the same state. */
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 52;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in oklch, black 58%, transparent);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.guide-modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 30px 28px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in oklch, var(--color-ivory) 16%, transparent);
+  background: color-mix(in oklch, var(--color-void) 62%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--color-ivory) 14%, transparent),
+    var(--shadow-2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  backdrop-filter: blur(28px) saturate(1.3);
+}
+
+/* Inside the modal the coach is the body — drop the in-flow rules/margins. */
+.guide-modal .guide-coach {
+  margin: 0;
+  padding: 18px 0 4px;
+  border-bottom: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .guide-modal {
+    background: color-mix(in oklch, var(--color-void) 94%, transparent);
+  }
+}
+
+/* Mobile: the wizard becomes a full-screen sheet. */
+@media (max-width: 600px) {
+  .guide-overlay {
+    padding: 0;
+    place-items: stretch;
+  }
+  .guide-modal {
+    width: 100%;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    padding: 56px 20px 24px;
+  }
+}
+
 .workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
