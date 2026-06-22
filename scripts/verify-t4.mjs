@@ -31,8 +31,25 @@ async function inspectViewport(viewport) {
 
   // Generate harmony so both windows have content (demo melody is preloaded).
   await page.waitForSelector(".melody-window .note");
+
+  // TASK7 §11.2: the edit phase is a clean melody editor — no harmony UI yet,
+  // but the melody-playback transport is available at the panel bottom.
+  const editPhase = await page.evaluate(() => ({
+    harmonyDrawer: Boolean(document.querySelector(".harmony-drawer")),
+    candidateStrip: Boolean(document.querySelector(".candidate-strip")),
+    melodyTransport: Boolean(document.querySelector(".melody-transport")),
+  }));
+
   await page.getByRole("button", { name: /^生成$|^Generate$/ }).click();
   await page.waitForSelector(".harmony-window .chord-block", { timeout: 5000 });
+
+  // Harmony phase: candidate strip + harmony drawer come forward; the standalone
+  // melody transport gives way to the drawer-header transport.
+  const harmonyPhase = await page.evaluate(() => ({
+    harmonyDrawer: Boolean(document.querySelector(".harmony-drawer")),
+    candidateStrip: Boolean(document.querySelector(".candidate-strip")),
+    melodyTransport: Boolean(document.querySelector(".melody-transport")),
+  }));
 
   // Default tone preset should be the sampled grand piano.
   const tonePreset = await page.evaluate(() => {
@@ -140,7 +157,7 @@ async function inspectViewport(viewport) {
 
   await page.close();
 
-  return { viewport: viewport.name, tonePreset, pianoRoll, windows, sync, pitchDrag, overflow };
+  return { viewport: viewport.name, tonePreset, editPhase, harmonyPhase, pianoRoll, windows, sync, pitchDrag, overflow };
 }
 
 const results = [];
@@ -152,10 +169,23 @@ await browser.close();
 
 const errors = [];
 for (const result of results) {
-  const { viewport, tonePreset, pianoRoll, windows, sync, pitchDrag, overflow } = result;
+  const { viewport, tonePreset, editPhase, harmonyPhase, pianoRoll, windows, sync, pitchDrag, overflow } = result;
 
   if (tonePreset !== "acoustic-grand") {
     errors.push(`${viewport}: default tone preset is ${tonePreset}, expected acoustic-grand.`);
+  }
+  // TASK7 §11.2 phase split: edit phase hides harmony UI; harmony phase shows it.
+  if (editPhase.harmonyDrawer || editPhase.candidateStrip) {
+    errors.push(`${viewport}: edit phase should not show harmony UI (drawer=${editPhase.harmonyDrawer}, strip=${editPhase.candidateStrip}).`);
+  }
+  if (!editPhase.melodyTransport) {
+    errors.push(`${viewport}: edit phase is missing the melody transport bar.`);
+  }
+  if (!harmonyPhase.harmonyDrawer || !harmonyPhase.candidateStrip) {
+    errors.push(`${viewport}: harmony phase should show harmony UI (drawer=${harmonyPhase.harmonyDrawer}, strip=${harmonyPhase.candidateStrip}).`);
+  }
+  if (harmonyPhase.melodyTransport) {
+    errors.push(`${viewport}: harmony phase should not also show the standalone melody transport.`);
   }
   // DAW-scale range C2..C7 (TASK6 §11 Phase A2): a 61-key, 5-octave roll so the
   // melody editor always scrolls vertically inside the fixed-height stage.

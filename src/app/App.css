@@ -2306,6 +2306,29 @@ button:disabled,
   min-width: 0; /* bound to the panel width so the wide roll scrolls horizontally */
 }
 
+/* Mobile: the desktop fixed-height "stage" can't fit the (stacked) command bar
+   + roll + harmony drawer at once, which squeezes the roll to nothing. Let the
+   workspace scroll vertically and keep the roll usably tall. Full mobile harmony
+   layout is TASK7 E4. */
+@media (max-width: 767px) {
+  .app-shell.expert {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .workspace-grid.is-expert,
+  .workspace-grid.is-expert .timeline-panel {
+    overflow: visible;
+  }
+
+  .workspace-grid.is-expert .melody-window {
+    flex: 0 0 auto;
+    height: 46vh;
+    min-height: 300px;
+  }
+}
+
 /* Thin dark scrollbar that belongs to the roll, not the page. */
 .workspace-grid.is-expert .melody-window {
   scrollbar-width: thin;
@@ -2472,6 +2495,37 @@ button:disabled,
   flex-direction: column;
   min-width: 0;
   padding: 0 var(--stage-pad);
+}
+
+/* Edit-phase melody transport: a slim bottom bar standing in for the harmony
+   drawer's transport while harmony UI is hidden (TASK7 §11.2). */
+.melody-transport {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 calc(-1 * var(--stage-pad));
+  padding: 8px var(--stage-pad);
+  background: color-mix(in oklch, var(--color-void) 90%, transparent);
+  border-top: 1px solid color-mix(in oklch, var(--color-ivory) 14%, transparent);
+  box-shadow: 0 -12px 40px -6px color-mix(in oklch, black 55%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+}
+
+/* Right-side cluster of the editor toolbar: tone status + phase nav. */
+.timeline-header-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Compact in the expert toolbar so the phase toggle never steals roll height. */
+.app-shell.expert .phase-nav-button {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 12px;
 }
 
 /* Drag-handle affordance. */

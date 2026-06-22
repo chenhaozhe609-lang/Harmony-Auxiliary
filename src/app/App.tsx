@@ -479,6 +479,13 @@ function App() {
     if (hasHarmony) setHarmonyDrawerOpen(true);
   }, [hasHarmony]);
 
+  // TASK7 §11: phase-aware workspace. Editing the melody and exploring harmony
+  // are distinct phases — the edit phase shows NO harmony UI (a clean melody
+  // editor); the harmony phase brings candidates + harmony forward. Derived from
+  // whether harmony exists, with an explicit "back to edit" override.
+  const [editOverride, setEditOverride] = useState(false);
+  const inHarmonyPhase = (showCandidates || isGenerating) && !editOverride;
+
   const GUIDE_STEPS = ["input", "settings", "generate", "audition", "select", "export"] as const;
   const stepGates = [
     hasMelody, // input -> settings
@@ -501,7 +508,9 @@ function App() {
   const showSourceTools = true;
   const showTransport = true;
   const showPianoRoll = true;
-  const showCandidateStrip = true;
+  // Harmony UI (candidate strip + drawer) only appears in the harmony phase, so
+  // the edit phase is a clean melody editor (TASK7 §11.2).
+  const showCandidateStrip = inHarmonyPhase;
   const showInspector = true;
   const showStageToolbar = true;
 
@@ -529,6 +538,7 @@ function App() {
     if (isGenerating) return;
 
     pausePlayback();
+    setEditOverride(false); // generating enters the harmony phase
     setIsGenerating(true);
     window.setTimeout(() => {
       dispatch({
@@ -806,7 +816,7 @@ function App() {
       observer?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen, showEditableGrid]);
+  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen, showEditableGrid, inHarmonyPhase]);
 
   const auditionPitch = (midi: number) => {
     void audioEngineRef.current?.previewNote(midi, state.settings.playbackTone);
@@ -1037,6 +1047,26 @@ function App() {
     );
   }
 
+  // One transport instance, rendered in exactly one place per phase: a bottom
+  // bar in the edit phase (melody playback), the harmony drawer header in the
+  // harmony phase (TASK7 §11.2).
+  const transportEl = showTransport ? (
+    <Transport
+      t={t}
+      canPlayTimeline={canPlayTimeline}
+      playbackStatus={state.playback.status}
+      melodyMuted={state.playback.melodyMuted}
+      harmonyMuted={state.playback.harmonyMuted}
+      harmonyIsReady={harmonyIsReady}
+      currentBeat={state.playback.currentBeat}
+      onPlayFromStart={() => void handlePlayFromStart()}
+      onPlayFromCurrentMeasure={() => void handlePlayFromCurrentMeasure()}
+      onPlayPause={playSelectedCandidate}
+      onToggleMelodyMute={toggleMelodyMute}
+      onToggleHarmonyMute={toggleHarmonyMute}
+    />
+  ) : null;
+
   return (
     <main className="app-shell expert">
       <CommandBar
@@ -1071,18 +1101,45 @@ function App() {
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
             <div>
-              <span className="eyebrow">{t("timeline.label")}</span>
-              <h2>{hasMelody ? t("timeline.active") : t("timeline.start")}</h2>
+              <span className="eyebrow">
+                {inHarmonyPhase ? t("phase.harmonyEyebrow") : t("timeline.label")}
+              </span>
+              <h2>
+                {inHarmonyPhase
+                  ? t("phase.harmonyTitle")
+                  : hasMelody
+                    ? t("timeline.active")
+                    : t("timeline.start")}
+              </h2>
             </div>
-            {toneStatus === "loading" ? (
-              <span className="tone-status" data-tone="loading" role="status">
-                {t("tone.loading")}
-              </span>
-            ) : toneStatus === "fallback" ? (
-              <span className="tone-status" data-tone="fallback" role="status">
-                {t("tone.fallback")}
-              </span>
-            ) : null}
+            <div className="timeline-header-aside">
+              {toneStatus === "loading" ? (
+                <span className="tone-status" data-tone="loading" role="status">
+                  {t("tone.loading")}
+                </span>
+              ) : toneStatus === "fallback" ? (
+                <span className="tone-status" data-tone="fallback" role="status">
+                  {t("tone.fallback")}
+                </span>
+              ) : null}
+              {inHarmonyPhase ? (
+                <button
+                  type="button"
+                  className="secondary-button phase-nav-button"
+                  onClick={() => setEditOverride(true)}
+                >
+                  {t("phase.backToEdit")}
+                </button>
+              ) : showCandidates ? (
+                <button
+                  type="button"
+                  className="secondary-button phase-nav-button"
+                  onClick={() => setEditOverride(false)}
+                >
+                  {t("phase.viewHarmony")}
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {showStageToolbar ? (
@@ -1344,9 +1401,10 @@ function App() {
             />
           ) : null}
 
-          {/* Harmony bottom drawer — last child so it sticks to the column's
-              bottom, sharing the melody's exact left origin (TASK6 §11 Phase A). */}
-          {showPianoRoll && showEditableGrid ? (
+          {/* Harmony bottom drawer — only in the harmony phase; last child so it
+              sticks to the column's bottom, sharing the melody's exact left
+              origin (TASK6 §11 Phase A / TASK7 §11.2). */}
+          {inHarmonyPhase ? (
             <div
               className={`harmony-drawer${harmonyDrawerOpen ? " is-open" : ""}`}
               style={timelineGridStyle}
@@ -1371,22 +1429,7 @@ function App() {
                     ) : null}
                     <span className="harmony-drawer-caret" aria-hidden="true" />
                   </button>
-                  {showTransport ? (
-                    <Transport
-                      t={t}
-                      canPlayTimeline={canPlayTimeline}
-                      playbackStatus={state.playback.status}
-                      melodyMuted={state.playback.melodyMuted}
-                      harmonyMuted={state.playback.harmonyMuted}
-                      harmonyIsReady={harmonyIsReady}
-                      currentBeat={state.playback.currentBeat}
-                      onPlayFromStart={() => void handlePlayFromStart()}
-                      onPlayFromCurrentMeasure={() => void handlePlayFromCurrentMeasure()}
-                      onPlayPause={playSelectedCandidate}
-                      onToggleMelodyMute={toggleMelodyMute}
-                      onToggleHarmonyMute={toggleHarmonyMute}
-                    />
-                  ) : null}
+                  {transportEl}
                 </div>
                 <div className="harmony-drawer-body" id="harmony-drawer-body">
                   <HarmonyLane
@@ -1405,6 +1448,12 @@ function App() {
                 </div>
               </div>
             </div>
+          ) : null}
+
+          {/* Edit phase: a slim melody-playback transport at the panel bottom,
+              since the harmony drawer (its usual home) is hidden (TASK7 §11.2). */}
+          {!inHarmonyPhase && hasMelody ? (
+            <div className="melody-transport">{transportEl}</div>
           ) : null}
         </section>
 

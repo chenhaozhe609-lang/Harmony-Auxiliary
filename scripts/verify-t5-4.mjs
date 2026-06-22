@@ -37,7 +37,11 @@ async function inspectViewport(viewport) {
   r.hasMelody = (await page.locator(".melody-window .note").count()) > 0;
   r.hasSourceTools = await present(page, ".toolbar-source");
   r.hasSettingsTray = await present(page, ".settings-tray");
-  r.hasHarmonyDrawer = await present(page, ".harmony-drawer");
+  // TASK7 §11.2: on entry we are in the edit phase — no harmony drawer yet, but
+  // the melody-playback transport is present. (Harmony appears via the guide's
+  // generate step below: step3HasHarmony.)
+  r.editPhaseNoHarmonyDrawer = !(await present(page, ".harmony-drawer"));
+  r.hasMelodyTransport = await present(page, ".melody-transport");
   r.noViewToggle =
     !(await present(page, '.segmented-control[aria-label="视图"]')) &&
     !(await present(page, '.segmented-control[aria-label="View"]'));
@@ -112,7 +116,8 @@ for (const r of results) {
   if (!r.hasMelody) errors.push(`${v}: demo melody not loaded.`);
   if (!r.hasSourceTools) errors.push(`${v}: source tools missing.`);
   if (!r.hasSettingsTray) errors.push(`${v}: settings tray missing from the command bar.`);
-  if (!r.hasHarmonyDrawer) errors.push(`${v}: harmony drawer missing.`);
+  if (!r.editPhaseNoHarmonyDrawer) errors.push(`${v}: edit phase should not show the harmony drawer.`);
+  if (!r.hasMelodyTransport) errors.push(`${v}: edit-phase melody transport missing.`);
   if (!r.noViewToggle) errors.push(`${v}: legacy guided/expert view toggle still present.`);
   if (!r.guideClosedInitially) errors.push(`${v}: guide popup open before requested.`);
   if (r.railSteps !== 6) errors.push(`${v}: expected 6 guide steps, got ${r.railSteps}.`);
