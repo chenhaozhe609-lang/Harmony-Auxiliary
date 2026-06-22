@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { midiForDraggedPitch } from "./App";
+import { midiForDraggedPitch } from "./pianoRollLayout";
 
 describe("piano roll pitch dragging", () => {
   it("maps vertical drag distance to chromatic semitone rows", () => {

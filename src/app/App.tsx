@@ -29,16 +29,9 @@ import {
   updateProject,
   type CloudProject,
 } from "../services/projectsRepository";
-import {
-  describeFit,
-  describeFunction,
-  describeWarnings,
-  relationshipLabel,
-} from "./explain";
 import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
 import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
 import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
-import { getHarmonyVoiceRows, makeDisplayVoicing } from "../music/harmony/displayVoicing";
 import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
 import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
 import { parseMidiArrayBuffer } from "../music/midi/importMidi";
@@ -50,80 +43,40 @@ import {
   saveActiveAutosave,
 } from "./projectRepository";
 import type {
-  HarmonyCandidate,
-  HarmonyRhythmPattern,
   MidiImportResult,
   NoteEvent,
-  PlaybackTonePreset,
-  PitchClass,
-  PlacedChord,
   StoredProjectSnapshot,
 } from "../music/types";
 import {
-  createNoteEventId,
-  midiToPitchClass,
-  midiToNoteName,
-  pitchClassToName,
-} from "../music/theory/pitches";
-import {
-  beatToGridColumn,
   beatToPixel,
-  beatRangeToGridColumn,
   createTimelineGridMetrics,
-  durationToGridSpan,
   getTimelineEndBeat,
   MIN_NOTE_DURATION_BEATS,
   pixelDeltaToSnappedBeats,
   pixelToSnappedBeat,
 } from "./timelineGrid";
+import {
+  PITCH_ROWS,
+  PITCH_ROW_HEIGHT,
+  candidateProgression,
+  createManualGridNote,
+  midiForDraggedPitch,
+  pitchRowIndex,
+  selectedCandidateFrom,
+  selectedChordFrom,
+  updateNotePitch,
+  updateNoteTiming,
+} from "./pianoRollLayout";
+import { DURATION_OPTIONS, GUIDE_STEPS, type DurationBeats } from "./workspaceConstants";
 import "./App.css";
 import Landing from "../components/landing/Landing";
-
-const DURATION_OPTIONS = [
-  { labelKey: "duration.whole", value: 4 },
-  { labelKey: "duration.half", value: 2 },
-  { labelKey: "duration.quarter", value: 1 },
-  { labelKey: "duration.eighth", value: 0.5 },
-] as const;
-
-const KEY_OPTIONS: PitchClass[] = [0, 2, 4, 5, 7, 9, 11];
-
-const PLAYBACK_TONE_OPTIONS: PlaybackTonePreset[] = [
-  "acoustic-grand",
-  "nylon-guitar",
-  "electric-guitar",
-  "warm-organ",
-  "glass-bell",
-];
-
-// Three chromatic octaves (C3–B5) so the melody roll behaves like an FL Studio piano roll:
-// 12 semitone rows per octave, black keys distinguished from white keys.
-const LOWEST_PITCH_MIDI = 36; // C2
-const HIGHEST_PITCH_MIDI = 96; // C7 — a DAW-scale range so the roll always scrolls vertically
-const PITCH_ROW_HEIGHT = 22;
-const BLACK_KEY_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
-
-type PitchRow = {
-  label: string;
-  midi: number;
-  isBlack: boolean;
-};
-
-function buildPitchRows(): PitchRow[] {
-  const rows: PitchRow[] = [];
-  for (let midi = HIGHEST_PITCH_MIDI; midi >= LOWEST_PITCH_MIDI; midi -= 1) {
-    rows.push({
-      label: midiToNoteName(midi),
-      midi,
-      isBlack: BLACK_KEY_PITCH_CLASSES.has(midiToPitchClass(midi)),
-    });
-  }
-  return rows;
-}
-
-const PITCH_ROWS: PitchRow[] = buildPitchRows();
-
-const HARMONY_VOICE_ROWS = getHarmonyVoiceRows();
+import { CommandBar } from "../components/workspace/CommandBar";
+import { PianoRoll } from "../components/workspace/PianoRoll";
+import { HarmonyLane } from "../components/workspace/HarmonyLane";
+import { CandidateStrip } from "../components/workspace/CandidateStrip";
+import { Inspector } from "../components/workspace/Inspector";
+import { Transport } from "../components/workspace/Transport";
+import { GuideOverlay } from "../components/workspace/GuideOverlay";
 
 type NoteDragState = {
   noteId: string;
@@ -132,101 +85,6 @@ type NoteDragState = {
   originClientY: number;
   originalNote: NoteEvent;
 };
-
-function getNextStartBeat(melody: NoteEvent[]): number {
-  if (melody.length === 0) return 0;
-  return Math.max(...melody.map((note) => note.startBeat + note.durationBeats));
-}
-
-function createManualGridNote(
-  midi: number,
-  startBeat: number,
-  durationBeats: number,
-  melody: NoteEvent[],
-): NoteEvent {
-  return {
-    id: `${createNoteEventId("manual", melody.length)}-${Math.round(startBeat * 100)}-${midi}`,
-    midi,
-    pitchClass: midiToPitchClass(midi),
-    name: midiToNoteName(midi),
-    startBeat,
-    durationBeats,
-    velocity: 0.8,
-    source: "manual",
-  };
-}
-
-function noteGridColumn(note: NoteEvent): string {
-  return beatRangeToGridColumn(note.startBeat, note.durationBeats);
-}
-
-function placedChordGridColumn(placedChord: PlacedChord): string {
-  return beatRangeToGridColumn(placedChord.startBeat, placedChord.durationBeats);
-}
-
-function harmonyVoiceGridRow(voice: (typeof HARMONY_VOICE_ROWS)[number]): number {
-  return HARMONY_VOICE_ROWS.indexOf(voice) + 1;
-}
-
-function pitchRowIndexForMidi(midi: number): number {
-  return PITCH_ROWS.reduce(
-    (bestIndex, row, index) =>
-      Math.abs(row.midi - midi) < Math.abs(PITCH_ROWS[bestIndex].midi - midi)
-        ? index
-        : bestIndex,
-    0,
-  );
-}
-
-function noteGridRow(note: NoteEvent): number {
-  return pitchRowIndexForMidi(note.midi) + 1;
-}
-
-export function midiForDraggedPitch(
-  originalMidi: number,
-  deltaY: number,
-  rowHeight: number,
-): number {
-  const originalIndex = pitchRowIndexForMidi(originalMidi);
-  const rowDelta = Math.round(deltaY / rowHeight);
-  const nextIndex = Math.max(0, Math.min(PITCH_ROWS.length - 1, originalIndex + rowDelta));
-  return PITCH_ROWS[nextIndex].midi;
-}
-
-function updateNoteTiming(note: NoteEvent, startBeat: number, durationBeats: number): NoteEvent {
-  return {
-    ...note,
-    startBeat,
-    durationBeats,
-  };
-}
-
-function updateNotePitch(note: NoteEvent, midi: number): NoteEvent {
-  return {
-    ...note,
-    midi,
-    pitchClass: midiToPitchClass(midi),
-    name: midiToNoteName(midi),
-  };
-}
-
-function selectedCandidateFrom(
-  candidates: HarmonyCandidate[],
-  selectedCandidateId: string | null,
-): HarmonyCandidate | null {
-  return candidates.find((candidate) => candidate.id === selectedCandidateId) ?? candidates[0] ?? null;
-}
-
-function selectedChordFrom(
-  candidate: HarmonyCandidate | null,
-  selectedChordId: string | null,
-): PlacedChord | null {
-  return candidate?.chords.find((chord) => chord.id === selectedChordId) ?? candidate?.chords[0] ?? null;
-}
-
-function candidateProgression(candidate: HarmonyCandidate): string {
-  return candidate.chords.map((placedChord) => placedChord.chord.symbol).join(" / ");
-}
 
 function App() {
   const initialPreferences = useMemo(() => loadPreferences(), []);
@@ -251,7 +109,7 @@ function App() {
   // so any older "guided" preference is migrated forward.
   const viewMode: WorkspaceViewMode = "expert";
   const [activeStep, setActiveStep] = useState(0);
-  const [durationBeats, setDurationBeats] = useState<(typeof DURATION_OPTIONS)[number]["value"]>(1);
+  const [durationBeats, setDurationBeats] = useState<DurationBeats>(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -367,7 +225,7 @@ function App() {
     const averageMidi = Math.round(
       state.melody.reduce((sum, note) => sum + note.midi, 0) / state.melody.length,
     );
-    const rowIndex = pitchRowIndexForMidi(averageMidi);
+    const rowIndex = pitchRowIndex(averageMidi);
     const target = rowIndex * PITCH_ROW_HEIGHT - element.clientHeight / 2 + PITCH_ROW_HEIGHT / 2;
     element.scrollTop = Math.max(0, target);
     melodyCenteredRef.current = true;
@@ -1152,211 +1010,6 @@ function App() {
     dispatch({ type: "select-candidate", candidateId });
   };
 
-  // Shared project-settings fields, used by both the expert command-bar tray and
-  // the guided "settings" step so there is one source of truth for the controls.
-  const renderSettingsFields = () => (
-    <div className="settings-grid">
-      <label>
-        {t("settings.key")}
-        <select
-          value={state.settings.keyTonic}
-          onChange={(event) =>
-            dispatch({ type: "set-key", keyTonic: Number(event.target.value) as PitchClass })
-          }
-        >
-          {KEY_OPTIONS.map((pitchClass) => (
-            <option value={pitchClass} key={pitchClass}>
-              {pitchClassToName(pitchClass)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t("settings.mode")}
-        <select
-          value={state.settings.mode}
-          onChange={(event) =>
-            dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
-          }
-        >
-          <option value="major">{t("settings.major")}</option>
-          <option value="minor" disabled>
-            {t("settings.minorLater")}
-          </option>
-        </select>
-      </label>
-      <label>
-        {t("settings.tempo")}
-        <input
-          type="number"
-          value={state.settings.tempo}
-          min={40}
-          max={220}
-          onChange={(event) => dispatch({ type: "set-tempo", tempo: Number(event.target.value) })}
-        />
-      </label>
-      <label>
-        {t("settings.density")}
-        <select
-          value={state.settings.harmonyRhythm}
-          onChange={(event) =>
-            dispatch({
-              type: "set-harmony-rhythm",
-              harmonyRhythm: event.target.value as HarmonyRhythmPattern,
-            })
-          }
-        >
-          <option value="bar">{t("settings.bar")}</option>
-          <option value="strong-beats">{t("settings.strongBeats")}</option>
-          <option value="every-beat">{t("settings.everyBeat")}</option>
-          <option value="cadence-aware">{t("settings.cadenceAware")}</option>
-          <option value="sparse">{t("settings.sparse")}</option>
-        </select>
-      </label>
-      <label>
-        {t("settings.tone")}
-        <select
-          value={state.settings.playbackTone}
-          onChange={(event) => {
-            if (state.playback.status === "playing") pausePlayback();
-            dispatch({
-              type: "set-playback-tone",
-              playbackTone: event.target.value as PlaybackTonePreset,
-            });
-          }}
-        >
-          {PLAYBACK_TONE_OPTIONS.map((tone) => (
-            <option value={tone} key={tone}>
-              {t(`tone.${tone}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  );
-
-  const guideStepKey = GUIDE_STEPS[guideStep];
-
-  const renderStepCoach = () => (
-    <div className="guide-coach" data-step={guideStepKey}>
-      <div className="guide-coach-head">
-        <span className="guide-coach-index">
-          {t("guide.step")} {guideStep + 1} {t("guide.of")} {GUIDE_STEPS.length}
-        </span>
-        <h3>{t(`guide.${guideStepKey}.title`)}</h3>
-        <p>{t(`guide.${guideStepKey}.tip`)}</p>
-      </div>
-
-      {guideStepKey === "settings" ? (
-        <div className="guide-coach-body">{renderSettingsFields()}</div>
-      ) : null}
-
-      {guideStepKey === "generate" ? (
-        <div className="guide-coach-body guide-generate">
-          <button
-            type="button"
-            className="primary-button"
-            disabled={!hasMelody || isGenerating}
-            onClick={handleGenerate}
-          >
-            {isGenerating ? t("action.generating") : t("action.generate")}
-          </button>
-        </div>
-      ) : null}
-
-      {guideStepKey === "export" ? (
-        <div className="guide-coach-body guide-export">
-          {selectedCandidate ? (
-            <p className="guide-progression">
-              <span>{t("guide.progression")}</span>
-              <strong>{candidateProgression(selectedCandidate)}</strong>
-            </p>
-          ) : null}
-          <p className="guide-privacy-note">
-            {isDemo ? t("privacy.demoNote") : authStatus === "authenticated" ? t("privacy.accountNote") : t("privacy.localNote")}
-          </p>
-          <div className="guide-export-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => void handleCopyProgression()}
-            >
-              {t("action.copyProgression")}
-            </button>
-            <button type="button" className="secondary-button" onClick={handleExportMidi}>
-              {t("action.exportMidi")}
-            </button>
-            {isDemo ? (
-              <button
-                type="button"
-                className="primary-button"
-                disabled={authStatus === "unconfigured"}
-                onClick={() => {
-                  setAuthIntent("enter");
-                  setAuthOpen(true);
-                }}
-              >
-                {t("auth.signIn")}
-              </button>
-            ) : authStatus === "authenticated" ? (
-              <button
-                type="button"
-                className="primary-button"
-                disabled={!hasMelody || projectsBusy}
-                onClick={() => void handleSaveNewProject()}
-              >
-                {projectsBusy ? t("projects.saving") : t("projects.saveNew")}
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="guide-coach-nav">
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={guideStep === 0}
-          onClick={() => goToStep(guideStep - 1)}
-        >
-          {t("guide.back")}
-        </button>
-        <button
-          type="button"
-          className="primary-button"
-          disabled={!canAdvanceStep}
-          onClick={() => goToStep(guideStep + 1)}
-        >
-          {t("guide.next")}
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderStepRail = () => (
-    <nav className="guide-rail" aria-label={t("view.guided")}>
-      {GUIDE_STEPS.map((key, index) => {
-        const reachable = index <= furthestReachable;
-        const isCurrent = index === guideStep;
-        return (
-          <button
-            type="button"
-            key={key}
-            className={`guide-rail-step${isCurrent ? " is-current" : ""}${
-              index < guideStep ? " is-done" : ""
-            }`}
-            aria-current={isCurrent ? "step" : undefined}
-            disabled={!reachable}
-            onClick={() => goToStep(index)}
-          >
-            <span className="guide-rail-num">{index + 1}</span>
-            <span className="guide-rail-label">{t(`guide.${key}.title`)}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-
   if (screen === "landing") {
     return (
       <>
@@ -1384,216 +1037,33 @@ function App() {
     );
   }
 
-  // The harmony piano roll, shared between the guided inline layout and the
-  // expert bottom drawer (TASK6 §11 Phase A). Rendered in exactly one place at a
-  // time, so the harmonyScrollRef stays single-instance. Carries timelineGridStyle
-  // when placed in the drawer (outside the timeline-stack) for column alignment.
-  // Transport: rendered inline in the stage toolbar (guided) or in the harmony
-  // drawer header (expert). One source, one instance at a time.
-  const transportEl = (
-    <div className="toolbar-transport" aria-label="Playback controls">
-      <div className="jump-group" role="group" aria-label="Playback start">
-        <button
-          type="button"
-          disabled={!canPlayTimeline || state.playback.status === "starting"}
-          onClick={() => void handlePlayFromStart()}
-        >
-          {t("action.playFromStart")}
-        </button>
-        <button
-          type="button"
-          disabled={!canPlayTimeline || state.playback.status === "starting"}
-          onClick={() => void handlePlayFromCurrentMeasure()}
-        >
-          {t("action.playFromCurrentBar")}
-        </button>
-      </div>
-      <button
-        type="button"
-        className="play-button"
-        aria-label="Play timeline"
-        disabled={!canPlayTimeline}
-        onClick={playSelectedCandidate}
-      >
-        {state.playback.status === "playing" ? t("action.pause") : t("action.play")}
-      </button>
-      <div className="mute-group" role="group" aria-label="Mute tracks">
-        <button
-          type="button"
-          className="mute-chip"
-          aria-pressed={state.playback.melodyMuted}
-          disabled={!canPlayTimeline}
-          onClick={toggleMelodyMute}
-        >
-          {t("transport.melody")}
-        </button>
-        <button
-          type="button"
-          className="mute-chip"
-          aria-pressed={state.playback.harmonyMuted}
-          disabled={!harmonyIsReady}
-          onClick={toggleHarmonyMute}
-        >
-          {t("transport.harmony")}
-        </button>
-      </div>
-      <span className="beat-readout" aria-live="off">
-        {state.playback.currentBeat.toFixed(1)}
-        <small>{t("timeline.beat")}</small>
-      </span>
-    </div>
-  );
-
-  const harmonyWindowEl = (
-    <div
-      className="timeline-window harmony-window"
-      ref={harmonyScrollRef}
-      onScroll={syncHorizontalScroll}
-      aria-label="Harmony voices"
-    >
-      <div className={`harmony-grid${harmonyIsOutdated ? " is-outdated" : ""}`}>
-        <div className="lane-label harmony-lane-label">
-          <div className="voice-labels" aria-hidden="true">
-            {HARMONY_VOICE_ROWS.map((voice) => (
-              <span key={voice}>{voice}</span>
-            ))}
-            <span>Chord</span>
-          </div>
-        </div>
-        {hasMelody ? (
-          <div className="playhead" aria-hidden="true" style={{ left: `${playheadLeft}px` }} />
-        ) : null}
-        {selectedCandidate && selectedChord ? (
-          <>
-            {selectedCandidate.chords.flatMap((placedChord) =>
-              makeDisplayVoicing(placedChord).map((voice) => (
-                <button
-                  type="button"
-                  className={`harmony-note${
-                    selectedChord.id === placedChord.id ? " is-selected" : ""
-                  }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
-                  key={`${placedChord.id}-${voice.voice}`}
-                  style={{
-                    gridColumn: placedChordGridColumn(placedChord),
-                    gridRow: harmonyVoiceGridRow(voice.voice),
-                  }}
-                  title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
-                  onClick={() => openInspectorOnChord(placedChord.id)}
-                >
-                  {voice.noteName}
-                </button>
-              )),
-            )}
-            {selectedCandidate.chords.map((placedChord) => (
-              <button
-                type="button"
-                className={`chord-block${
-                  selectedChord.id === placedChord.id ? " is-selected" : ""
-                }${activePlaybackChordId === placedChord.id ? " is-active" : ""}`}
-                key={placedChord.id}
-                style={{
-                  gridColumn: placedChordGridColumn(placedChord),
-                  gridRow: HARMONY_VOICE_ROWS.length + 1,
-                }}
-                onClick={() => openInspectorOnChord(placedChord.id)}
-              >
-                <strong>{placedChord.chord.symbol}</strong>
-                <span>{placedChord.chord.roman}</span>
-              </button>
-            ))}
-          </>
-        ) : (
-          <div className="harmony-placeholder">
-            {isGenerating ? t("lane.scoring") : t("lane.placeholder")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <main className="app-shell expert">
-      <header className="command-bar" aria-label="Main controls">
-        <div className="brand-lockup">
-          <span className="brand-mark">H</span>
-          <div>
-            <h1>Harmony Auxiliary</h1>
-            <p>{t("brand.subtitle")}</p>
-          </div>
-        </div>
-
-        <nav className="command-actions" aria-label="Project settings">
-          <input
-            ref={fileInputRef}
-            className="file-input"
-            type="file"
-            accept=".mid,.midi,audio/midi"
-            onChange={(event) => void handleFileSelected(event.currentTarget.files?.[0] ?? null)}
-          />
-          <div className="segmented-control" aria-label="Workspace language">
-            <button type="button" aria-pressed={language === "zh"} onClick={() => setLanguage("zh")}>
-              中文
-            </button>
-            <button type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}>
-              EN
-            </button>
-          </div>
-          {isDemo ? (
-            <div className="account-cluster" aria-label={t("auth.account")}>
-              <span className="demo-badge">{t("auth.demoBadge")}</span>
-              {authStatus !== "unconfigured" ? (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => {
-                    setAuthIntent("enter");
-                    setAuthOpen(true);
-                  }}
-                >
-                  {t("auth.signIn")}
-                </button>
-              ) : null}
-            </div>
-          ) : authStatus === "authenticated" && user?.email ? (
-            <div className="account-cluster" aria-label={t("auth.account")}>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setProjectsOpen(true)}
-              >
-                {t("action.projects")}
-              </button>
-              <span className="account-email" title={user.email}>
-                {user.email}
-              </span>
-              <button type="button" className="secondary-button" onClick={() => void handleSignOut()}>
-                {t("auth.signOut")}
-              </button>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className="secondary-button"
-            aria-haspopup="dialog"
-            aria-expanded={guideOpen}
-            onClick={() => setGuideOpen(true)}
-          >
-            {t("view.guided")}
-          </button>
-          <details className="settings-tray">
-            <summary>{t("settings.projectSettings")}</summary>
-            {renderSettingsFields()}
-          </details>
-          <button
-            type="button"
-            className="primary-button"
-            disabled={!hasMelody || isGenerating}
-            onClick={handleGenerate}
-          >
-            {isGenerating ? t("action.generating") : t("action.generate")}
-          </button>
-        </nav>
-      </header>
+      <CommandBar
+        t={t}
+        fileInputRef={fileInputRef}
+        onFileSelected={(file) => void handleFileSelected(file)}
+        language={language}
+        onSetLanguage={setLanguage}
+        isDemo={isDemo}
+        authStatus={authStatus}
+        userEmail={user?.email ?? null}
+        onRequestSignIn={() => {
+          setAuthIntent("enter");
+          setAuthOpen(true);
+        }}
+        onOpenProjects={() => setProjectsOpen(true)}
+        onSignOut={() => void handleSignOut()}
+        guideOpen={guideOpen}
+        onOpenGuide={() => setGuideOpen(true)}
+        settings={state.settings}
+        dispatch={dispatch}
+        playbackStatus={state.playback.status}
+        onPausePlayback={pausePlayback}
+        hasMelody={hasMelody}
+        isGenerating={isGenerating}
+        onGenerate={handleGenerate}
+      />
 
       <section
         className="workspace-grid is-expert"
@@ -1838,168 +1308,40 @@ function App() {
           ) : null}
 
           {showPianoRoll ? (
-          <div className="timeline-canvas" data-empty={!hasMelody}>
-            {!showEditableGrid ? (
-              <div className="empty-state">
-                <span className="empty-kicker">{t("empty.kicker")}</span>
-                <h3>{t("empty.title")}</h3>
-                <p>{t("empty.copy")}</p>
-                <button type="button" className="primary-button" onClick={handleLoadDemo}>
-                  {t("action.loadDemo")}
-                </button>
-                <button type="button" className="secondary-button" onClick={handleLoadLongDemo}>
-                  {t("action.loadLongDemo")}
-                </button>
-              </div>
-            ) : (
-              <div className="timeline-stack" style={timelineGridStyle}>
-                <div
-                  className="timeline-window ruler-window"
-                  ref={rulerScrollRef}
-                  onScroll={syncHorizontalScroll}
-                  aria-hidden="true"
-                >
-                  <div className="bar-ruler">
-                    <span className="ruler-corner" />
-                    {Array.from({ length: timelineMetrics.measureCount }, (_, index) => (
-                      <span
-                        key={`bar-${index + 1}`}
-                        style={{
-                          gridColumn: `${beatToGridColumn(
-                            index * timelineMetrics.beatsPerMeasure,
-                          )} / span ${durationToGridSpan(timelineMetrics.beatsPerMeasure)}`,
-                        }}
-                      >
-                        {index + 1}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="window-title">{t("lane.melody")}</div>
-                <div
-                  className="timeline-window melody-window"
-                  ref={melodyScrollRef}
-                  onScroll={syncHorizontalScroll}
-                  aria-label="Melody piano roll"
-                >
-                  <div
-                    className="melody-grid"
-                    data-editable={state.settings.inputMode === "manual"}
-                    onPointerDown={handleMelodyLanePointerDown}
-                    onPointerMove={handleNotePointerMove}
-                    onPointerUp={handleNotePointerUp}
-                    onPointerLeave={handleNotePointerUp}
-                  >
-                    <div className="piano-keys">
-                      {PITCH_ROWS.map((row) => (
-                        <button
-                          type="button"
-                          className="piano-key"
-                          data-black={row.isBlack}
-                          data-root={row.label.startsWith("C")}
-                          key={row.label}
-                          aria-label={`Preview ${row.label}`}
-                          title={row.label}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onClick={() => auditionPitch(row.midi)}
-                        >
-                          {row.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="piano-roll-cells" aria-hidden="true">
-                      {PITCH_ROWS.map((row, index) => (
-                        <span
-                          key={`row-${row.label}`}
-                          data-black={row.isBlack}
-                          data-root={row.label.startsWith("C")}
-                          style={{ gridRow: index + 1 }}
-                        />
-                      ))}
-                    </div>
-                    {hasMelody ? (
-                      <div
-                        className="playhead"
-                        aria-hidden="true"
-                        style={{ left: `${playheadLeft}px` }}
-                      />
-                    ) : null}
-                    {state.melody.map((note) => (
-                      <button
-                        type="button"
-                        className={`note${selectedNoteId === note.id ? " is-selected" : ""}`}
-                        key={note.id}
-                        data-editable={state.settings.inputMode === "manual"}
-                        style={{
-                          gridColumn: noteGridColumn(note),
-                          gridRow: noteGridRow(note),
-                        }}
-                        aria-label={`${note.name}, ${note.durationBeats} beat(s)`}
-                        title={`${note.name}, ${note.durationBeats} beat(s)`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedNoteId(note.id);
-                        }}
-                        onPointerDown={(event) => handleNotePointerDown(event, note, "move")}
-                      >
-                        <span>{note.name}</span>
-                        {state.settings.inputMode === "manual" ? (
-                          <span
-                            className="note-resize-handle"
-                            aria-hidden="true"
-                            onPointerDown={(event) => handleNotePointerDown(event, note, "resize")}
-                          />
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            <PianoRoll
+              t={t}
+              timelineGridStyle={timelineGridStyle}
+              timelineMetrics={timelineMetrics}
+              rulerScrollRef={rulerScrollRef}
+              melodyScrollRef={melodyScrollRef}
+              onSyncScroll={syncHorizontalScroll}
+              inputMode={state.settings.inputMode}
+              melody={state.melody}
+              selectedNoteId={selectedNoteId}
+              hasMelody={hasMelody}
+              showEditableGrid={showEditableGrid}
+              playheadLeft={playheadLeft}
+              onMelodyLanePointerDown={handleMelodyLanePointerDown}
+              onNotePointerMove={handleNotePointerMove}
+              onNotePointerUp={handleNotePointerUp}
+              onAuditionPitch={auditionPitch}
+              onSelectNote={setSelectedNoteId}
+              onNotePointerDown={handleNotePointerDown}
+              onLoadDemo={handleLoadDemo}
+              onLoadLongDemo={handleLoadLongDemo}
+            />
           ) : null}
 
           {showCandidateStrip ? (
-          <div className="candidate-strip" aria-label="Harmony candidates">
-            {isGenerating
-              ? ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
-                  <div className="candidate candidate-loading" key={mode}>
-                    <span>{t(`candidate.${mode}.title`)}</span>
-                    <strong>{t("candidate.loading")}</strong>
-                    <small>{t("candidate.scoring")}</small>
-                  </div>
-                ))
-              : state.candidates.length > 0
-                ? state.candidates.map((candidate) => (
-                    <button
-                      type="button"
-                      className={`candidate${
-                        selectedCandidate?.id === candidate.id ? " is-selected" : ""
-                      }${harmonyIsOutdated ? " is-outdated" : ""}`}
-                      key={candidate.id}
-                      title={candidateProgression(candidate)}
-                      onClick={() => handleSelectCandidate(candidate.id)}
-                    >
-                      <span>{t(`candidate.${candidate.mode}.title`)}</span>
-                      <strong title={candidateProgression(candidate)}>
-                        {candidateProgression(candidate)}
-                      </strong>
-                      <small>
-                        {harmonyIsOutdated
-                          ? t("candidate.outdated")
-                          : t(`candidate.${candidate.mode}.subtitle`)}
-                      </small>
-                    </button>
-                  ))
-                : ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
-                    <button type="button" className="candidate" disabled key={mode}>
-                      <span>{t(`candidate.${mode}.title`)}</span>
-                      <strong>{t("candidate.waiting")}</strong>
-                      <small>{hasMelody ? t("candidate.ready") : t("candidate.needsMelody")}</small>
-                    </button>
-                  ))}
-          </div>
+            <CandidateStrip
+              t={t}
+              isGenerating={isGenerating}
+              candidates={state.candidates}
+              selectedCandidate={selectedCandidate}
+              harmonyIsOutdated={harmonyIsOutdated}
+              hasMelody={hasMelody}
+              onSelectCandidate={handleSelectCandidate}
+            />
           ) : null}
 
           {/* Harmony bottom drawer — last child so it sticks to the column's
@@ -2029,10 +1371,37 @@ function App() {
                     ) : null}
                     <span className="harmony-drawer-caret" aria-hidden="true" />
                   </button>
-                  {showTransport ? transportEl : null}
+                  {showTransport ? (
+                    <Transport
+                      t={t}
+                      canPlayTimeline={canPlayTimeline}
+                      playbackStatus={state.playback.status}
+                      melodyMuted={state.playback.melodyMuted}
+                      harmonyMuted={state.playback.harmonyMuted}
+                      harmonyIsReady={harmonyIsReady}
+                      currentBeat={state.playback.currentBeat}
+                      onPlayFromStart={() => void handlePlayFromStart()}
+                      onPlayFromCurrentMeasure={() => void handlePlayFromCurrentMeasure()}
+                      onPlayPause={playSelectedCandidate}
+                      onToggleMelodyMute={toggleMelodyMute}
+                      onToggleHarmonyMute={toggleHarmonyMute}
+                    />
+                  ) : null}
                 </div>
                 <div className="harmony-drawer-body" id="harmony-drawer-body">
-                  {harmonyWindowEl}
+                  <HarmonyLane
+                    t={t}
+                    harmonyScrollRef={harmonyScrollRef}
+                    onScroll={syncHorizontalScroll}
+                    harmonyIsOutdated={harmonyIsOutdated}
+                    hasMelody={hasMelody}
+                    playheadLeft={playheadLeft}
+                    selectedCandidate={selectedCandidate}
+                    selectedChord={selectedChord}
+                    activePlaybackChordId={activePlaybackChordId}
+                    isGenerating={isGenerating}
+                    onOpenInspectorOnChord={openInspectorOnChord}
+                  />
                 </div>
               </div>
             </div>
@@ -2040,142 +1409,50 @@ function App() {
         </section>
 
         {showInspector ? (
-        <aside
-          className={`inspector inspector-sheet${inspectorOpen ? " is-open" : ""}`}
-          aria-label="Selected harmony details"
-          aria-hidden={!inspectorOpen ? true : undefined}
-        >
-          <button
-            type="button"
-            className="inspector-close"
-            aria-label={t("auth.close")}
-            onClick={() => setInspectorOpen(false)}
-          >
-            ×
-          </button>
-          <span className="eyebrow">{t("inspector.label")}</span>
-          {selectedCandidate && selectedChord ? (
-            <>
-              <h2>{selectedChord.chord.symbol}</h2>
-              <p className="candidate-summary">
-                {t(`candidate.${selectedCandidate.mode}.summary`)}
-              </p>
-              <div className="inspector-rows">
-                <div>
-                  <span>{t("inspector.roman")}</span>
-                  <strong>{selectedChord.chord.roman}</strong>
-                </div>
-                <div>
-                  <span>{t("inspector.function")}</span>
-                  <strong>{selectedChord.chord.functionLabel}</strong>
-                </div>
-                <div>
-                  <span>{t("inspector.melody")}</span>
-                  <strong>
-                    {selectedChord.explanation.melodyRelationships[0]
-                      ? `${selectedChord.explanation.melodyRelationships[0].noteName} = ${relationshipLabel(
-                          language,
-                          selectedChord.explanation.melodyRelationships[0].relationship,
-                        )}`
-                      : t("inspector.noNote")}
-                  </strong>
-                </div>
-              </div>
-              <p>
-                {describeFit(
-                  language,
-                  selectedChord.chord,
-                  selectedChord.explanation.fit,
-                  selectedChord.explanation.fitReason,
-                )}
-              </p>
-              <p>
-                {describeFunction(
-                  language,
-                  selectedChord.chord,
-                  selectedChord.explanation.functionInfo,
-                  selectedChord.explanation.functionReason,
-                )}
-              </p>
-              {selectedChord.explanation.warnings.length > 0 ? (
-                <p className="warning-copy">
-                  {describeWarnings(
-                    language,
-                    selectedChord.chord,
-                    selectedChord.explanation.warningNotes,
-                    selectedChord.explanation.warnings,
-                  )}
-                </p>
-              ) : null}
-              <div className="alternative-chords" aria-label="Alternative chords">
-                <span>{t("inspector.alternatives")}</span>
-                <div>
-                  {chordAlternatives.slice(0, 4).map((alternative, index) => (
-                    <button
-                      type="button"
-                      key={`${alternative.chord.id}-${index}`}
-                      onClick={() => handleReplaceChord(index)}
-                    >
-                      <strong>{alternative.chord.symbol}</strong>
-                      <small>{alternative.chord.roman}</small>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="export-actions">
-                <button type="button" className="secondary-button" onClick={() => void handleCopyProgression()}>
-                  {t("action.copyProgression")}
-                </button>
-                <button type="button" className="secondary-button" onClick={handleExportMidi}>
-                  {t("action.exportMidi")}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="inspector-empty">
-              <h2>{t("inspector.noChord")}</h2>
-              <p>{t("inspector.emptyCopy")}</p>
-              <div className="inspector-rows">
-                <div>
-                  <span>{t("inspector.melody")}</span>
-                  <strong>
-                    {hasMelody
-                      ? `${state.melody.length} ${t("inspector.notes")}`
-                      : t("inspector.empty")}
-                  </strong>
-                </div>
-                <div>
-                  <span>{t("inspector.generate")}</span>
-                  <strong>{hasMelody ? t("inspector.available") : t("inspector.disabled")}</strong>
-                </div>
-              </div>
-            </div>
-          )}
-        </aside>
+          <Inspector
+            t={t}
+            language={language}
+            inspectorOpen={inspectorOpen}
+            onClose={() => setInspectorOpen(false)}
+            selectedCandidate={selectedCandidate}
+            selectedChord={selectedChord}
+            hasMelody={hasMelody}
+            melodyCount={state.melody.length}
+            chordAlternatives={chordAlternatives}
+            onReplaceChord={handleReplaceChord}
+            onCopyProgression={() => void handleCopyProgression()}
+            onExportMidi={handleExportMidi}
+          />
         ) : null}
       </section>
 
       {guideOpen ? (
-        <div
-          className="guide-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("view.guided")}
-          onClick={() => setGuideOpen(false)}
-        >
-          <div className="guide-modal" onClick={(event) => event.stopPropagation()}>
-            <button
-              type="button"
-              className="auth-close"
-              aria-label={t("auth.close")}
-              onClick={() => setGuideOpen(false)}
-            >
-              ×
-            </button>
-            {renderStepRail()}
-            {renderStepCoach()}
-          </div>
-        </div>
+        <GuideOverlay
+          t={t}
+          onClose={() => setGuideOpen(false)}
+          guideStep={guideStep}
+          furthestReachable={furthestReachable}
+          canAdvanceStep={canAdvanceStep}
+          goToStep={goToStep}
+          settings={state.settings}
+          dispatch={dispatch}
+          playbackStatus={state.playback.status}
+          onPausePlayback={pausePlayback}
+          hasMelody={hasMelody}
+          isGenerating={isGenerating}
+          onGenerate={handleGenerate}
+          selectedCandidate={selectedCandidate}
+          isDemo={isDemo}
+          authStatus={authStatus}
+          projectsBusy={projectsBusy}
+          onCopyProgression={() => void handleCopyProgression()}
+          onExportMidi={handleExportMidi}
+          onRequestSignIn={() => {
+            setAuthIntent("enter");
+            setAuthOpen(true);
+          }}
+          onSaveNewProject={() => void handleSaveNewProject()}
+        />
       ) : null}
 
       {authOpen ? (
