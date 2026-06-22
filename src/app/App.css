@@ -1,34 +1,16 @@
 .app-shell {
   min-height: 100vh;
   padding: 40px clamp(24px, 4vw, 64px) 64px;
-  /* Workbench: a calmer single-light wash so dense data stays legible. */
-  background:
-    radial-gradient(
-      140% 70% at 50% -20%,
-      color-mix(in oklch, var(--color-accent-soft) 16%, transparent),
-      transparent 50%
-    ),
-    var(--color-bg);
-  background-attachment: fixed;
+  /* Workbench: a flat pure-black ground (no atmosphere wash). */
+  background: var(--color-bg);
 }
 
 .landing-shell {
   min-height: 100dvh;
   overflow-x: hidden;
   padding: 24px 24px 64px;
-  /* Stage: full painterly black with a warm top light fading to a vignette. */
-  background:
-    radial-gradient(
-      130% 90% at 50% -12%,
-      color-mix(in oklch, var(--color-accent-soft) 42%, transparent),
-      transparent 55%
-    ),
-    radial-gradient(
-      120% 120% at 50% 42%,
-      transparent 46%,
-      color-mix(in oklch, black 45%, transparent) 100%
-    ),
-    var(--color-void);
+  /* Stage: a flat pure-black ground (no painterly wash or vignette). */
+  background: var(--color-void);
 }
 
 .landing-nav {

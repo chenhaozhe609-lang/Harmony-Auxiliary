@@ -1,38 +1,37 @@
 :root {
-  /* "Black space + ivory white": a warm, painterly near-black stage on which
-     ivory-white forms take shape, lit as if a single light fell on a still life.
-     Champagne/brass gold is the one warm-metal accent. (Task 6) */
+  /* Pure black + pure white: a clean, neutral monochrome. No warm tint, no
+     film grain, no painterly atmosphere — a flat black stage on which white
+     forms take shape. Emphasis reads as a brighter white, not a colour. (Task 6) */
 
-  /* Black space — warm, layered, never pure black */
-  --color-void: oklch(0.1 0.012 70); /* deepest stage: hero, empty state */
-  --color-bg: oklch(0.15 0.012 70); /* main background */
-  --color-surface: oklch(0.195 0.012 70); /* workbench panels */
-  --color-surface-muted: oklch(0.165 0.012 70);
-  --color-surface-raised: oklch(0.235 0.014 70); /* lifted cards */
-  --color-border: oklch(0.32 0.012 70);
-  --color-hairline: oklch(0.26 0.01 70);
+  /* Black space — neutral, flat, pure black base */
+  --color-void: oklch(0 0 0); /* #000 deepest stage: hero, empty state */
+  --color-bg: oklch(0 0 0); /* #000 main background */
+  --color-surface: oklch(0.17 0 0); /* workbench panels */
+  --color-surface-muted: oklch(0.12 0 0);
+  --color-surface-raised: oklch(0.22 0 0); /* lifted cards */
+  --color-border: oklch(0.34 0 0);
+  --color-hairline: oklch(0.26 0 0);
 
-  /* Ivory-white materials */
-  --color-text: oklch(0.94 0.012 85); /* primary ivory */
-  --color-text-muted: oklch(0.72 0.012 85);
-  --color-ivory: oklch(0.96 0.014 85); /* porcelain / ribbon highlight */
-  --color-ivory-dim: oklch(0.82 0.012 85);
+  /* White materials */
+  --color-text: oklch(1 0 0); /* #fff primary white */
+  --color-text-muted: oklch(0.72 0 0);
+  --color-ivory: oklch(1 0 0); /* #fff highlight */
+  --color-ivory-dim: oklch(0.82 0 0);
 
-  /* Emphasis — no metallic gold. A near-monochrome pearl/ivory: emphasis reads
-     as a *brighter white*, not a colour, the way luxury houses work. */
-  --color-accent: oklch(0.94 0.006 90); /* bright pearl/ivory emphasis */
-  --color-accent-strong: oklch(0.86 0.006 90);
-  --color-accent-soft: oklch(0.4 0.005 90); /* warm graphite: rims, fills */
+  /* Emphasis — a brighter white, neutral (no metallic, no tint). */
+  --color-accent: oklch(1 0 0); /* bright white emphasis */
+  --color-accent-strong: oklch(0.88 0 0);
+  --color-accent-soft: oklch(0.4 0 0); /* neutral graphite: rims, fills */
 
-  /* Harmony-function coding, near-monochrome (see TASK6 §5.2) */
-  --color-stable: oklch(0.94 0.008 90); /* T → ivory */
-  --color-tension: oklch(0.96 0.005 235); /* D → a whisper of cool platinum */
+  /* Harmony-function coding, neutral monochrome — distinguished by lightness. */
+  --color-stable: oklch(0.96 0 0); /* T → white */
+  --color-tension: oklch(0.82 0 0); /* D → a dimmer neutral grey */
 
-  --color-danger: oklch(0.62 0.08 25); /* muted dusty rose, never a loud red */
-  --color-focus: oklch(0.93 0.012 95); /* pale ivory focus ring */
+  --color-danger: oklch(0.62 0.08 25); /* muted dusty rose kept as a usability signal */
+  --color-focus: oklch(1 0 0); /* white focus ring */
 
-  /* Signature gradient — a soft pearl sheen for the hero brand moment. */
-  --gradient-warm: linear-gradient(102deg, oklch(0.96 0.006 90), oklch(0.82 0.006 250));
+  /* Signature gradient — a neutral white sheen for the hero brand moment. */
+  --gradient-warm: linear-gradient(102deg, oklch(1 0 0), oklch(0.78 0 0));
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   --font-ui: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -77,34 +76,11 @@ body {
   background: var(--color-bg);
 }
 
-/* Canvas tooth: a faint static film grain over the whole stage, so near-black
-   surfaces read like primed canvas rather than flat screen black. (Task 6) */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 2147483646;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Painterly "single light on a still life": a warm soft light from the top
-   fading into an edge vignette. Layer over a --color-void base. */
+/* Material/texture layers (film grain + painterly vignette) were removed in
+   favour of a clean, flat pure-black stage. `.stage-atmosphere` is kept as a
+   flat black surface so existing markup keeps a background. (Task 6) */
 .stage-atmosphere {
-  background:
-    radial-gradient(
-      130% 90% at 50% -12%,
-      color-mix(in oklch, var(--color-accent-soft) 42%, transparent),
-      transparent 55%
-    ),
-    radial-gradient(
-      120% 120% at 50% 42%,
-      transparent 46%,
-      color-mix(in oklch, black 42%, transparent) 100%
-    ),
-    var(--color-void);
+  background: var(--color-void);
 }
 
 button,
