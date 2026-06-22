@@ -1,11 +1,11 @@
 # Browser verification scripts
 
 These Playwright scripts drive a running dev server and assert on the real DOM.
-They are run manually (not part of `npm test`). Start a dev server first, then
+They are run manually (not part of `pnpm test`). Start a dev server first, then
 point a script at it:
 
 ```bash
-npx vite --port 5184 --host 127.0.0.1 &
+pnpm exec vite --port 5184 --host 127.0.0.1 &
 VERIFY_URL=http://127.0.0.1:5184 node scripts/verify-t5-4.mjs
 ```
 

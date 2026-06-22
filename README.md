@@ -7,16 +7,17 @@ A local-first harmony assistant for music creation.
 The project currently contains:
 
 - A Vite + React + TypeScript scaffold.
-- Installed npm dependencies and a committed lockfile.
+- Dependencies managed with [pnpm](https://pnpm.io) (`pnpm-lock.yaml` committed).
 
 Internal planning docs (PRD, UI/UX direction, technical design, and milestone task breakdowns) are kept locally under `docs/` and are not tracked.
 
 ## Intended Development Commands
 
 ```bash
-npm run dev
-npm run build
-npm run test
+pnpm install
+pnpm dev
+pnpm build
+pnpm test
 ```
 
 ## Optional: Configure Supabase for accounts
@@ -30,7 +31,7 @@ They are optional: when no Supabase credentials are present, the app runs in a
    the `projects` table with row-level security.
 3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_ANON_KEY` from **Project Settings → API**.
-4. Restart `npm run dev`.
+4. Restart `pnpm dev`.
 
 Only the public anon key belongs in the frontend; never commit the `service_role`
 key. Original MIDI files are never uploaded — only project snapshot JSON is stored.
