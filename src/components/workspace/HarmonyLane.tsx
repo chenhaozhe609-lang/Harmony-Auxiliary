@@ -18,7 +18,7 @@ type HarmonyLaneProps = {
   selectedChord: PlacedChord | null;
   activePlaybackChordId: string | null;
   isGenerating: boolean;
-  onOpenInspectorOnChord: (chordId: string) => void;
+  onSelectChord: (chordId: string) => void;
 };
 
 // The harmony piano roll (TASK6 §11 Phase A). Rendered inside the bottom drawer;
@@ -34,7 +34,7 @@ export function HarmonyLane({
   selectedChord,
   activePlaybackChordId,
   isGenerating,
-  onOpenInspectorOnChord,
+  onSelectChord,
 }: HarmonyLaneProps) {
   return (
     <div
@@ -70,7 +70,7 @@ export function HarmonyLane({
                     gridRow: harmonyVoiceGridRow(voice.voice),
                   }}
                   title={`${voice.voice}: ${voice.noteName} in ${placedChord.chord.symbol}`}
-                  onClick={() => onOpenInspectorOnChord(placedChord.id)}
+                  onClick={() => onSelectChord(placedChord.id)}
                 >
                   {voice.noteName}
                 </button>
@@ -87,7 +87,7 @@ export function HarmonyLane({
                   gridColumn: placedChordGridColumn(placedChord),
                   gridRow: HARMONY_VOICE_ROWS.length + 1,
                 }}
-                onClick={() => onOpenInspectorOnChord(placedChord.id)}
+                onClick={() => onSelectChord(placedChord.id)}
               >
                 <strong>{placedChord.chord.symbol}</strong>
                 <span>{placedChord.chord.roman}</span>

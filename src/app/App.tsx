@@ -462,12 +462,11 @@ function App() {
   // longer branches on a "guided" mode.
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // The inspector is an on-demand side-sheet that slides in only when the user
-  // explicitly clicks a chord/voice, so the piano roll owns the full width.
-  const [inspectorOpen, setInspectorOpen] = useState(false);
-  const openInspectorOnChord = (chordId: string) => {
+  // TASK7 §13 E3: the inspector is the harmony phase's resident "why this chord"
+  // panel — no longer a click-to-open sheet. Clicking a chord just selects it;
+  // the panel re-reads the selection.
+  const selectChord = (chordId: string) => {
     dispatch({ type: "select-chord", chordId });
-    setInspectorOpen(true);
   };
 
   // Expert stage (TASK6 §11 Phase A): the melody roll is the full-viewport body
@@ -511,7 +510,8 @@ function App() {
   // Harmony UI (candidate strip + drawer) only appears in the harmony phase, so
   // the edit phase is a clean melody editor (TASK7 §11.2).
   const showCandidateStrip = inHarmonyPhase;
-  const showInspector = true;
+  // The explanation panel is resident in the harmony phase only (TASK7 §13 E3).
+  const showInspector = inHarmonyPhase;
   const showStageToolbar = true;
 
   const handleLoadDemo = () => {
@@ -1096,7 +1096,7 @@ function App() {
       />
 
       <section
-        className="workspace-grid is-expert"
+        className={`workspace-grid is-expert${inHarmonyPhase ? " is-harmony-phase" : ""}`}
       >
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
@@ -1443,7 +1443,7 @@ function App() {
                     selectedChord={selectedChord}
                     activePlaybackChordId={activePlaybackChordId}
                     isGenerating={isGenerating}
-                    onOpenInspectorOnChord={openInspectorOnChord}
+                    onSelectChord={selectChord}
                   />
                 </div>
               </div>
@@ -1461,12 +1461,11 @@ function App() {
           <Inspector
             t={t}
             language={language}
-            inspectorOpen={inspectorOpen}
-            onClose={() => setInspectorOpen(false)}
             selectedCandidate={selectedCandidate}
             selectedChord={selectedChord}
             hasMelody={hasMelody}
             melodyCount={state.melody.length}
+            isGenerating={isGenerating}
             chordAlternatives={chordAlternatives}
             onReplaceChord={handleReplaceChord}
             onCopyProgression={() => void handleCopyProgression()}

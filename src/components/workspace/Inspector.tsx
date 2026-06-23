@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import {
   describeFit,
   describeFunction,
@@ -6,58 +5,43 @@ import {
   relationshipLabel,
 } from "../../app/explain";
 import type { Language } from "../../app/i18n";
-import { useDialog } from "../../app/useDialog";
+import { makeDisplayVoicing } from "../../app/pianoRollLayout";
 import type { HarmonyCandidate, PlacedChord, ScoredChord } from "../../music/types";
 
 type InspectorProps = {
   t: (key: string) => string;
   language: Language;
-  inspectorOpen: boolean;
-  onClose: () => void;
   selectedCandidate: HarmonyCandidate | null;
   selectedChord: PlacedChord | null;
   hasMelody: boolean;
   melodyCount: number;
+  isGenerating: boolean;
   chordAlternatives: ScoredChord[];
   onReplaceChord: (alternativeIndex: number) => void;
   onCopyProgression: () => void;
   onExportMidi: () => void;
 };
 
-// Selected-harmony detail sheet (TASK6 §10.2): an on-demand side-sheet that
-// slides in when the user clicks a chord/voice, so the roll owns the full width.
+// "Why this chord" panel (TASK7 §13 E3): a harmony-phase-resident column that
+// surfaces the explanation P1 already produces — function, roman, cadence /
+// progression reason, voicing, melody fit, and alternatives. It updates as the
+// user clicks chords; it is only mounted in the harmony phase, so the edit phase
+// stays a clean melody editor (no chord to explain there).
 export function Inspector({
   t,
   language,
-  inspectorOpen,
-  onClose,
   selectedCandidate,
   selectedChord,
   hasMelody,
   melodyCount,
+  isGenerating,
   chordAlternatives,
   onReplaceChord,
   onCopyProgression,
   onExportMidi,
 }: InspectorProps) {
-  const sheetRef = useRef<HTMLElement>(null);
-  useDialog(inspectorOpen, onClose, sheetRef);
-
   return (
-    <aside
-      className={`inspector inspector-sheet${inspectorOpen ? " is-open" : ""}`}
-      aria-label="Selected harmony details"
-      aria-hidden={!inspectorOpen ? true : undefined}
-      ref={sheetRef}
-    >
-      <button
-        type="button"
-        className="inspector-close"
-        aria-label={t("auth.close")}
-        onClick={onClose}
-      >
-        ×
-      </button>
+    <aside className="inspector inspector-panel" aria-label="Selected harmony details">
       <span className="eyebrow">{t("inspector.label")}</span>
       {selectedCandidate && selectedChord ? (
         <>
@@ -73,6 +57,14 @@ export function Inspector({
             <div>
               <span>{t("inspector.function")}</span>
               <strong>{selectedChord.chord.functionLabel}</strong>
+            </div>
+            <div>
+              <span>{t("inspector.voicing")}</span>
+              <strong>
+                {makeDisplayVoicing(selectedChord)
+                  .map((voice) => voice.noteName)
+                  .join(" · ")}
+              </strong>
             </div>
             <div>
               <span>{t("inspector.melody")}</span>
@@ -138,8 +130,8 @@ export function Inspector({
         </>
       ) : (
         <div className="inspector-empty">
-          <h2>{t("inspector.noChord")}</h2>
-          <p>{t("inspector.emptyCopy")}</p>
+          <h2>{isGenerating ? t("lane.scoring") : t("inspector.noChord")}</h2>
+          <p>{isGenerating ? t("inspector.scoringCopy") : t("inspector.emptyCopy")}</p>
           <div className="inspector-rows">
             <div>
               <span>{t("inspector.melody")}</span>
