@@ -36,6 +36,12 @@ export type StyleProfile = {
    * in this pass's palette. The colour penalty still gates how freely they're
    * used; this just decides whether they're on the table at all. */
   extendedVocabulary: boolean;
+  /** Voice inner chords in inversion when it smooths the bass line (slash chords).
+   * Off for the classical pass (plain root-position cadences). */
+  bassInversions: boolean;
+  /** How much smoother the bass must get before an inversion is preferred over
+   * root position (in semitones). Lower = more eager to invert. */
+  inversionPenalty: number;
 };
 
 export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
@@ -52,6 +58,8 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     voiceLeadingWeight: 0.5,
     loopAnchorWeight: 0,
     extendedVocabulary: false,
+    bassInversions: false,
+    inversionPenalty: 0,
   },
   "pop-songwriting": {
     mode: "pop-songwriting",
@@ -65,6 +73,8 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     voiceLeadingWeight: 1.2,
     loopAnchorWeight: 1.8,
     extendedVocabulary: true,
+    bassInversions: true,
+    inversionPenalty: 1,
   },
   "color-tension": {
     mode: "color-tension",
@@ -78,6 +88,8 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     voiceLeadingWeight: 0.7,
     loopAnchorWeight: 0,
     extendedVocabulary: true,
+    bassInversions: true,
+    inversionPenalty: 1.5,
   },
 };
 

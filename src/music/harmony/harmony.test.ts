@@ -238,6 +238,24 @@ describe("candidate generation", () => {
     expect(stable.chords.every((pc) => (pc.chord.role ?? "diatonic") === "diatonic")).toBe(true);
   });
 
+  it("smooths the pop bass with first-inversion slash chords, stable stays root (Task 7 P2)", () => {
+    const [stable, pop] = generateHarmonyCandidates(longDemoMelody, settings);
+
+    // Stable is plain root position — no slash chords, no figured-bass romans.
+    expect(stable.chords.every((pc) => pc.chord.bass === undefined)).toBe(true);
+
+    // Pop voices some inner chords in first inversion (bass = the chord's third).
+    const inverted = pop.chords.filter((pc) => pc.chord.bass !== undefined);
+    expect(inverted.length).toBeGreaterThan(0);
+    for (const pc of inverted) {
+      expect(pc.chord.bass).toBe(pc.chord.tones[1]); // first inversion only
+      expect(pc.chord.symbol).toContain("/");
+    }
+    // The framing chords (first + last) stay in root position.
+    expect(pop.chords[0].chord.bass).toBeUndefined();
+    expect(pop.chords.at(-1)?.chord.bass).toBeUndefined();
+  });
+
   it("generates a full 12-bar candidate progression for the long melody fixture", () => {
     const stable = generateHarmonyCandidates(longDemoMelody, settings)[0];
     const lastChord = stable.chords.at(-1);

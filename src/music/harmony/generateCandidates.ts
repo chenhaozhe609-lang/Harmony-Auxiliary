@@ -20,6 +20,7 @@ import {
   transitionScore,
   type StyleProfile,
 } from "./transitions";
+import { applyBassInversions } from "./inversions";
 import { viterbi } from "./viterbi";
 
 const MODES: CandidateMode[] = ["stable-classical", "pop-songwriting", "color-tension"];
@@ -62,10 +63,15 @@ function buildCandidate(
     keyOf: (chord) => chord.id,
   });
 
-  const chords: PlacedChord[] = path.map((chord, step) => {
+  // Voice the path with bass-smoothing inversions (slash chords). This only
+  // changes the bass note, not which chord is chosen, so the emission lookup
+  // (keyed by chord id) and the function/root used for motion are unchanged.
+  const voiced = applyBassInversions(path, profile);
+
+  const chords: PlacedChord[] = voiced.map((chord, step) => {
     const segment = segments[step];
     const base = emissions[step][indexOf.get(chord.id) ?? 0];
-    const previous = step > 0 ? path[step - 1] : null;
+    const previous = step > 0 ? voiced[step - 1] : null;
     const { reason, motion } = describeMotion(previous, chord, step, count);
 
     const explanation: ChordExplanation = {
