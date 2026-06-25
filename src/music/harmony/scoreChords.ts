@@ -5,8 +5,23 @@ import type {
   FitInfo,
   MelodyRelationship,
   NoteEvent,
+  PitchClass,
 } from "../types";
-import { relationshipToChordTone } from "../theory/chords";
+
+// Where a melody pitch sits inside the chord, by its position in the tone list
+// (root, third, fifth, seventh, then any extension) — or a non-chord tone.
+function relationshipToChordTone(
+  pitchClass: PitchClass,
+  chord: ChordDefinition,
+): MelodyRelationship["relationship"] {
+  const toneIndex = chord.tones.indexOf(pitchClass);
+  if (toneIndex === 0) return "root";
+  if (toneIndex === 1) return "third";
+  if (toneIndex === 2) return "fifth";
+  if (toneIndex === 3) return "seventh";
+  if (toneIndex >= 4) return "extension";
+  return "non-chord tone";
+}
 
 function noteWeight(note: NoteEvent, segmentStartBeat: number): number {
   const relativeStart = note.startBeat - segmentStartBeat;

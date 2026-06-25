@@ -1,5 +1,5 @@
 import type { ChordDefinition, NoteEvent, PlacedChord, ProjectSettings, ScoredChord } from "../types";
-import { getColorChords, getMajorDiatonicChords, getPopLoopChords } from "../theory/chords";
+import { getStylePalette } from "../theory/tonalAdapter";
 import { scoreChordForSegment } from "./scoreChords";
 
 function uniqueChords(chords: ChordDefinition[]): ChordDefinition[] {
@@ -25,10 +25,12 @@ export function getChordAlternatives(
   placedChord: PlacedChord,
   limit = 6,
 ): ScoredChord[] {
+  // Alternatives are drawn from the same Task 7 vocabulary the generator uses —
+  // diatonic triads + sevenths, secondary dominants, and borrowed chords — so a
+  // swap stays in the key's chosen palette and its explanation reads consistently.
   const palette = uniqueChords([
-    ...getMajorDiatonicChords(settings.keyTonic),
-    ...getPopLoopChords(settings.keyTonic),
-    ...getColorChords(settings.keyTonic),
+    ...getStylePalette(settings.keyTonic, settings.mode, { extended: true }),
+    ...getStylePalette(settings.keyTonic, settings.mode, { extended: true, sevenths: true }),
   ]);
   const segmentNotes = notesForPlacedChord(melody, placedChord);
 

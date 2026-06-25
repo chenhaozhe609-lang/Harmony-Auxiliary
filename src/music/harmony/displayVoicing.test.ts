@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PlacedChord } from "../types";
 import { getHarmonyVoiceRows, makeDisplayVoicing } from "./displayVoicing";
-import { getMajorDiatonicChords } from "../theory/chords";
+import { getDiatonicChords } from "../theory/tonalAdapter";
 
 function placedChord(symbol: string): PlacedChord {
-  const chord = getMajorDiatonicChords(0).find((item) => item.symbol === symbol);
+  const chord = getDiatonicChords(0, "major").find((item) => item.symbol === symbol);
   if (!chord) throw new Error(`Missing test chord ${symbol}`);
 
   return {
