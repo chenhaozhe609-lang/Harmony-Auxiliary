@@ -128,6 +128,111 @@ function asDominantSeventh(symbol: string, degreeIndex: number, id: string): Cho
   };
 }
 
+const TONAL_TYPE: Record<ChordQuality, string> = {
+  major: "major",
+  minor: "minor",
+  diminished: "diminished",
+  dominant7: "dominant seventh",
+  major7: "major seventh",
+  minor7: "minor seventh",
+  major9: "major ninth",
+  minor9: "minor ninth",
+};
+
+// Build a chord of a given quality at an arbitrary (possibly chromatic) root,
+// taking enharmonically-correct tones from Tonal. Used for the chromatic P2
+// vocabulary — secondary dominants and borrowed chords — that sits outside the
+// plain diatonic set.
+function buildChromaticChord(
+  root: PitchClass,
+  quality: ChordQuality,
+  roman: string,
+  functionLabel: FunctionLabel,
+  id: string,
+  extra: Partial<ChordDefinition>,
+): ChordDefinition {
+  const info = Chord.getChord(TONAL_TYPE[quality], pitchClassToName(root));
+  const tones = info.notes.map((name) => normalizePitchClass(Note.chroma(name) ?? 0)) as PitchClass[];
+  return {
+    id,
+    root,
+    quality,
+    tones,
+    symbol: ourSymbol(root, quality),
+    roman,
+    functionLabel,
+    ...extra,
+  };
+}
+
+// Secondary dominants (V7/x): a tonicizing dominant-7th a perfect 5th above each
+// tonicizable diatonic target (ii, iii, IV, V, vi). The tonic and the diminished
+// degrees (ii°/vii°) are skipped — they don't take a stable applied dominant.
+// Labelled Color so they stay out of the home-key cadence logic; the tonicization
+// reward + explanation come from the role/appliedTo metadata.
+export function getSecondaryDominants(
+  triads: ChordDefinition[],
+): ChordDefinition[] {
+  const result: ChordDefinition[] = [];
+  triads.forEach((target, index) => {
+    if (index === 0 || target.quality === "diminished") return;
+    const domRoot = normalizePitchClass(target.root + 7) as PitchClass; // P5 above target
+    result.push(
+      buildChromaticChord(domRoot, "dominant7", `V7/${target.roman}`, "Color", `sec-dom-${index + 1}`, {
+        role: "secondary-dominant",
+        appliedToRoot: target.root,
+        appliedToRoman: target.roman,
+      }),
+    );
+  });
+  return result;
+}
+
+// Borrowed chords (modal interchange) from the parallel mode. Major borrows the
+// minor-mode predominant colours iv / ♭VI / ♭VII; minor borrows the brightening
+// major IV (Dorian colour). A Picardy major tonic is intentionally omitted — as a
+// palette member it misfires as an opening chord; Picardy belongs to cadences.
+export function getBorrowedChords(tonic: PitchClass, mode: Mode): ChordDefinition[] {
+  if (mode === "major") {
+    return [
+      buildChromaticChord(normalizePitchClass(tonic + 5) as PitchClass, "minor", "iv", "PD", "borrow-iv", {
+        role: "borrowed",
+        borrowedFrom: "minor",
+      }),
+      buildChromaticChord(normalizePitchClass(tonic + 8) as PitchClass, "major", "♭VI", "PD", "borrow-flat6", {
+        role: "borrowed",
+        borrowedFrom: "minor",
+      }),
+      buildChromaticChord(normalizePitchClass(tonic + 10) as PitchClass, "major", "♭VII", "PD", "borrow-flat7", {
+        role: "borrowed",
+        borrowedFrom: "minor",
+      }),
+    ];
+  }
+  return [
+    buildChromaticChord(normalizePitchClass(tonic + 5) as PitchClass, "major", "IV", "PD", "borrow-IV", {
+      role: "borrowed",
+      borrowedFrom: "major",
+    }),
+  ];
+}
+
+// The palette a style pass searches: the diatonic set, optionally extended with
+// the chromatic P2 vocabulary (secondary dominants + borrowed chords). Targets
+// for secondary dominants are derived from the triad set so romans read "V7/vi"
+// regardless of whether the pass uses seventh chords.
+export function getStylePalette(
+  tonic: PitchClass,
+  mode: Mode,
+  options: { sevenths?: boolean; extended?: boolean } = {},
+): ChordDefinition[] {
+  const diatonic = getDiatonicChords(tonic, mode, { sevenths: options.sevenths });
+  if (!options.extended) return diatonic;
+  // Plain triads (V as "V", not "V7") so secondary-dominant targets read "V7/V".
+  const triads = getDiatonicChords(tonic, mode, { sevenths: false, dominantSeventh: false });
+  return [...diatonic, ...getSecondaryDominants(triads), ...getBorrowedChords(tonic, mode)];
+}
+
 export type DiatonicOptions = {
   /** Use Tonal's diatonic seventh chords instead of triads (pop/colour palettes). */
   sevenths?: boolean;

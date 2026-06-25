@@ -210,6 +210,34 @@ describe("candidate generation", () => {
     expect(onAxis).toBeGreaterThan(pop.chords.length / 2);
   });
 
+  it("uses a resolving secondary dominant in the colour pass (Task 7 P2)", () => {
+    // A melody implying C7 (the natural-3rd/♭7 of V7/IV) over bar 1, then F over
+    // bar 2 — a textbook V7/IV → IV tonicization the colour pass should reach for.
+    const tonicizeIV: NoteEvent[] = [
+      { id: "t1", midi: 70, pitchClass: 10, name: "A#4", startBeat: 0, durationBeats: 2, velocity: 0.8, source: "manual" },
+      { id: "t2", midi: 64, pitchClass: 4, name: "E4", startBeat: 2, durationBeats: 2, velocity: 0.8, source: "manual" },
+      { id: "t3", midi: 65, pitchClass: 5, name: "F4", startBeat: 4, durationBeats: 2, velocity: 0.8, source: "manual" },
+      { id: "t4", midi: 69, pitchClass: 9, name: "A4", startBeat: 6, durationBeats: 2, velocity: 0.8, source: "manual" },
+    ];
+    const color = generateHarmonyCandidates(tonicizeIV, settings).find(
+      (c) => c.mode === "color-tension",
+    )!;
+    const secondary = color.chords.findIndex(
+      (pc) => pc.chord.role === "secondary-dominant",
+    );
+    expect(secondary).toBeGreaterThanOrEqual(0);
+    // Whatever it tonicizes, the very next chord resolves to that target root.
+    const dom = color.chords[secondary];
+    const next = color.chords[secondary + 1];
+    expect(next?.chord.root).toBe(dom.chord.appliedToRoot);
+    expect(next?.explanation.functionInfo?.motion?.kind).toBe("tonicization");
+  });
+
+  it("keeps the chromatic vocabulary out of the stable pass (Task 7 P2)", () => {
+    const stable = generateHarmonyCandidates(longDemoMelody, settings)[0];
+    expect(stable.chords.every((pc) => (pc.chord.role ?? "diatonic") === "diatonic")).toBe(true);
+  });
+
   it("generates a full 12-bar candidate progression for the long melody fixture", () => {
     const stable = generateHarmonyCandidates(longDemoMelody, settings)[0];
     const lastChord = stable.chords.at(-1);

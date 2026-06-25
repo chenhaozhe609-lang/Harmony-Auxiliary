@@ -34,6 +34,10 @@ export type ChordQuality =
 
 export type FunctionLabel = "T" | "PD" | "D" | "Color";
 
+// How a chord relates to the key: a plain scale chord, a tonicizing secondary
+// dominant (V7/x), or a chord borrowed from the parallel mode (modal interchange).
+export type ChordRole = "diatonic" | "secondary-dominant" | "borrowed";
+
 export type CandidateMode = "stable-classical" | "pop-songwriting" | "color-tension";
 
 export type NoteSource = "midi" | "manual" | "generated" | "demo";
@@ -72,6 +76,13 @@ export type ChordDefinition = {
   symbol: string;
   roman: string;
   functionLabel: FunctionLabel;
+  /** Defaults to "diatonic" when absent. */
+  role?: ChordRole;
+  /** For secondary dominants: the root and roman of the chord it tonicizes. */
+  appliedToRoot?: PitchClass;
+  appliedToRoman?: string;
+  /** For borrowed chords: the mode they are borrowed from (the parallel mode). */
+  borrowedFrom?: Mode;
 };
 
 export type MelodyRelationship = {
@@ -95,11 +106,19 @@ export type ClassicalMotionKind =
   | "pd-to-d"
   | "t-to-pd"
   | "close-tonic"
+  | "tonicization"
+  | "borrowed-color"
   | "general";
 
 export type FunctionInfo = {
   functionLabel: FunctionLabel;
-  motion?: { kind: ClassicalMotionKind; from?: FunctionLabel; to?: FunctionLabel };
+  motion?: {
+    kind: ClassicalMotionKind;
+    from?: FunctionLabel;
+    to?: FunctionLabel;
+    /** Roman of the tonicization target ("vi") or the borrowed-from mode. */
+    target?: string;
+  };
 };
 
 export type ChordExplanation = {

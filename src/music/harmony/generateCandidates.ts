@@ -8,12 +8,13 @@ import type {
   PlacedChord,
   ProjectSettings,
 } from "../types";
-import { getDiatonicChords } from "../theory/tonalAdapter";
+import { getStylePalette } from "../theory/tonalAdapter";
 import { scoreChordForSegment } from "./scoreChords";
 import { legacyDensityToRhythm, segmentMelody } from "./segmentMelody";
 import {
   STYLE_PROFILES,
   cadenceEmission,
+  colorEmission,
   describeMotion,
   loopAnchorEmission,
   transitionScore,
@@ -30,8 +31,9 @@ function buildCandidate(
   segments: HarmonySegment[],
   settings: ProjectSettings,
 ): HarmonyCandidate {
-  const palette = getDiatonicChords(settings.keyTonic, settings.mode, {
+  const palette = getStylePalette(settings.keyTonic, settings.mode, {
     sevenths: profile.paletteSevenths,
+    extended: profile.extendedVocabulary,
   });
   const indexOf = new Map(palette.map((chord, index) => [chord.id, index]));
   const count = segments.length;
@@ -46,7 +48,8 @@ function buildCandidate(
     return (
       base +
       cadenceEmission(step, count, chord, settings.keyTonic, profile) +
-      loopAnchorEmission(chord, settings.keyTonic, settings.mode, profile)
+      loopAnchorEmission(chord, settings.keyTonic, settings.mode, profile) +
+      colorEmission(chord, profile)
     );
   };
 

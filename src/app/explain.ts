@@ -107,6 +107,10 @@ function motionSentence(
         return "古典进行：主功能转向下属准备。";
       case "close-tonic":
         return "古典进行：乐句收束在主功能上。";
+      case "tonicization":
+        return `离调：用副属和弦短暂强调 ${motion.target}。`;
+      case "borrowed-color":
+        return `借用：取自同主音${motion.target === "minor" ? "小调" : "大调"}的色彩和弦。`;
       case "general":
         return `古典进行：${motion.from} 到 ${motion.to} 让进行保持可解释。`;
     }
@@ -124,6 +128,10 @@ function motionSentence(
       return "Classical motion: tonic moves toward predominant preparation.";
     case "close-tonic":
       return "Classical motion: the phrase closes on tonic function.";
+    case "tonicization":
+      return `Tonicization: a secondary dominant briefly spotlights ${motion.target}.`;
+    case "borrowed-color":
+      return `Modal interchange: a colour chord borrowed from the parallel ${motion.target}.`;
     case "general":
       return `Classical motion: ${motion.from} to ${motion.to} keeps the progression explainable.`;
   }

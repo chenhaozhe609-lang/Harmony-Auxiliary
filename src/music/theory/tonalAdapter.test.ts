@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getDiatonicChords } from "./tonalAdapter";
+import {
+  getBorrowedChords,
+  getDiatonicChords,
+  getSecondaryDominants,
+  getStylePalette,
+} from "./tonalAdapter";
 
 describe("tonalAdapter diatonic palettes", () => {
   it("builds the C major diatonic palette with a dominant-7th V", () => {
@@ -38,5 +43,49 @@ describe("tonalAdapter diatonic palettes", () => {
     expect(chords[0].roman).toBe("Imaj7");
     expect(chords[1].quality).toBe("minor7"); // Dm7
     expect(chords[1].roman).toBe("ii7");
+  });
+});
+
+describe("tonalAdapter chromatic vocabulary (Task 7 P2)", () => {
+  it("builds secondary dominants a 5th above each tonicizable degree in C major", () => {
+    const triads = getDiatonicChords(0, "major", { sevenths: false, dominantSeventh: false });
+    const secondary = getSecondaryDominants(triads);
+
+    // ii, iii, IV, V, vi take a V7/x; the tonic and vii° (diminished) do not.
+    expect(secondary.map((c) => c.roman)).toEqual([
+      "V7/ii",
+      "V7/iii",
+      "V7/IV",
+      "V7/V",
+      "V7/vi",
+    ]);
+    expect(secondary.every((c) => c.role === "secondary-dominant")).toBe(true);
+    expect(secondary.every((c) => c.quality === "dominant7")).toBe(true);
+
+    // V7/vi in C is E7 (root E=4), resolving to vi (A=9).
+    const vSlashVi = secondary.find((c) => c.roman === "V7/vi")!;
+    expect(vSlashVi.root).toBe(4);
+    expect(vSlashVi.appliedToRoot).toBe(9);
+    expect(vSlashVi.appliedToRoman).toBe("vi");
+  });
+
+  it("borrows iv / bVI / bVII from the parallel minor in a major key", () => {
+    const borrowed = getBorrowedChords(0, "major");
+    expect(borrowed.map((c) => c.roman)).toEqual(["iv", "♭VI", "♭VII"]);
+    expect(borrowed.every((c) => c.role === "borrowed" && c.borrowedFrom === "minor")).toBe(true);
+    // iv is F minor (root F=5), the borrowed predominant colour.
+    const iv = borrowed[0];
+    expect(iv.root).toBe(5);
+    expect(iv.quality).toBe("minor");
+    expect(iv.functionLabel).toBe("PD");
+  });
+
+  it("only adds the chromatic vocabulary when a pass opts in (extended)", () => {
+    const plain = getStylePalette(0, "major");
+    const extended = getStylePalette(0, "major", { extended: true });
+    expect(plain).toHaveLength(7);
+    expect(extended.length).toBeGreaterThan(7);
+    expect(extended.some((c) => c.role === "secondary-dominant")).toBe(true);
+    expect(extended.some((c) => c.role === "borrowed")).toBe(true);
   });
 });

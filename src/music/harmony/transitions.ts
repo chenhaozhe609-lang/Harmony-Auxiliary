@@ -32,6 +32,10 @@ export type StyleProfile = {
    * I–V–vi–IV sequence: when several chords fit the melody equally, pop leans
    * toward the four loop chords. 0 for the other passes. */
   loopAnchorWeight: number;
+  /** Include the chromatic P2 vocabulary (secondary dominants + borrowed chords)
+   * in this pass's palette. The colour penalty still gates how freely they're
+   * used; this just decides whether they're on the table at all. */
+  extendedVocabulary: boolean;
 };
 
 export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
@@ -47,6 +51,7 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     colorPenalty: 1.5,
     voiceLeadingWeight: 0.5,
     loopAnchorWeight: 0,
+    extendedVocabulary: false,
   },
   "pop-songwriting": {
     mode: "pop-songwriting",
@@ -59,6 +64,7 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     colorPenalty: 1,
     voiceLeadingWeight: 1.2,
     loopAnchorWeight: 1.8,
+    extendedVocabulary: true,
   },
   "color-tension": {
     mode: "color-tension",
@@ -71,8 +77,23 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     colorPenalty: 0.2,
     voiceLeadingWeight: 0.7,
     loopAnchorWeight: 0,
+    extendedVocabulary: true,
   },
 };
+
+// A chord is chromatic (non-diatonic) if it carries a secondary-dominant or
+// borrowed role, or is otherwise tagged Color. The colour penalty gates these.
+function isNonDiatonic(chord: ChordDefinition): boolean {
+  return (chord.role !== undefined && chord.role !== "diatonic") || chord.functionLabel === "Color";
+}
+
+// Tonicization: a secondary dominant wants to resolve down a 5th into its target.
+// Rewarded unconditionally (independent of profile) so that once a secondary
+// dominant is used it actually resolves; a dangling one is penalised.
+function tonicizationScore(prev: ChordDefinition, cur: ChordDefinition): number {
+  if (prev.role !== "secondary-dominant") return 0;
+  return prev.appliedToRoot === cur.root ? 2.4 : -2;
+}
 
 // Pop-axis scale degrees, as semitone intervals above the tonic. Major is the
 // I–V–vi–IV loop; minor is its Aeolian analog i–III–VI–VII. Mode-aware so the
@@ -143,9 +164,17 @@ export function transitionScore(
 ): number {
   return (
     profile.functionWeight * functionProgression(prev.functionLabel, cur.functionLabel) +
-    profile.voiceLeadingWeight * voiceLeadingV1(prev, cur) -
-    profile.colorPenalty * (cur.functionLabel === "Color" ? 1 : 0)
+    profile.voiceLeadingWeight * voiceLeadingV1(prev, cur) +
+    tonicizationScore(prev, cur)
   );
+}
+
+// Per-segment cost of choosing a chromatic chord, scaled by the pass's colour
+// appetite. Lives in emission (not transition) so it applies to every segment —
+// including the first, which has no incoming transition — preventing a borrowed
+// chord from opening a phrase for free.
+export function colorEmission(chord: ChordDefinition, profile: StyleProfile): number {
+  return isNonDiatonic(chord) ? -profile.colorPenalty : 0;
 }
 
 // Phrase-position preference, independent of the previous chord (the prev-
@@ -180,6 +209,28 @@ export function describeMotion(
 ): { reason: string; motion: NonNullable<FunctionInfo["motion"]> } {
   const remaining = segmentCount - step - 1;
   const to = cur.functionLabel;
+
+  // Chromatic vocabulary describes itself first (its identity matters more than
+  // the bare T/PD/D motion).
+  if (cur.role === "secondary-dominant") {
+    return {
+      reason: `Secondary dominant of ${cur.appliedToRoman} — borrowed tension that tonicizes it.`,
+      motion: { kind: "tonicization", target: cur.appliedToRoman },
+    };
+  }
+  if (cur.role === "borrowed") {
+    return {
+      reason: `${cur.roman} is borrowed from the parallel ${cur.borrowedFrom} for colour.`,
+      motion: { kind: "borrowed-color", target: cur.borrowedFrom },
+    };
+  }
+  if (prev && prev.role === "secondary-dominant" && prev.appliedToRoot === cur.root) {
+    return {
+      reason: `Resolves the secondary dominant into ${prev.appliedToRoman}.`,
+      motion: { kind: "tonicization", target: prev.appliedToRoman },
+    };
+  }
+
   if (!prev) {
     return to === "T"
       ? { reason: "The phrase opens from tonic stability.", motion: { kind: "open-tonic" } }
