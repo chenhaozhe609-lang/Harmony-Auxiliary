@@ -15,6 +15,7 @@ import {
   STYLE_PROFILES,
   cadenceEmission,
   describeMotion,
+  loopAnchorEmission,
   transitionScore,
   type StyleProfile,
 } from "./transitions";
@@ -42,7 +43,11 @@ function buildCandidate(
 
   const emissionOf = (step: number, chord: ChordDefinition): number => {
     const base = emissions[step][indexOf.get(chord.id) ?? 0].score;
-    return base + cadenceEmission(step, count, chord, settings.keyTonic, profile);
+    return (
+      base +
+      cadenceEmission(step, count, chord, settings.keyTonic, profile) +
+      loopAnchorEmission(chord, settings.keyTonic, settings.mode, profile)
+    );
   };
 
   // Globally optimal chord path, not a per-segment greedy.

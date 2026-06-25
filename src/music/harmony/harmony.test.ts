@@ -193,6 +193,23 @@ describe("candidate generation", () => {
     }
   });
 
+  it("makes the three styles distinct (pop loop anchor; Task 7 P2)", () => {
+    const [stable, pop, color] = generateHarmonyCandidates(longDemoMelody, settings);
+    const romansOf = (c: typeof stable) => c.chords.map((pc) => pc.chord.roman).join(" ");
+
+    // The known P1 limitation was pop≈stable on diatonic input. The loop anchor
+    // must pull the pop pass onto a different progression from the classical one.
+    expect(romansOf(pop)).not.toEqual(romansOf(stable));
+    expect(romansOf(color)).not.toEqual(romansOf(stable));
+
+    // Pop leans on the I/IV/V/vi axis: the majority of its chords sit on it.
+    const popAxis = new Set([0, 5, 7, 9]);
+    const onAxis = pop.chords.filter(
+      (pc) => popAxis.has(((pc.chord.root - settings.keyTonic) % 12 + 12) % 12),
+    ).length;
+    expect(onAxis).toBeGreaterThan(pop.chords.length / 2);
+  });
+
   it("generates a full 12-bar candidate progression for the long melody fixture", () => {
     const stable = generateHarmonyCandidates(longDemoMelody, settings)[0];
     const lastChord = stable.chords.at(-1);

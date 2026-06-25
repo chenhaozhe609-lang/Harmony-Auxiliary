@@ -8,6 +8,7 @@ import type {
   ChordDefinition,
   FunctionInfo,
   FunctionLabel,
+  Mode,
   PitchClass,
 } from "../types";
 
@@ -26,6 +27,11 @@ export type StyleProfile = {
   colorPenalty: number;
   /** Scales voice-leading smoothness (shared tones, bass motion). */
   voiceLeadingWeight: number;
+  /** Reward (per segment) for landing on a pop-axis degree (I / IV / V / vi).
+   * This is what makes the pop pass loop-friendly without hardcoding any
+   * I–V–vi–IV sequence: when several chords fit the melody equally, pop leans
+   * toward the four loop chords. 0 for the other passes. */
+  loopAnchorWeight: number;
 };
 
 export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
@@ -40,6 +46,7 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     cadenceWeight: 1,
     colorPenalty: 1.5,
     voiceLeadingWeight: 0.5,
+    loopAnchorWeight: 0,
   },
   "pop-songwriting": {
     mode: "pop-songwriting",
@@ -51,6 +58,7 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     cadenceWeight: 0.5,
     colorPenalty: 1,
     voiceLeadingWeight: 1.2,
+    loopAnchorWeight: 1.8,
   },
   "color-tension": {
     mode: "color-tension",
@@ -62,8 +70,32 @@ export const STYLE_PROFILES: Record<CandidateMode, StyleProfile> = {
     cadenceWeight: 0.5,
     colorPenalty: 0.2,
     voiceLeadingWeight: 0.7,
+    loopAnchorWeight: 0,
   },
 };
+
+// Pop-axis scale degrees, as semitone intervals above the tonic. Major is the
+// I–V–vi–IV loop; minor is its Aeolian analog i–III–VI–VII. Mode-aware so the
+// pop pass leans on the loop chords that actually belong to the key.
+const POP_AXIS_INTERVALS: Record<Mode, Set<number>> = {
+  major: new Set([0, 5, 7, 9]), // I, IV, V, vi
+  minor: new Set([0, 3, 8, 10]), // i, III, VI, VII
+};
+
+// Per-segment reward for landing on a pop-axis degree (see loopAnchorWeight).
+// Triads only — a seventh/extension on the loop chord is a colour choice, not the
+// plain loop sonority, so it does not earn the anchor.
+export function loopAnchorEmission(
+  chord: ChordDefinition,
+  tonic: PitchClass,
+  mode: Mode,
+  profile: StyleProfile,
+): number {
+  if (profile.loopAnchorWeight === 0) return 0;
+  const interval = ((chord.root - tonic) % 12 + 12) % 12;
+  const isTriad = chord.quality === "major" || chord.quality === "minor";
+  return POP_AXIS_INTERVALS[mode].has(interval) && isTriad ? profile.loopAnchorWeight : 0;
+}
 
 // Theory-anchored functional progression preference (T–PD–D–T is strongest).
 function functionProgression(from: FunctionLabel, to: FunctionLabel): number {
@@ -92,12 +124,15 @@ function commonToneCount(prev: ChordDefinition, cur: ChordDefinition): number {
 // motion by 4th/5th; lightly penalise tritone leaps and static repeats. A full
 // voicing-based pass (avoid parallels etc.) is P3.
 function voiceLeadingV1(prev: ChordDefinition, cur: ChordDefinition): number {
-  let score = commonToneCount(prev, cur) * 0.6;
   const rootMove = minPcInterval(prev.root, cur.root);
+  // Repeating the exact same chord isn't voice leading, it's stagnation — the
+  // shared-tone reward would otherwise be maximal and bias toward repeats.
+  if (rootMove === 0 && prev.quality === cur.quality) return -0.5;
+  let score = commonToneCount(prev, cur) * 0.6;
   if (rootMove === 5) score += 0.5; // perfect 4th/5th — the functional backbone
   else if (rootMove === 1 || rootMove === 2) score += 0.3; // stepwise
   else if (rootMove === 6) score -= 0.6; // tritone
-  else if (rootMove === 0) score -= 0.2; // static
+  else if (rootMove === 0) score -= 0.2; // same root, changed quality (e.g. C→Cm)
   return score;
 }
 
