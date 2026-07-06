@@ -43,6 +43,7 @@ import {
   saveActiveAutosave,
 } from "./projectRepository";
 import type {
+  HarmonyCandidate,
   MidiImportResult,
   NoteEvent,
   StoredProjectSnapshot,
@@ -112,6 +113,8 @@ function App() {
   const [durationBeats, setDurationBeats] = useState<DurationBeats>(1);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [harmonyFlow, setHarmonyFlow] = useState<"compare" | "deep-dive">("compare");
+  const [auditioningCandidateId, setAuditioningCandidateId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [toneStatus, setToneStatus] = useState<"loading" | "sampled" | "fallback" | "synth">(
     "loading",
@@ -539,6 +542,8 @@ function App() {
 
     pausePlayback();
     setEditOverride(false); // generating enters the harmony phase
+    setHarmonyFlow("compare");
+    setAuditioningCandidateId(null);
     setIsGenerating(true);
     window.setTimeout(() => {
       dispatch({
@@ -943,6 +948,7 @@ function App() {
 
   const pausePlayback = () => {
     audioEngineRef.current?.stop();
+    setAuditioningCandidateId(null);
     if (state.playback.status === "playing" || state.playback.status === "starting") {
       dispatch({ type: "pause-playback" });
     }
@@ -950,12 +956,22 @@ function App() {
 
   const resetPlayback = () => {
     audioEngineRef.current?.stop();
+    setAuditioningCandidateId(null);
     dispatch({ type: "reset-playback" });
   };
 
-  const startPlaybackAt = async (startBeat: number, errorMessage: string) => {
+  const startPlaybackAt = async (
+    startBeat: number,
+    errorMessage: string,
+    candidateOverride?: HarmonyCandidate | null,
+  ) => {
     if (!canPlayTimeline || state.playback.status === "starting") return;
-    const playbackCandidate = harmonyIsReady ? selectedCandidate : null;
+    const playbackCandidate =
+      candidateOverride === undefined
+        ? harmonyIsReady
+          ? selectedCandidate
+          : null
+        : candidateOverride;
     audioEngineRef.current?.stop();
     dispatch({ type: "set-current-beat", currentBeat: startBeat });
     dispatch({ type: "set-playback-status", status: "starting" });
@@ -972,10 +988,14 @@ function App() {
           startBeat,
         },
         (currentBeat) => dispatch({ type: "set-current-beat", currentBeat }),
-        () => dispatch({ type: "reset-playback" }),
+        () => {
+          setAuditioningCandidateId(null);
+          dispatch({ type: "reset-playback" });
+        },
       );
       dispatch({ type: "set-playback-status", status: "playing" });
     } catch {
+      setAuditioningCandidateId(null);
       dispatch({ type: "reset-playback" });
       dispatch({ type: "set-error", id: "audio", message: errorMessage });
     }
@@ -1018,6 +1038,26 @@ function App() {
       pausePlayback();
     }
     dispatch({ type: "select-candidate", candidateId });
+  };
+
+  const handlePreviewCandidate = async (candidateId: string) => {
+    const candidate = state.candidates.find((item) => item.id === candidateId);
+    if (!candidate) return;
+    if (auditioningCandidateId === candidateId && state.playback.status === "playing") {
+      pausePlayback();
+      return;
+    }
+    if (state.playback.status === "playing" || state.playback.status === "starting") {
+      audioEngineRef.current?.stop();
+    }
+    dispatch({ type: "select-candidate", candidateId });
+    setAuditioningCandidateId(candidateId);
+    await startPlaybackAt(0, t("message.audioRestart"), candidate);
+  };
+
+  const handleDeepDiveCandidate = (candidateId: string) => {
+    handleSelectCandidate(candidateId);
+    setHarmonyFlow("deep-dive");
   };
 
   if (screen === "landing") {
@@ -1093,6 +1133,11 @@ function App() {
         hasMelody={hasMelody}
         isGenerating={isGenerating}
         onGenerate={handleGenerate}
+        inHarmonyPhase={inHarmonyPhase}
+        harmonyCandidates={state.candidates}
+        selectedCandidateId={state.selectedCandidateId}
+        harmonyFlow={harmonyFlow}
+        onSelectHarmonyStyle={handleDeepDiveCandidate}
       />
 
       <section
@@ -1395,9 +1440,13 @@ function App() {
               isGenerating={isGenerating}
               candidates={state.candidates}
               selectedCandidate={selectedCandidate}
+              harmonyFlow={harmonyFlow}
+              playbackStatus={state.playback.status}
+              auditioningCandidateId={auditioningCandidateId}
               harmonyIsOutdated={harmonyIsOutdated}
               hasMelody={hasMelody}
-              onSelectCandidate={handleSelectCandidate}
+              onPreviewCandidate={(candidateId) => void handlePreviewCandidate(candidateId)}
+              onDeepDiveCandidate={handleDeepDiveCandidate}
             />
           ) : null}
 

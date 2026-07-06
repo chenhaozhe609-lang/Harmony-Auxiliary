@@ -1,4 +1,4 @@
-import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.60.0/node_modules/playwright/index.mjs";
+import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright/index.mjs";
 
 const BASE_URL = process.env.VERIFY_URL ?? "http://127.0.0.1:5181";
 
@@ -49,6 +49,39 @@ async function inspectViewport(viewport) {
     harmonyDrawer: Boolean(document.querySelector(".harmony-drawer")),
     candidateStrip: Boolean(document.querySelector(".candidate-strip")),
     melodyTransport: Boolean(document.querySelector(".melody-transport")),
+  }));
+
+  // TASK7 E2: the harmony phase is now a style flow. Three preview lanes expose
+  // audition and deep-dive controls; the command bar mirrors style selection.
+  const styleFlowInitial = await page.evaluate(() => ({
+    candidateCount: document.querySelectorAll(".candidate-strip .candidate").length,
+    auditionButtons: document.querySelectorAll(".candidate-preview-button").length,
+    deepDiveButtons: document.querySelectorAll(".candidate-deep-button").length,
+    styleButtons: document.querySelectorAll(".harmony-style-control button").length,
+    activeDeepDiveButtons: document.querySelectorAll('.candidate-deep-button[aria-pressed="true"]').length,
+  }));
+
+  await page.locator(".candidate-deep-button").nth(2).click();
+  const styleFlowAfterCardDeepDive = await page.evaluate(() => ({
+    selectedIndex: [...document.querySelectorAll(".candidate-strip .candidate")].findIndex((node) =>
+      node.classList.contains("is-selected"),
+    ),
+    activeDeepDiveIndex: [...document.querySelectorAll(".candidate-deep-button")].findIndex(
+      (node) => node.getAttribute("aria-pressed") === "true",
+    ),
+  }));
+
+  await page.locator(".harmony-style-control button").nth(1).click();
+  const styleFlowAfterCommandStyle = await page.evaluate(() => ({
+    selectedIndex: [...document.querySelectorAll(".candidate-strip .candidate")].findIndex((node) =>
+      node.classList.contains("is-selected"),
+    ),
+    activeStyleIndex: [...document.querySelectorAll(".harmony-style-control button")].findIndex(
+      (node) => node.getAttribute("aria-pressed") === "true",
+    ),
+    activeDeepDiveIndex: [...document.querySelectorAll(".candidate-deep-button")].findIndex(
+      (node) => node.getAttribute("aria-pressed") === "true",
+    ),
   }));
 
   // Default tone preset should be the sampled grand piano.
@@ -157,7 +190,20 @@ async function inspectViewport(viewport) {
 
   await page.close();
 
-  return { viewport: viewport.name, tonePreset, editPhase, harmonyPhase, pianoRoll, windows, sync, pitchDrag, overflow };
+  return {
+    viewport: viewport.name,
+    tonePreset,
+    editPhase,
+    harmonyPhase,
+    styleFlowInitial,
+    styleFlowAfterCardDeepDive,
+    styleFlowAfterCommandStyle,
+    pianoRoll,
+    windows,
+    sync,
+    pitchDrag,
+    overflow,
+  };
 }
 
 const results = [];
@@ -169,7 +215,20 @@ await browser.close();
 
 const errors = [];
 for (const result of results) {
-  const { viewport, tonePreset, editPhase, harmonyPhase, pianoRoll, windows, sync, pitchDrag, overflow } = result;
+  const {
+    viewport,
+    tonePreset,
+    editPhase,
+    harmonyPhase,
+    styleFlowInitial,
+    styleFlowAfterCardDeepDive,
+    styleFlowAfterCommandStyle,
+    pianoRoll,
+    windows,
+    sync,
+    pitchDrag,
+    overflow,
+  } = result;
 
   if (tonePreset !== "acoustic-grand") {
     errors.push(`${viewport}: default tone preset is ${tonePreset}, expected acoustic-grand.`);
@@ -186,6 +245,34 @@ for (const result of results) {
   }
   if (harmonyPhase.melodyTransport) {
     errors.push(`${viewport}: harmony phase should not also show the standalone melody transport.`);
+  }
+  if (styleFlowInitial.candidateCount !== 3) {
+    errors.push(`${viewport}: expected three harmony preview candidates, got ${styleFlowInitial.candidateCount}.`);
+  }
+  if (styleFlowInitial.auditionButtons !== 3 || styleFlowInitial.deepDiveButtons !== 3) {
+    errors.push(
+      `${viewport}: style flow controls incomplete (audition=${styleFlowInitial.auditionButtons}, deep=${styleFlowInitial.deepDiveButtons}).`,
+    );
+  }
+  if (styleFlowInitial.styleButtons !== 3) {
+    errors.push(`${viewport}: command bar style control should expose three styles.`);
+  }
+  if (styleFlowInitial.activeDeepDiveButtons !== 0) {
+    errors.push(`${viewport}: generation should open in compare mode, not deep dive.`);
+  }
+  if (styleFlowAfterCardDeepDive.selectedIndex !== 2 || styleFlowAfterCardDeepDive.activeDeepDiveIndex !== 2) {
+    errors.push(
+      `${viewport}: card deep dive did not select the color candidate (${JSON.stringify(styleFlowAfterCardDeepDive)}).`,
+    );
+  }
+  if (
+    styleFlowAfterCommandStyle.selectedIndex !== 1 ||
+    styleFlowAfterCommandStyle.activeStyleIndex !== 1 ||
+    styleFlowAfterCommandStyle.activeDeepDiveIndex !== 1
+  ) {
+    errors.push(
+      `${viewport}: command-bar style selector did not select the pop candidate (${JSON.stringify(styleFlowAfterCommandStyle)}).`,
+    );
   }
   // DAW-scale range C2..C7 (TASK6 §11 Phase A2): a 61-key, 5-octave roll so the
   // melody editor always scrolls vertically inside the fixed-height stage.

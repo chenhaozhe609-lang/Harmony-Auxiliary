@@ -2033,6 +2033,7 @@ button:disabled,
   border-top: 2px solid var(--color-hairline);
   border-radius: 0;
   background: transparent;
+  cursor: default;
   text-align: left;
 }
 
@@ -2070,6 +2071,45 @@ button:disabled,
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   line-height: 1.5;
+}
+
+.candidate-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.candidate-actions button {
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 0 10px;
+  transition:
+    border-color 150ms ease-out,
+    background 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.candidate-preview-button {
+  min-width: 72px;
+}
+
+.candidate-deep-button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-surface);
+}
+
+.harmony-style-control {
+  flex: 0 0 auto;
 }
 
 .inspector {
@@ -2460,12 +2500,13 @@ button:disabled,
 
 /* Candidate strip → compact switcher above the maximised roll. */
 .workspace-grid.is-expert .candidate {
-  min-height: 0;
-  padding: 10px 14px 10px 0;
+  min-height: 116px;
+  padding: 10px 14px 12px 0;
 }
 
 .workspace-grid.is-expert .candidate small {
-  display: none;
+  display: block;
+  min-height: 18px;
 }
 
 .workspace-grid.is-expert .candidate-strip {
@@ -2628,6 +2669,7 @@ summary:focus-visible {
   .play-button:hover,
   .mute-chip:not(:disabled):hover,
   .tool-button:not(:disabled):hover,
+  .candidate-actions button:hover,
   .jump-group button:not(:disabled):hover,
   .candidate:not(:disabled):hover,
   .chord-block:hover,

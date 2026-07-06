@@ -2,7 +2,7 @@ import type { Dispatch, Ref } from "react";
 import type { AppAction } from "../../app/appState";
 import type { AuthStatus } from "../../app/auth/AuthProvider";
 import type { Language } from "../../app/i18n";
-import type { AppState, ProjectSettings } from "../../music/types";
+import type { AppState, HarmonyCandidate, ProjectSettings } from "../../music/types";
 import { SettingsFields } from "./SettingsFields";
 
 type CommandBarProps = {
@@ -26,6 +26,11 @@ type CommandBarProps = {
   hasMelody: boolean;
   isGenerating: boolean;
   onGenerate: () => void;
+  inHarmonyPhase: boolean;
+  harmonyCandidates: HarmonyCandidate[];
+  selectedCandidateId: string | null;
+  harmonyFlow: "compare" | "deep-dive";
+  onSelectHarmonyStyle: (candidateId: string) => void;
 };
 
 // The top command bar (TASK6 §10.2): brand lockup, language toggle, account /
@@ -51,6 +56,11 @@ export function CommandBar({
   hasMelody,
   isGenerating,
   onGenerate,
+  inHarmonyPhase,
+  harmonyCandidates,
+  selectedCandidateId,
+  harmonyFlow,
+  onSelectHarmonyStyle,
 }: CommandBarProps) {
   return (
     <header className="command-bar" aria-label="Main controls">
@@ -109,6 +119,20 @@ export function CommandBar({
         >
           {t("view.guided")}
         </button>
+        {inHarmonyPhase && harmonyCandidates.length > 0 ? (
+          <div className="segmented-control harmony-style-control" aria-label={t("candidate.styleControl")}>
+            {harmonyCandidates.map((candidate) => (
+              <button
+                type="button"
+                key={candidate.id}
+                aria-pressed={selectedCandidateId === candidate.id && harmonyFlow === "deep-dive"}
+                onClick={() => onSelectHarmonyStyle(candidate.id)}
+              >
+                {t(`candidate.${candidate.mode}.short`)}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <details className="settings-tray">
           <summary>{t("settings.projectSettings")}</summary>
           <SettingsFields

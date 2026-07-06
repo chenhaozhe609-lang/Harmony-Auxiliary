@@ -1,26 +1,34 @@
 import { candidateProgression } from "../../app/pianoRollLayout";
-import type { HarmonyCandidate } from "../../music/types";
+import type { AppState, HarmonyCandidate } from "../../music/types";
 
 type CandidateStripProps = {
   t: (key: string) => string;
   isGenerating: boolean;
   candidates: HarmonyCandidate[];
   selectedCandidate: HarmonyCandidate | null;
+  harmonyFlow: "compare" | "deep-dive";
+  playbackStatus: AppState["playback"]["status"];
+  auditioningCandidateId: string | null;
   harmonyIsOutdated: boolean;
   hasMelody: boolean;
-  onSelectCandidate: (candidateId: string) => void;
+  onPreviewCandidate: (candidateId: string) => void;
+  onDeepDiveCandidate: (candidateId: string) => void;
 };
 
-// Harmony candidate A/B/C switcher (TASK6 §10.2). Shows loading placeholders
-// while scoring, the real candidates once generated, and disabled prompts before.
+// Harmony candidate A/B/C flow (TASK7 E2): three preview lanes stay comparable,
+// each can be auditioned, and a deliberate "deep dive" action commits the style.
 export function CandidateStrip({
   t,
   isGenerating,
   candidates,
   selectedCandidate,
+  harmonyFlow,
+  playbackStatus,
+  auditioningCandidateId,
   harmonyIsOutdated,
   hasMelody,
-  onSelectCandidate,
+  onPreviewCandidate,
+  onDeepDiveCandidate,
 }: CandidateStripProps) {
   return (
     <div className="candidate-strip" aria-label="Harmony candidates">
@@ -34,14 +42,12 @@ export function CandidateStrip({
           ))
         : candidates.length > 0
           ? candidates.map((candidate) => (
-              <button
-                type="button"
+              <article
                 className={`candidate${
                   selectedCandidate?.id === candidate.id ? " is-selected" : ""
                 }${harmonyIsOutdated ? " is-outdated" : ""}`}
                 key={candidate.id}
                 title={candidateProgression(candidate)}
-                onClick={() => onSelectCandidate(candidate.id)}
               >
                 <span>{t(`candidate.${candidate.mode}.title`)}</span>
                 <strong title={candidateProgression(candidate)}>
@@ -50,9 +56,30 @@ export function CandidateStrip({
                 <small>
                   {harmonyIsOutdated
                     ? t("candidate.outdated")
-                    : t(`candidate.${candidate.mode}.subtitle`)}
+                    : selectedCandidate?.id === candidate.id && harmonyFlow === "deep-dive"
+                      ? t("candidate.deepDiveActive")
+                      : t(`candidate.${candidate.mode}.subtitle`)}
                 </small>
-              </button>
+                <div className="candidate-actions">
+                  <button
+                    type="button"
+                    className="candidate-preview-button"
+                    onClick={() => onPreviewCandidate(candidate.id)}
+                  >
+                    {auditioningCandidateId === candidate.id && playbackStatus === "playing"
+                      ? t("candidate.pause")
+                      : t("candidate.audition")}
+                  </button>
+                  <button
+                    type="button"
+                    className="candidate-deep-button"
+                    aria-pressed={selectedCandidate?.id === candidate.id && harmonyFlow === "deep-dive"}
+                    onClick={() => onDeepDiveCandidate(candidate.id)}
+                  >
+                    {t("candidate.deepDive")}
+                  </button>
+                </div>
+              </article>
             ))
           : ["stable-classical", "pop-songwriting", "color-tension"].map((mode) => (
               <button type="button" className="candidate" disabled key={mode}>
