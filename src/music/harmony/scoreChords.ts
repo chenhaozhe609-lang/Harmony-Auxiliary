@@ -7,6 +7,7 @@ import type {
   NoteEvent,
   PitchClass,
 } from "../types";
+import { identifyNonChordTone } from "./melodyReduction";
 
 // Where a melody pitch sits inside the chord, by its position in the tone list
 // (root, third, fifth, seventh, then any extension) — or a non-chord tone.
@@ -67,7 +68,7 @@ export function scoreChordForSegment(
   const warnings: string[] = [];
   const warningNotes: string[] = [];
 
-  for (const note of notes) {
+  for (const [noteIndex, note] of notes.entries()) {
     const relationship = relationshipToChordTone(note.pitchClass, chord);
     const weight = noteWeight(note, segmentStartBeat);
 
@@ -84,8 +85,13 @@ export function scoreChordForSegment(
     else if (relationship === "seventh") score += 1.5 * weight;
     else if (relationship === "extension") score += 1.2 * weight;
     else {
-      score -= 1.1 * weight;
-      if (note.durationBeats >= 1) {
+      const reduction = identifyNonChordTone(note, noteIndex, notes, chord, segmentStartBeat);
+      if (reduction) {
+        score -= 0.25 * weight;
+      } else {
+        score -= 1.1 * weight;
+      }
+      if (!reduction && note.durationBeats >= 1) {
         warnings.push(`${note.name} is a sustained non-chord tone against ${chord.symbol}.`);
         warningNotes.push(note.name);
       }
@@ -122,4 +128,3 @@ export function scoreChordForSegment(
     },
   };
 }
-

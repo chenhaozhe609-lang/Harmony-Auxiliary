@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { generateHarmonyCandidates } from "./generateCandidates";
 import { segmentMelody } from "./segmentMelody";
+import { scoreChordForSegment } from "./scoreChords";
+import { STYLE_PROFILES, transitionScore } from "./transitions";
 import { longDemoMelody } from "../fixtures/demoMelodies";
-import type { NoteEvent, ProjectSettings } from "../types";
+import type { ChordDefinition, NoteEvent, ProjectSettings } from "../types";
 
 const settings: ProjectSettings = {
   keyTonic: 0,
@@ -268,6 +270,64 @@ describe("candidate generation", () => {
     expect(lastChord!.startBeat + lastChord!.durationBeats).toBe(48);
     expect(stable.chords.some((placedChord) => placedChord.explanation.melodyRelationships.length > 0)).toBe(
       true,
+    );
+  });
+});
+
+describe("Task 7 P3 realism scoring", () => {
+  const cMajor: ChordDefinition = {
+    id: "C",
+    root: 0,
+    quality: "major",
+    tones: [0, 4, 7],
+    symbol: "C",
+    roman: "I",
+    functionLabel: "T",
+  };
+
+  it("reduces weak-beat passing tones before warning about melody fit", () => {
+    const passingLine: NoteEvent[] = [
+      { id: "p1", midi: 64, pitchClass: 4, name: "E4", startBeat: 0, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "p2", midi: 65, pitchClass: 5, name: "F4", startBeat: 1, durationBeats: 0.5, velocity: 0.8, source: "manual" },
+      { id: "p3", midi: 67, pitchClass: 7, name: "G4", startBeat: 2, durationBeats: 1, velocity: 0.8, source: "manual" },
+    ];
+    const unresolvedLine: NoteEvent[] = [
+      { id: "u1", midi: 64, pitchClass: 4, name: "E4", startBeat: 0, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "u2", midi: 66, pitchClass: 6, name: "F#4", startBeat: 1, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "u3", midi: 69, pitchClass: 9, name: "A4", startBeat: 2, durationBeats: 1, velocity: 0.8, source: "manual" },
+    ];
+
+    const passing = scoreChordForSegment(cMajor, passingLine, 0);
+    const unresolved = scoreChordForSegment(cMajor, unresolvedLine, 0);
+
+    expect(passing.explanation.warnings).toEqual([]);
+    expect(passing.score).toBeGreaterThan(unresolved.score);
+    expect(unresolved.explanation.warningNotes).toContain("F#4");
+  });
+
+  it("prefers lower actual voicing movement in transition scoring", () => {
+    const cSusColor: ChordDefinition = {
+      id: "C7sus",
+      root: 0,
+      quality: "dominant7",
+      tones: [0, 5, 7, 10],
+      symbol: "C7sus",
+      roman: "I7sus",
+      functionLabel: "T",
+    };
+    const fsDiminished: ChordDefinition = {
+      id: "Fsdim",
+      root: 6,
+      quality: "diminished",
+      tones: [6, 9, 0],
+      symbol: "F#dim",
+      roman: "vii°",
+      functionLabel: "T",
+    };
+    const profile = { ...STYLE_PROFILES["pop-songwriting"], functionWeight: 0, voiceLeadingWeight: 1 };
+
+    expect(transitionScore(cMajor, cSusColor, profile)).toBeGreaterThan(
+      transitionScore(cMajor, fsDiminished, profile),
     );
   });
 });

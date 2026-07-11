@@ -153,19 +153,72 @@ function commonToneCount(prev: ChordDefinition, cur: ChordDefinition): number {
   return cur.tones.filter((tone) => prev.tones.includes(tone)).length;
 }
 
-// Voice-leading v1: reward shared tones (smoothness) and a functional root
-// motion by 4th/5th; lightly penalise tritone leaps and static repeats. A full
-// voicing-based pass (avoid parallels etc.) is P3.
-function voiceLeadingV1(prev: ChordDefinition, cur: ChordDefinition): number {
+function chordToneToMidi(rootMidi: number, pitchClass: number): number {
+  let midi = rootMidi + ((pitchClass - (rootMidi % 12) + 12) % 12);
+  while (midi < rootMidi) midi += 12;
+  return midi;
+}
+
+function transitionVoicing(chord: ChordDefinition): number[] {
+  const bassPitch = chord.bass ?? chord.root;
+  const bass = 36 + bassPitch;
+  const upperRoot = 48 + chord.root;
+  const upper = chord.tones
+    .slice(0, 3)
+    .map((pitchClass) => chordToneToMidi(upperRoot, pitchClass))
+    .filter((midi, index, notes) => notes.indexOf(midi) === index)
+    .sort((a, b) => a - b);
+
+  return [bass, ...upper].slice(0, 4);
+}
+
+function totalVoiceMovement(prev: ChordDefinition, cur: ChordDefinition): number {
+  const prevVoicing = transitionVoicing(prev);
+  const curVoicing = transitionVoicing(cur);
+  const count = Math.min(prevVoicing.length, curVoicing.length);
+  let total = 0;
+  for (let index = 0; index < count; index += 1) {
+    total += Math.abs(curVoicing[index] - prevVoicing[index]);
+  }
+  return total;
+}
+
+function parallelPerfects(prev: ChordDefinition, cur: ChordDefinition): number {
+  const prevVoicing = transitionVoicing(prev);
+  const curVoicing = transitionVoicing(cur);
+  const count = Math.min(prevVoicing.length, curVoicing.length);
+  let parallels = 0;
+
+  for (let low = 0; low < count; low += 1) {
+    for (let high = low + 1; high < count; high += 1) {
+      const prevInterval = ((prevVoicing[high] - prevVoicing[low]) % 12 + 12) % 12;
+      const curInterval = ((curVoicing[high] - curVoicing[low]) % 12 + 12) % 12;
+      const lowMotion = curVoicing[low] - prevVoicing[low];
+      const highMotion = curVoicing[high] - prevVoicing[high];
+      const sameDirection = lowMotion !== 0 && highMotion !== 0 && Math.sign(lowMotion) === Math.sign(highMotion);
+      if (sameDirection && (prevInterval === 0 || prevInterval === 7) && prevInterval === curInterval) {
+        parallels += 1;
+      }
+    }
+  }
+
+  return parallels;
+}
+
+// Voice-leading v2: keep the old theory anchors, then score the actual four-
+// voice display voicing by total MIDI movement and parallel perfect intervals.
+function voiceLeadingV2(prev: ChordDefinition, cur: ChordDefinition): number {
   const rootMove = minPcInterval(prev.root, cur.root);
   // Repeating the exact same chord isn't voice leading, it's stagnation — the
   // shared-tone reward would otherwise be maximal and bias toward repeats.
   if (rootMove === 0 && prev.quality === cur.quality) return -0.5;
-  let score = commonToneCount(prev, cur) * 0.6;
+  let score = commonToneCount(prev, cur) * 0.7;
   if (rootMove === 5) score += 0.5; // perfect 4th/5th — the functional backbone
   else if (rootMove === 1 || rootMove === 2) score += 0.3; // stepwise
   else if (rootMove === 6) score -= 0.6; // tritone
   else if (rootMove === 0) score -= 0.2; // same root, changed quality (e.g. C→Cm)
+  score -= totalVoiceMovement(prev, cur) * 0.03;
+  score -= parallelPerfects(prev, cur) * 0.8;
   return score;
 }
 
@@ -176,7 +229,7 @@ export function transitionScore(
 ): number {
   return (
     profile.functionWeight * functionProgression(prev.functionLabel, cur.functionLabel) +
-    profile.voiceLeadingWeight * voiceLeadingV1(prev, cur) +
+    profile.voiceLeadingWeight * voiceLeadingV2(prev, cur) +
     tonicizationScore(prev, cur)
   );
 }
