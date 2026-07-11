@@ -9,6 +9,7 @@ import {
   type UIEvent as ReactUIEvent,
 } from "react";
 import { appReducer, createInitialState } from "./appState";
+import { pathForRoute, routeFromPath, type AppScreen } from "./appRouter";
 import {
   clearPreferences,
   defaultPreferences,
@@ -89,12 +90,16 @@ type NoteDragState = {
 
 function App() {
   const initialPreferences = useMemo(() => loadPreferences(), []);
+  const initialRoute = useMemo(
+    () => routeFromPath(typeof window === "undefined" ? "/" : window.location.pathname),
+    [],
+  );
   const [state, dispatch] = useReducer(appReducer, undefined, () =>
     createInitialState(initialPreferences),
   );
   const { status: authStatus, user, signOut } = useAuth();
-  const [screen, setScreen] = useState<"landing" | "workspace">("landing");
-  const [isDemo, setIsDemo] = useState(false);
+  const [screen, setScreen] = useState<AppScreen>(initialRoute.screen);
+  const [isDemo, setIsDemo] = useState(initialRoute.isDemo);
   const [authOpen, setAuthOpen] = useState(false);
   const [authIntent, setAuthIntent] = useState<"prompt" | "enter">("prompt");
   const [landingPrompted, setLandingPrompted] = useState(false);
@@ -144,6 +149,35 @@ function App() {
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
     [],
   );
+  const navigateApp = (
+    route: { screen: AppScreen; isDemo: boolean },
+    mode: "push" | "replace" = "push",
+  ) => {
+    setScreen(route.screen);
+    setIsDemo(route.isDemo);
+    if (typeof window === "undefined") return;
+    const path = pathForRoute(route);
+    if (window.location.pathname === path) return;
+    const method = mode === "replace" ? "replaceState" : "pushState";
+    window.history[method](null, "", path);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = routeFromPath(window.location.pathname);
+      setScreen(route.screen);
+      setIsDemo(route.isDemo);
+      if (route.screen === "workspace") setActiveStep(0);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (screen === "workspace" && isDemo && state.melody.length === 0) {
+      dispatch({ type: "load-melody", melody: demoMelody });
+    }
+  }, [screen, isDemo, state.melody.length]);
 
   useEffect(() => {
     savePreferences(state.settings, language, viewMode);
@@ -249,7 +283,7 @@ function App() {
   // the user to the landing screen. Demo sessions stay put.
   useEffect(() => {
     if (screen === "workspace" && authStatus === "anonymous" && !isDemo) {
-      setScreen("landing");
+      navigateApp({ screen: "landing", isDemo: false }, "replace");
     }
   }, [screen, authStatus, isDemo]);
 
@@ -258,9 +292,8 @@ function App() {
   const enterWorkspace = () => {
     // Unconfigured builds (no Supabase secrets) pass straight through for dev/CI.
     if (authStatus === "authenticated" || authStatus === "unconfigured") {
-      setIsDemo(false);
       setActiveStep(0);
-      setScreen("workspace");
+      navigateApp({ screen: "workspace", isDemo: false });
       return;
     }
     setAuthIntent("enter");
@@ -269,9 +302,8 @@ function App() {
 
   const enterDemo = () => {
     setAuthOpen(false);
-    setIsDemo(true);
     setActiveStep(0);
-    setScreen("workspace");
+    navigateApp({ screen: "workspace", isDemo: true });
     if (state.melody.length === 0) {
       dispatch({ type: "load-melody", melody: demoMelody });
     }
@@ -280,16 +312,14 @@ function App() {
   const handleAuthenticated = () => {
     setAuthOpen(false);
     if (authIntent === "enter") {
-      setIsDemo(false);
       if (screen !== "workspace") setActiveStep(0);
-      setScreen("workspace");
+      navigateApp({ screen: "workspace", isDemo: false });
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
-    setIsDemo(false);
-    setScreen("landing");
+    navigateApp({ screen: "landing", isDemo: false }, "replace");
     setLandingPrompted(true);
     setProjectsOpen(false);
   };
