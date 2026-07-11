@@ -82,7 +82,30 @@ async function inspectViewport(viewport) {
     activeDeepDiveIndex: [...document.querySelectorAll(".candidate-deep-button")].findIndex(
       (node) => node.getAttribute("aria-pressed") === "true",
     ),
+    deepDiveMounted: Boolean(document.querySelector(".deep-dive-panel")),
+    deepDiveClass: Boolean(document.querySelector(".workspace-grid.is-deep-dive")),
+    timelineCanvasHeight: Math.round(document.querySelector(".timeline-canvas")?.getBoundingClientRect().height ?? 0),
+    melodyWindowHeight: Math.round(document.querySelector(".melody-window")?.getBoundingClientRect().height ?? 0),
   }));
+
+  const deepDiveOrder = await page.evaluate(() => {
+    const panel = document.querySelector(".timeline-panel");
+    const candidate = document.querySelector(".candidate-strip");
+    const deep = document.querySelector(".deep-dive-panel");
+    const canvas = document.querySelector(".timeline-canvas");
+    const drawer = document.querySelector(".harmony-drawer");
+    const inspector = document.querySelector(".inspector");
+    const children = [...(panel?.children ?? [])];
+    return {
+      candidateBeforeCanvas: children.indexOf(candidate) > -1 && children.indexOf(candidate) < children.indexOf(canvas),
+      deepBeforeCanvas: children.indexOf(deep) > -1 && children.indexOf(deep) < children.indexOf(canvas),
+      canvasBeforeDrawer: children.indexOf(canvas) > -1 && children.indexOf(canvas) < children.indexOf(drawer),
+      inspectorAfterPanel:
+        Boolean(inspector) &&
+        Boolean(panel) &&
+        inspector.getBoundingClientRect().top >= panel.getBoundingClientRect().top - 2,
+    };
+  });
 
   // Default tone preset should be the sampled grand piano.
   const tonePreset = await page.evaluate(() => {
@@ -140,6 +163,16 @@ async function inspectViewport(viewport) {
     };
   });
 
+  await page.screenshot({
+    path: `D:\\Trae_Projects\\Harmony-auxiliary\\dist\\t4-${viewport.name}-verify.png`,
+    fullPage: true,
+  });
+
+  // Return to edit for the note-drag regression. Deep dive intentionally hides
+  // editing controls and leaves that work to the clean melody phase.
+  await page.getByRole("button", { name: /^编辑旋律$|^Edit melody$/ }).click();
+  await page.waitForSelector(".melody-transport");
+
   // Reset horizontal scroll so the dragged note is clear of the sticky keyboard gutter.
   await page.evaluate(() => {
     const melody = document.querySelector(".melody-window");
@@ -183,11 +216,6 @@ async function inspectViewport(viewport) {
     toneStatus: document.querySelector(".tone-status")?.dataset.tone ?? "none",
   }));
 
-  await page.screenshot({
-    path: `D:\\Trae_Projects\\Harmony-auxiliary\\dist\\t4-${viewport.name}-verify.png`,
-    fullPage: true,
-  });
-
   await page.close();
 
   return {
@@ -198,6 +226,7 @@ async function inspectViewport(viewport) {
     styleFlowInitial,
     styleFlowAfterCardDeepDive,
     styleFlowAfterCommandStyle,
+    deepDiveOrder,
     pianoRoll,
     windows,
     sync,
@@ -223,6 +252,7 @@ for (const result of results) {
     styleFlowInitial,
     styleFlowAfterCardDeepDive,
     styleFlowAfterCommandStyle,
+    deepDiveOrder,
     pianoRoll,
     windows,
     sync,
@@ -273,6 +303,20 @@ for (const result of results) {
     errors.push(
       `${viewport}: command-bar style selector did not select the pop candidate (${JSON.stringify(styleFlowAfterCommandStyle)}).`,
     );
+  }
+  if (!styleFlowAfterCommandStyle.deepDiveMounted || !styleFlowAfterCommandStyle.deepDiveClass) {
+    errors.push(`${viewport}: deep-dive panel/class did not mount after choosing a style.`);
+  }
+  if (styleFlowAfterCommandStyle.timelineCanvasHeight > 280 || styleFlowAfterCommandStyle.melodyWindowHeight > 230) {
+    errors.push(
+      `${viewport}: deep-dive score strip stayed too tall (${JSON.stringify({
+        timelineCanvasHeight: styleFlowAfterCommandStyle.timelineCanvasHeight,
+        melodyWindowHeight: styleFlowAfterCommandStyle.melodyWindowHeight,
+      })}).`,
+    );
+  }
+  if (!deepDiveOrder.candidateBeforeCanvas || !deepDiveOrder.deepBeforeCanvas || !deepDiveOrder.canvasBeforeDrawer) {
+    errors.push(`${viewport}: deep-dive order should be preview -> controls -> score -> harmony (${JSON.stringify(deepDiveOrder)}).`);
   }
   // DAW-scale range C2..C7 (TASK6 §11 Phase A2): a 61-key, 5-octave roll so the
   // melody editor always scrolls vertically inside the fixed-height stage.

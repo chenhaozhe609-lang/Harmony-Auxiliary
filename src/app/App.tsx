@@ -75,6 +75,7 @@ import { CommandBar } from "../components/workspace/CommandBar";
 import { PianoRoll } from "../components/workspace/PianoRoll";
 import { HarmonyLane } from "../components/workspace/HarmonyLane";
 import { CandidateStrip } from "../components/workspace/CandidateStrip";
+import { DeepDivePanel } from "../components/workspace/DeepDivePanel";
 import { Inspector } from "../components/workspace/Inspector";
 import { Transport } from "../components/workspace/Transport";
 import { GuideOverlay } from "../components/workspace/GuideOverlay";
@@ -487,6 +488,7 @@ function App() {
   // whether harmony exists, with an explicit "back to edit" override.
   const [editOverride, setEditOverride] = useState(false);
   const inHarmonyPhase = (showCandidates || isGenerating) && !editOverride;
+  const isDeepDivePhase = inHarmonyPhase && harmonyFlow === "deep-dive" && Boolean(selectedCandidate);
 
   const GUIDE_STEPS = ["input", "settings", "generate", "audition", "select", "export"] as const;
   const stepGates = [
@@ -507,7 +509,7 @@ function App() {
 
   // The unified workspace always shows every region; the guide popup only
   // explains/drives them, it no longer gates visibility.
-  const showSourceTools = true;
+  const showSourceTools = !isDeepDivePhase;
   const showTransport = true;
   const showPianoRoll = true;
   // Harmony UI (candidate strip + drawer) only appears in the harmony phase, so
@@ -515,7 +517,7 @@ function App() {
   const showCandidateStrip = inHarmonyPhase;
   // The explanation panel is resident in the harmony phase only (TASK7 §13 E3).
   const showInspector = inHarmonyPhase;
-  const showStageToolbar = true;
+  const showStageToolbar = !isDeepDivePhase;
 
   const handleLoadDemo = () => {
     resetPlayback();
@@ -821,7 +823,16 @@ function App() {
       observer?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timelineMetrics, hasMelody, viewMode, harmonyDrawerOpen, screen, showEditableGrid, inHarmonyPhase]);
+  }, [
+    timelineMetrics,
+    hasMelody,
+    viewMode,
+    harmonyDrawerOpen,
+    screen,
+    showEditableGrid,
+    inHarmonyPhase,
+    isDeepDivePhase,
+  ]);
 
   const auditionPitch = (midi: number) => {
     void audioEngineRef.current?.previewNote(midi, state.settings.playbackTone);
@@ -1107,6 +1118,22 @@ function App() {
     />
   ) : null;
 
+  const candidateStripEl = showCandidateStrip ? (
+    <CandidateStrip
+      t={t}
+      isGenerating={isGenerating}
+      candidates={state.candidates}
+      selectedCandidate={selectedCandidate}
+      harmonyFlow={harmonyFlow}
+      playbackStatus={state.playback.status}
+      auditioningCandidateId={auditioningCandidateId}
+      harmonyIsOutdated={harmonyIsOutdated}
+      hasMelody={hasMelody}
+      onPreviewCandidate={(candidateId) => void handlePreviewCandidate(candidateId)}
+      onDeepDiveCandidate={handleDeepDiveCandidate}
+    />
+  ) : null;
+
   return (
     <main className="app-shell expert">
       <CommandBar
@@ -1141,7 +1168,9 @@ function App() {
       />
 
       <section
-        className={`workspace-grid is-expert${inHarmonyPhase ? " is-harmony-phase" : ""}`}
+        className={`workspace-grid is-expert${inHarmonyPhase ? " is-harmony-phase" : ""}${
+          isDeepDivePhase ? " is-deep-dive" : ""
+        }`}
       >
         <section className="timeline-panel" aria-label="Music timeline">
           <div className="timeline-header">
@@ -1390,6 +1419,18 @@ function App() {
             </div>
           ) : null}
 
+          {isDeepDivePhase ? candidateStripEl : null}
+
+          {isDeepDivePhase ? (
+            <DeepDivePanel
+              t={t}
+              selectedCandidate={selectedCandidate}
+              selectedChord={selectedChord}
+              chordAlternatives={chordAlternatives}
+              onReplaceChord={handleReplaceChord}
+            />
+          ) : null}
+
           {showPianoRoll && showEditableGrid && navView.total > navView.view + 1 ? (
             <div
               className="timeline-nav"
@@ -1434,21 +1475,7 @@ function App() {
             />
           ) : null}
 
-          {showCandidateStrip ? (
-            <CandidateStrip
-              t={t}
-              isGenerating={isGenerating}
-              candidates={state.candidates}
-              selectedCandidate={selectedCandidate}
-              harmonyFlow={harmonyFlow}
-              playbackStatus={state.playback.status}
-              auditioningCandidateId={auditioningCandidateId}
-              harmonyIsOutdated={harmonyIsOutdated}
-              hasMelody={hasMelody}
-              onPreviewCandidate={(candidateId) => void handlePreviewCandidate(candidateId)}
-              onDeepDiveCandidate={handleDeepDiveCandidate}
-            />
-          ) : null}
+          {!isDeepDivePhase ? candidateStripEl : null}
 
           {/* Harmony bottom drawer — only in the harmony phase; last child so it
               sticks to the column's bottom, sharing the melody's exact left

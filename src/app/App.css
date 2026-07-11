@@ -2112,6 +2112,129 @@ button:disabled,
   flex: 0 0 auto;
 }
 
+.deep-dive-panel {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(220px, 0.7fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.deep-dive-copy {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.deep-dive-copy h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.deep-dive-copy p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.deep-dive-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.deep-dive-metrics div {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.deep-dive-metrics div + div {
+  border-left: 1px solid var(--color-hairline);
+}
+
+.deep-dive-metrics span,
+.deep-dive-progression span,
+.deep-dive-variants > span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.deep-dive-metrics strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deep-dive-progression {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  gap: 6px;
+}
+
+.deep-dive-progression strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deep-dive-variants {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.deep-dive-variants > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.deep-dive-variants button {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.deep-dive-variants small {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.deep-dive-empty {
+  align-self: center;
+  color: var(--color-text-muted);
+}
+
 .inspector {
   padding: 2px 4px 8px clamp(28px, 3vw, 48px);
 }
@@ -2514,6 +2637,74 @@ button:disabled,
   padding: 8px 0;
 }
 
+/* Deep dive (TASK7 E4): preview controls come first, then a compact score strip
+   where melody and the selected harmony stay horizontally aligned. Editing
+   controls are hidden; returning to edit restores the full piano roll. */
+.workspace-grid.is-expert.is-deep-dive .timeline-panel {
+  gap: 0;
+}
+
+.workspace-grid.is-expert.is-deep-dive .timeline-header {
+  padding-bottom: 6px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .candidate-strip {
+  order: 0;
+  gap: 12px;
+  padding: 6px 0 8px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .candidate-strip > * {
+  animation: none;
+}
+
+.workspace-grid.is-expert.is-deep-dive .candidate {
+  min-height: 86px;
+  gap: 5px;
+  padding: 8px 10px 10px 0;
+}
+
+.workspace-grid.is-expert.is-deep-dive .candidate small {
+  min-height: 0;
+  font-size: 11px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .candidate-actions button {
+  height: 26px;
+  padding: 0 9px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .timeline-nav {
+  margin: 6px 0 5px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .timeline-canvas {
+  flex: 0 0 clamp(174px, 24vh, 250px);
+  min-height: 174px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .melody-window {
+  flex: 0 0 auto;
+  height: clamp(132px, 19vh, 200px);
+  min-height: 132px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .melody-grid {
+  --pitch-row-height: 18px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .note {
+  height: 20px;
+}
+
+.workspace-grid.is-expert.is-deep-dive .harmony-drawer.is-open .harmony-drawer-body {
+  max-height: min(28vh, 226px);
+}
+
+.workspace-grid.is-expert.is-deep-dive .harmony-drawer-grip {
+  margin-top: 5px;
+}
+
 /* ── Harmony bottom drawer (TASK6 §11 Phase A2) ─────────────────────────────
    A flex item at the bottom of the fixed-height panel (no sticky needed — the
    page doesn't scroll). Dark glass with a grab handle; the header carries the
@@ -2670,6 +2861,7 @@ summary:focus-visible {
   .mute-chip:not(:disabled):hover,
   .tool-button:not(:disabled):hover,
   .candidate-actions button:hover,
+  .deep-dive-variants button:hover,
   .jump-group button:not(:disabled):hover,
   .candidate:not(:disabled):hover,
   .chord-block:hover,
@@ -2741,6 +2933,11 @@ summary:focus-visible {
 
   .input-actions {
     flex-wrap: wrap;
+  }
+
+  .deep-dive-panel {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .midi-track-panel,
@@ -2935,6 +3132,38 @@ summary:focus-visible {
   .timeline-panel,
   .inspector {
     padding: 14px;
+  }
+
+  .workspace-grid.is-expert.is-deep-dive .candidate-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .workspace-grid.is-expert.is-deep-dive .candidate {
+    padding-right: 0;
+  }
+
+  .workspace-grid.is-expert.is-deep-dive .candidate strong {
+    font-size: 13px;
+  }
+
+  .workspace-grid.is-expert.is-deep-dive .candidate-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-grid.is-expert.is-deep-dive .candidate-actions button {
+    width: 100%;
+  }
+
+  .deep-dive-metrics,
+  .deep-dive-variants > div {
+    grid-template-columns: 1fr;
+  }
+
+  .deep-dive-metrics div + div {
+    border-top: 1px solid var(--color-hairline);
+    border-left: 0;
   }
 
   .timeline-header {
