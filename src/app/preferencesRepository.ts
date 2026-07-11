@@ -55,6 +55,7 @@ function isPitchClass(value: unknown): value is PitchClass {
 function isHarmonyRhythm(value: unknown): value is HarmonyRhythmPattern {
   return (
     value === "bar" ||
+    value === "auto-phrase" ||
     value === "strong-beats" ||
     value === "every-beat" ||
     value === "cadence-aware" ||
@@ -74,6 +75,10 @@ function isPlaybackTone(value: unknown): value is PlaybackTonePreset {
   );
 }
 
+function isMode(value: unknown): value is Mode {
+  return value === "major" || value === "minor" || value === "dorian" || value === "mixolydian";
+}
+
 export function loadPreferences(): StoredPreferences {
   if (typeof window === "undefined") return defaultPreferences;
 
@@ -85,7 +90,7 @@ export function loadPreferences(): StoredPreferences {
     const legacyDensity = parsed.harmonyDensity === "half-bar" ? "half-bar" : "bar";
     return {
       keyTonic: isPitchClass(parsed.keyTonic) ? parsed.keyTonic : defaultPreferences.keyTonic,
-      mode: parsed.mode === "minor" ? "minor" : "major",
+      mode: isMode(parsed.mode) ? parsed.mode : defaultPreferences.mode,
       tempo:
         typeof parsed.tempo === "number" && parsed.tempo >= 40 && parsed.tempo <= 220
           ? parsed.tempo

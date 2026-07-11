@@ -44,6 +44,24 @@ describe("tonalAdapter diatonic palettes", () => {
     expect(chords[1].quality).toBe("minor7"); // Dm7
     expect(chords[1].roman).toBe("ii7");
   });
+
+  it("builds a Dorian palette without forcing a classical dominant", () => {
+    const chords = getDiatonicChords(0, "dorian");
+
+    expect(chords.map((c) => c.root)).toEqual([0, 2, 3, 5, 7, 9, 10]);
+    expect(chords.map((c) => c.roman)).toEqual(["i", "ii", "III", "IV", "v", "vi°", "VII"]);
+    expect(chords[4].quality).toBe("minor");
+    expect(chords[5].quality).toBe("diminished");
+  });
+
+  it("builds a Mixolydian palette with a flat-seven modal anchor", () => {
+    const chords = getDiatonicChords(0, "mixolydian", { sevenths: true });
+
+    expect(chords.map((c) => c.root)).toEqual([0, 2, 4, 5, 7, 9, 10]);
+    expect(chords[0].roman).toBe("I7");
+    expect(chords[4].roman).toBe("v7");
+    expect(chords[6].roman).toBe("♭VIImaj7");
+  });
 });
 
 describe("tonalAdapter chromatic vocabulary (Task 7 P2)", () => {

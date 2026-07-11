@@ -5,6 +5,7 @@ import { pitchClassToName } from "../../music/theory/pitches";
 import type {
   AppState,
   HarmonyRhythmPattern,
+  Mode,
   PitchClass,
   PlaybackTonePreset,
   ProjectSettings,
@@ -49,13 +50,13 @@ export function SettingsFields({
         <select
           value={settings.mode}
           onChange={(event) =>
-            dispatch({ type: "set-mode", mode: event.target.value === "minor" ? "minor" : "major" })
+            dispatch({ type: "set-mode", mode: event.target.value as Mode })
           }
         >
           <option value="major">{t("settings.major")}</option>
-          <option value="minor" disabled>
-            {t("settings.minorLater")}
-          </option>
+          <option value="minor">{t("settings.minor")}</option>
+          <option value="dorian">{t("settings.dorian")}</option>
+          <option value="mixolydian">{t("settings.mixolydian")}</option>
         </select>
       </label>
       <label>
@@ -80,6 +81,7 @@ export function SettingsFields({
           }
         >
           <option value="bar">{t("settings.bar")}</option>
+          <option value="auto-phrase">{t("settings.autoPhrase")}</option>
           <option value="strong-beats">{t("settings.strongBeats")}</option>
           <option value="every-beat">{t("settings.everyBeat")}</option>
           <option value="cadence-aware">{t("settings.cadenceAware")}</option>

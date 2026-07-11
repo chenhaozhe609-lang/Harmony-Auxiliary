@@ -126,6 +126,8 @@ describe("melody segmentation", () => {
 
   it("segments the long melody fixture across each harmony rhythm pattern", () => {
     expect(segmentMelody(longDemoMelody, "bar", 4)).toHaveLength(12);
+    expect(segmentMelody(longDemoMelody, "auto-phrase", 4).length).toBeGreaterThan(12);
+    expect(segmentMelody(longDemoMelody, "auto-phrase", 4).length).toBeLessThan(48);
     expect(segmentMelody(longDemoMelody, "strong-beats", 4)).toHaveLength(24);
     expect(segmentMelody(longDemoMelody, "every-beat", 4)).toHaveLength(48);
     expect(segmentMelody(longDemoMelody, "sparse", 4)).toHaveLength(6);
@@ -135,6 +137,20 @@ describe("melody segmentation", () => {
     expect(cadenceAware.at(-2)?.startBeat).toBe(44);
     expect(cadenceAware.at(-1)?.startBeat).toBe(46);
     expect(cadenceAware.at(-1)?.durationBeats).toBe(2);
+  });
+
+  it("adds phrase-aware boundaries for long notes and cadence lead-ins", () => {
+    const phraseMelody: NoteEvent[] = [
+      { id: "a1", midi: 64, pitchClass: 4, name: "E4", startBeat: 0, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "a2", midi: 67, pitchClass: 7, name: "G4", startBeat: 1, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "a3", midi: 72, pitchClass: 0, name: "C5", startBeat: 4, durationBeats: 1, velocity: 0.8, source: "manual" },
+      { id: "a4", midi: 71, pitchClass: 11, name: "B4", startBeat: 6, durationBeats: 2, velocity: 0.8, source: "manual" },
+      { id: "a5", midi: 72, pitchClass: 0, name: "C5", startBeat: 8, durationBeats: 4, velocity: 0.8, source: "manual" },
+    ];
+    const segments = segmentMelody(phraseMelody, "auto-phrase", 4);
+
+    expect(segments.map((segment) => segment.startBeat)).toEqual([0, 4, 6, 8]);
+    expect(segments.map((segment) => segment.durationBeats)).toEqual([4, 2, 2, 4]);
   });
 });
 
@@ -193,6 +209,17 @@ describe("candidate generation", () => {
     if (dominant) {
       expect(["V7", "vii°"]).toContain(dominant.chord.roman);
     }
+  });
+
+  it("generates modal harmony candidates for Dorian and Mixolydian settings (Task 7 P4)", () => {
+    const dorian = generateHarmonyCandidates(melody, { ...settings, mode: "dorian" });
+    const mixolydian = generateHarmonyCandidates(melody, { ...settings, mode: "mixolydian" });
+
+    expect(dorian).toHaveLength(3);
+    expect(mixolydian).toHaveLength(3);
+    expect(dorian[0].chords).toHaveLength(2);
+    expect(mixolydian[0].chords).toHaveLength(2);
+    expect(dorian[0].chords.every((pc) => pc.chord.roman !== "V7")).toBe(true);
   });
 
   it("makes the three styles distinct (pop loop anchor; Task 7 P2)", () => {

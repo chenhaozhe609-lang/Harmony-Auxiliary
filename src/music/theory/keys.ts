@@ -3,9 +3,18 @@ import { normalizePitchClass, pitchClassToName } from "./pitches";
 
 const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11] as const;
 const NATURAL_MINOR_INTERVALS = [0, 2, 3, 5, 7, 8, 10] as const;
+const DORIAN_INTERVALS = [0, 2, 3, 5, 7, 9, 10] as const;
+const MIXOLYDIAN_INTERVALS = [0, 2, 4, 5, 7, 9, 10] as const;
 
 export function getScalePitchClasses(tonic: PitchClass, mode: Mode): PitchClass[] {
-  const intervals = mode === "major" ? MAJOR_INTERVALS : NATURAL_MINOR_INTERVALS;
+  const intervals =
+    mode === "major"
+      ? MAJOR_INTERVALS
+      : mode === "minor"
+        ? NATURAL_MINOR_INTERVALS
+        : mode === "dorian"
+          ? DORIAN_INTERVALS
+          : MIXOLYDIAN_INTERVALS;
   return intervals.map((interval) => normalizePitchClass(tonic + interval));
 }
 
@@ -22,4 +31,3 @@ export function getScaleDegree(
 export function getKeyLabel(tonic: PitchClass, mode: Mode): string {
   return `${pitchClassToName(tonic)} ${mode}`;
 }
-

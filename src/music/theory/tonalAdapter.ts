@@ -1,11 +1,12 @@
 // Tonal → our domain. Tonal (https://github.com/tonaljs/tonal) is the source of
-// truth for "what chords are in this key" (major + minor, with correct roman
-// numerals and harmonic function); this adapter maps its output onto our own
+// truth for "what chords are in this key" (major/minor through Tonal, modes via
+// the same diatonic stacking model); this adapter maps its output onto our own
 // `ChordDefinition` so the rest of the app keeps its stable shapes and our
 // consistent sharp spelling. (Task 7 P1)
 import { Chord, Key, Note } from "tonal";
 import type { ChordDefinition, ChordQuality, FunctionLabel, Mode, PitchClass } from "../types";
 import { normalizePitchClass, pitchClassToName } from "./pitches";
+import { getScalePitchClasses } from "./keys";
 
 // Tonal labels harmonic function T / SD / D; we use T / PD / D (+ Color).
 function mapFunction(fn: string | undefined): FunctionLabel {
@@ -86,6 +87,39 @@ function romanFor(degreeIndex: number, quality: ChordQuality): string {
       return `${LOWER_GRADES[degreeIndex]}°`;
   }
 }
+
+function romanWithBase(base: string, quality: ChordQuality): string {
+  const upper = base.toUpperCase();
+  const lower = base.toLowerCase();
+  switch (quality) {
+    case "major":
+      return upper;
+    case "dominant7":
+      return `${upper}7`;
+    case "major7":
+      return `${upper}maj7`;
+    case "major9":
+      return `${upper}maj9`;
+    case "minor":
+      return lower;
+    case "minor7":
+      return `${lower}7`;
+    case "minor9":
+      return `${lower}9`;
+    case "diminished":
+      return `${lower}°`;
+  }
+}
+
+const MODAL_ROMAN_BASES: Record<Exclude<Mode, "major" | "minor">, string[]> = {
+  dorian: ["I", "II", "III", "IV", "V", "VI", "VII"],
+  mixolydian: ["I", "II", "III", "IV", "V", "VI", "♭VII"],
+};
+
+const MODAL_FUNCTIONS: Record<Exclude<Mode, "major" | "minor">, FunctionLabel[]> = {
+  dorian: ["T", "PD", "T", "PD", "D", "PD", "T"],
+  mixolydian: ["T", "PD", "T", "PD", "D", "T", "PD"],
+};
 
 // Turn a Tonal chord symbol into a ChordDefinition, taking pitch classes from
 // Tonal (enharmonically correct) but rebuilding our symbol/roman ourselves.
@@ -209,12 +243,63 @@ export function getBorrowedChords(tonic: PitchClass, mode: Mode): ChordDefinitio
       }),
     ];
   }
-  return [
-    buildChromaticChord(normalizePitchClass(tonic + 5) as PitchClass, "major", "IV", "PD", "borrow-IV", {
-      role: "borrowed",
-      borrowedFrom: "major",
-    }),
-  ];
+  if (mode === "minor") {
+    return [
+      buildChromaticChord(normalizePitchClass(tonic + 5) as PitchClass, "major", "IV", "PD", "borrow-IV", {
+        role: "borrowed",
+        borrowedFrom: "major",
+      }),
+    ];
+  }
+
+  return [];
+}
+
+function qualityFromStack(tones: PitchClass[], useSevenths: boolean): ChordQuality {
+  const root = tones[0];
+  const third = ((tones[1] - root) % 12 + 12) % 12;
+  const fifth = ((tones[2] - root) % 12 + 12) % 12;
+  const seventh = tones[3] === undefined ? null : ((tones[3] - root) % 12 + 12) % 12;
+
+  if (useSevenths) {
+    if (third === 4 && fifth === 7 && seventh === 11) return "major7";
+    if (third === 4 && fifth === 7 && seventh === 10) return "dominant7";
+    if (third === 3 && fifth === 7 && seventh === 10) return "minor7";
+  }
+
+  if (third === 3 && fifth === 7) return "minor";
+  if (third === 3 && fifth === 6) return "diminished";
+  return "major";
+}
+
+function getModalDiatonicChords(
+  tonic: PitchClass,
+  mode: Exclude<Mode, "major" | "minor">,
+  options: DiatonicOptions = {},
+): ChordDefinition[] {
+  const useSevenths = options.sevenths ?? false;
+  const scale = getScalePitchClasses(tonic, mode);
+  const bases = MODAL_ROMAN_BASES[mode];
+  const functions = MODAL_FUNCTIONS[mode];
+
+  return scale.map((root, index) => {
+    const tones = [
+      scale[index],
+      scale[(index + 2) % scale.length],
+      scale[(index + 4) % scale.length],
+      ...(useSevenths ? [scale[(index + 6) % scale.length]] : []),
+    ] as PitchClass[];
+    const quality = qualityFromStack(tones, useSevenths);
+    return {
+      id: `${mode}-degree-${index + 1}`,
+      root,
+      quality,
+      tones,
+      symbol: ourSymbol(root, quality),
+      roman: romanWithBase(bases[index], quality),
+      functionLabel: functions[index],
+    };
+  });
 }
 
 // The palette a style pass searches: the diatonic set, optionally extended with
@@ -241,8 +326,8 @@ export type DiatonicOptions = {
 };
 
 // The diatonic chord palette for a key, as ChordDefinition[] in scale-degree
-// order (I…vii°). Backed by Tonal so minor keys (and later modes/borrowing) are
-// correct without hand-maintained interval tables.
+// order (I…vii°). Major/minor are backed by Tonal; Dorian/Mixolydian use the
+// same scale-degree stacking behind our domain adapter.
 export function getDiatonicChords(
   tonic: PitchClass,
   mode: Mode,
@@ -251,6 +336,9 @@ export function getDiatonicChords(
   const tonicName = pitchClassToName(tonic);
   const useSevenths = options.sevenths ?? false;
   const dominantSeventh = options.dominantSeventh ?? true;
+  if (mode === "dorian" || mode === "mixolydian") {
+    return getModalDiatonicChords(tonic, mode, options);
+  }
   const idPrefix = mode === "major" ? "maj" : "min";
 
   let symbols: string[];

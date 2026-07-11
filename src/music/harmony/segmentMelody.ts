@@ -21,6 +21,7 @@ function makeBoundaries(
   rhythm: HarmonyRhythmPattern,
   endBeat: number,
   timeSignatureNumerator: number,
+  notes: NoteEvent[],
 ): number[] {
   const beatsPerMeasure = Math.max(1, timeSignatureNumerator);
   const measureCount = Math.max(1, Math.ceil(endBeat / beatsPerMeasure));
@@ -59,6 +60,39 @@ function makeBoundaries(
     return boundaries;
   }
 
+  if (rhythm === "auto-phrase") {
+    const offsets = getStrongBeatOffsets(beatsPerMeasure);
+    const boundaries = new Set<number>(
+      Array.from({ length: measureCount }, (_, index) => index * beatsPerMeasure),
+    );
+    const sortedNotes = [...notes].sort((a, b) => a.startBeat - b.startBeat || a.midi - b.midi);
+    const minSpacing = Math.max(1, beatsPerMeasure / 2);
+
+    for (const [index, note] of sortedNotes.entries()) {
+      if (note.startBeat <= 0 || note.startBeat >= endBeat) continue;
+      const measureStart = Math.floor(note.startBeat / beatsPerMeasure) * beatsPerMeasure;
+      const offset = note.startBeat - measureStart;
+      const previous = sortedNotes[index - 1];
+      const previousEnd = previous ? previous.startBeat + previous.durationBeats : 0;
+      const entersAfterGap = previous !== undefined && note.startBeat - previousEnd >= 0.5;
+      const strongLongTone =
+        offsets.some((strongOffset) => Math.abs(strongOffset - offset) < 0.001) &&
+        note.durationBeats >= 1;
+      const phraseLeadIn =
+        endBeat - note.startBeat <= beatsPerMeasure && offset >= beatsPerMeasure / 2;
+
+      if (entersAfterGap || strongLongTone || phraseLeadIn) {
+        const closest = [...boundaries].reduce(
+          (distance, boundary) => Math.min(distance, Math.abs(boundary - note.startBeat)),
+          Number.POSITIVE_INFINITY,
+        );
+        if (closest >= minSpacing) boundaries.add(note.startBeat);
+      }
+    }
+
+    return [...boundaries].sort((a, b) => a - b);
+  }
+
   return Array.from({ length: measureCount }, (_, index) => index * beatsPerMeasure);
 }
 
@@ -71,7 +105,7 @@ export function segmentMelody(
 
   const endBeat = Math.max(...notes.map((note) => note.startBeat + note.durationBeats));
   const starts = Array.from(
-    new Set(makeBoundaries(rhythm, endBeat, timeSignatureNumerator).filter((beat) => beat < endBeat)),
+    new Set(makeBoundaries(rhythm, endBeat, timeSignatureNumerator, notes).filter((beat) => beat < endBeat)),
   ).sort((a, b) => a - b);
 
   return starts.map((startBeat, index) => {

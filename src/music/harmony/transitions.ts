@@ -113,6 +113,8 @@ function tonicizationScore(prev: ChordDefinition, cur: ChordDefinition): number 
 const POP_AXIS_INTERVALS: Record<Mode, Set<number>> = {
   major: new Set([0, 5, 7, 9]), // I, IV, V, vi
   minor: new Set([0, 3, 8, 10]), // i, III, VI, VII
+  dorian: new Set([0, 3, 5, 10]), // i, III, IV, VII
+  mixolydian: new Set([0, 5, 7, 10]), // I, IV, v, VII
 };
 
 // Per-segment reward for landing on a pop-axis degree (see loopAnchorWeight).
