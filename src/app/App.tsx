@@ -31,8 +31,6 @@ import {
 } from "../services/projectsRepository";
 import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
 import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
-import { getChordAlternatives, makeReplacementPlacedChord } from "../music/harmony/chordAlternatives";
-import { generateHarmonyCandidates } from "../music/harmony/generateCandidates";
 import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
 import { parseMidiArrayBuffer } from "../music/midi/importMidi";
 import {
@@ -46,6 +44,7 @@ import type {
   HarmonyCandidate,
   MidiImportResult,
   NoteEvent,
+  ScoredChord,
   StoredProjectSnapshot,
 } from "../music/types";
 import {
@@ -116,6 +115,7 @@ function App() {
   const [isImporting, setIsImporting] = useState(false);
   const [harmonyFlow, setHarmonyFlow] = useState<"compare" | "deep-dive">("compare");
   const [auditioningCandidateId, setAuditioningCandidateId] = useState<string | null>(null);
+  const [chordAlternatives, setChordAlternatives] = useState<ScoredChord[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [toneStatus, setToneStatus] = useState<"loading" | "sampled" | "fallback" | "synth">(
     "loading",
@@ -425,15 +425,30 @@ function App() {
   const harmonyIsReady = state.harmonyStatus === "ready" && selectedCandidate !== null;
   const harmonyIsOutdated = state.harmonyStatus === "outdated";
   const canPlayTimeline = hasMelody;
-  const chordAlternatives = useMemo(
-    () =>
-      selectedChord
-        ? getChordAlternatives(state.melody, state.settings, selectedChord).filter(
+  useEffect(() => {
+    if (!selectedChord) {
+      setChordAlternatives([]);
+      return;
+    }
+
+    let cancelled = false;
+    import("../music/harmony/chordAlternatives")
+      .then(({ getChordAlternatives }) => {
+        if (cancelled) return;
+        setChordAlternatives(
+          getChordAlternatives(state.melody, state.settings, selectedChord).filter(
             (alternative) => alternative.chord.id !== selectedChord.chord.id,
-          )
-        : [],
-    [selectedChord, state.melody, state.settings],
-  );
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setChordAlternatives([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChord, state.melody, state.settings]);
   const timelineEndBeat = useMemo(
     () => getTimelineEndBeat(state.melody, selectedCandidate),
     [state.melody, selectedCandidate],
@@ -548,13 +563,19 @@ function App() {
     setAuditioningCandidateId(null);
     setIsGenerating(true);
     window.setTimeout(() => {
-      dispatch({
-        type: "set-candidates",
-        candidates: generateHarmonyCandidates(state.melody, state.settings),
-      });
-      setIsGenerating(false);
-      // Advance the guided flow to the audition step once candidates exist.
-      setActiveStep((current) => (current < 3 ? 3 : current));
+      import("../music/harmony/generateCandidates")
+        .then(({ generateHarmonyCandidates }) => {
+          dispatch({
+            type: "set-candidates",
+            candidates: generateHarmonyCandidates(state.melody, state.settings),
+          });
+          // Advance the guided flow to the audition step once candidates exist.
+          setActiveStep((current) => (current < 3 ? 3 : current));
+        })
+        .catch(() => {
+          dispatch({ type: "set-error", id: "generate", message: t("message.generateFailure") });
+        })
+        .finally(() => setIsGenerating(false));
     }, 400);
   };
 
@@ -570,11 +591,13 @@ function App() {
     const alternative = chordAlternatives[alternativeIndex];
     if (!alternative) return;
     pausePlayback();
-    dispatch({
-      type: "replace-chord",
-      candidateId: selectedCandidate.id,
-      chordId: selectedChord.id,
-      replacement: makeReplacementPlacedChord(selectedChord, alternative),
+    void import("../music/harmony/chordAlternatives").then(({ makeReplacementPlacedChord }) => {
+      dispatch({
+        type: "replace-chord",
+        candidateId: selectedCandidate.id,
+        chordId: selectedChord.id,
+        replacement: makeReplacementPlacedChord(selectedChord, alternative),
+      });
     });
   };
 

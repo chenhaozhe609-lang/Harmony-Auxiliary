@@ -5,7 +5,6 @@
 import { useEffect, useRef, useState } from "react";
 import { FiPlay, FiSquare } from "react-icons/fi";
 import { AudioEngine } from "../../music/audio/audioEngine";
-import { generateHarmonyCandidates } from "../../music/harmony/generateCandidates";
 import { demoMelody } from "../../music/fixtures/demoMelodies";
 import type { FunctionLabel, HarmonyCandidate, ProjectSettings } from "../../music/types";
 
@@ -32,6 +31,7 @@ const STYLE_LABELS = ["Classical", "Pop", "Color"];
 export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMotion: boolean }) {
   const [candidates, setCandidates] = useState<HarmonyCandidate[] | null>(null);
   const [styleIndex, setStyleIndex] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeBeat, setActiveBeat] = useState<number | null>(null);
   const engineRef = useRef<AudioEngine | null>(null);
@@ -44,10 +44,17 @@ export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMo
 
   const candidate = candidates ? candidates[styleIndex] : null;
 
-  const handleGenerate = () => {
-    const next = generateHarmonyCandidates(demoMelody, DEMO_SETTINGS);
-    setCandidates(next);
-    setStyleIndex(0);
+  const handleGenerate = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const { generateHarmonyCandidates } = await import("../../music/harmony/generateCandidates");
+      const next = generateHarmonyCandidates(demoMelody, DEMO_SETTINGS);
+      setCandidates(next);
+      setStyleIndex(0);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleStop = () => {
@@ -112,8 +119,13 @@ export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMo
       </div>
 
       <div className="harmony-demo-controls">
-        <button type="button" className="primary-button" onClick={handleGenerate}>
-          {candidates ? "Regenerate" : "Generate harmony"}
+        <button
+          type="button"
+          className="primary-button"
+          disabled={isGenerating}
+          onClick={() => void handleGenerate()}
+        >
+          {isGenerating ? "Generating..." : candidates ? "Regenerate" : "Generate harmony"}
         </button>
         {candidates ? (
           <div className="harmony-demo-styles" role="tablist" aria-label="Harmony style">
