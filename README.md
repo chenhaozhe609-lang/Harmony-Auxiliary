@@ -6,10 +6,13 @@ A local-first harmony assistant for music creation.
 
 The project currently contains:
 
-- A Vite + React + TypeScript scaffold.
+- `apps/web`: the Vite + React + TypeScript editor.
+- `apps/api`: a Vercel Function boundary for the future project/sync API.
+- `packages/*`: shared domain, API-contract and harmony-core boundaries.
 - Dependencies managed with [pnpm](https://pnpm.io) (`pnpm-lock.yaml` committed).
 
-Internal planning docs (PRD, UI/UX direction, technical design, and milestone task breakdowns) are kept locally under `docs/` and are not tracked.
+The Round 8 audit, task plan and architecture decisions are tracked in
+[`docs/round-8`](docs/round-8/README.md).
 
 ## Intended Development Commands
 
@@ -20,18 +23,14 @@ pnpm build
 pnpm test
 ```
 
-## Optional: Configure Supabase for accounts
+## Environment and current migration state
 
-Authentication and cloud project storage are powered by [Supabase](https://supabase.com).
-They are optional: when no Supabase credentials are present, the app runs in a
-"not configured" mode and core creation still works.
+The legacy Supabase integration remains in the web app until A4. Do not create
+or configure a new Supabase project: the Round 8 target is a local-first client
+with an API-owned PostgreSQL, authentication and controlled audio assets.
 
-1. Create a Supabase project.
-2. In the SQL Editor, run `supabase/migrations/0001_create_projects.sql` to create
-   the `projects` table with row-level security.
-3. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_ANON_KEY` from **Project Settings → API**.
-4. Restart `pnpm dev`.
+Copy `.env.example` to `.env` only when a locally hosted API needs a public
+base URL. Credentials belong exclusively in the API/deployment secret manager.
 
-Only the public anon key belongs in the frontend; never commit the `service_role`
-key. Original MIDI files are never uploaded — only project snapshot JSON is stored.
+See [ADR-0001](docs/round-8/adr/ADR-0001-long-term-platform.md) for the
+accepted production boundary.

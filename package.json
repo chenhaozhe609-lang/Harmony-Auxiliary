@@ -1,34 +1,18 @@
 {
-  "name": "harmony-auxiliary",
+  "name": "harmony-auxiliary-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest run --passWithNoTests"
-  },
-  "dependencies": {
-    "@fontsource/cormorant-garamond": "^5.2.11",
-    "@supabase/supabase-js": "^2.108.2",
-    "@tonejs/midi": "^2.0.28",
-    "midi-writer-js": "^3.1.1",
-    "motion": "^12.40.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-icons": "^5.6.0",
-    "three": "^0.184.0",
-    "tonal": "^6.4.3",
-    "tone": "^15.1.22"
+    "dev": "pnpm --filter @harmony/web dev",
+    "build": "pnpm --filter @harmony/web build && pnpm --filter @harmony/api typecheck",
+    "preview": "pnpm --filter @harmony/web preview",
+    "test": "pnpm --filter @harmony/web test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test:contracts": "pnpm --filter @harmony/contracts test"
   },
   "devDependencies": {
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
-    "@types/three": "^0.184.1",
-    "@vitejs/plugin-react": "^4.6.0",
-    "typescript": "^5.8.3",
-    "vite": "^7.0.0",
-    "vitest": "^3.2.4"
+    "typescript": "^5.8.3"
   }
 }

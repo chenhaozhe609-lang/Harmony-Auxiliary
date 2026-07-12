@@ -1,9 +1,9 @@
 // A/B listening-compare for the Task 7 engine: prints the three style passes'
 // progressions for each demo melody so the styles can be compared by ear/eye.
 // Run with:  pnpm vite-node scripts/ab-styles-t7.ts
-import { generateHarmonyCandidates } from "../src/music/harmony/generateCandidates";
-import { demoMelody, longDemoMelody } from "../src/music/fixtures/demoMelodies";
-import type { HarmonyCandidate, Mode, NoteEvent, ProjectSettings } from "../src/music/types";
+import { generateHarmonyCandidates } from "../apps/web/src/music/harmony/generateCandidates";
+import { demoMelody, longDemoMelody } from "../apps/web/src/music/fixtures/demoMelodies";
+import type { HarmonyCandidate, Mode, NoteEvent, ProjectSettings } from "../apps/web/src/music/types";
 
 const base: ProjectSettings = {
   keyTonic: 0,

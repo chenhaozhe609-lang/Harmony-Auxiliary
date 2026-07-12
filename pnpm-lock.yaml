@@ -7,6 +7,14 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  apps/api: {}
+
+  apps/web:
     dependencies:
       '@fontsource/cormorant-garamond':
         specifier: ^5.2.11
@@ -54,15 +62,18 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.6.0
         version: 4.7.0(vite@7.3.5)
-      typescript:
-        specifier: ^5.8.3
-        version: 5.9.3
       vite:
         specifier: ^7.0.0
         version: 7.3.5
       vitest:
         specifier: ^3.2.4
         version: 3.2.6
+
+  packages/contracts: {}
+
+  packages/domain: {}
+
+  packages/harmony-core: {}
 
 packages:
 

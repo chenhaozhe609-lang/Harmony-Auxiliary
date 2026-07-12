@@ -45,7 +45,7 @@ results.exportHasSignIn = await page.evaluate(() =>
   [...document.querySelectorAll(".guide-export-actions button")].some((b) => b.textContent?.includes("登录")),
 );
 
-await page.screenshot({ path: "dist/t5-5-demo-export.png", fullPage: true });
+await page.screenshot({ path: "apps/web/dist/t5-5-demo-export.png", fullPage: true });
 await browser.close();
 
 const errors = [];

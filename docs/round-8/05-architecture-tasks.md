@@ -26,6 +26,8 @@
 
 ## A1：建立工作区、基础设施和可观测性骨架
 
+> 进度：ARC-01.1 已完成工作区骨架；其余任务待账户配置或后续实现。详细留痕见 [A1 工作日志](09-a1-worklog.md)。
+
 | ID | 任务 | 交付物 | 完成标准 |
 | --- | --- | --- | --- |
 | ARC-01.1 | 重划仓库边界 | `apps/web`、`apps/api`、`packages/domain`、`packages/contracts`、`packages/harmony-core`、`infra` 的工作区配置 | Web、API、领域类型和算法可独立构建；不产生循环依赖 |

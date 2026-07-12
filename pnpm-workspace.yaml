@@ -10,3 +10,7 @@ allowBuilds:
 onlyBuiltDependencies:
   - esbuild
   - midi-writer-js
+
+packages:
+  - apps/*
+  - packages/*
