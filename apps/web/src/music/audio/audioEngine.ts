@@ -541,6 +541,7 @@ export class AudioEngine {
   private activeTonePreset: PlaybackTonePreset | null = null;
   private samplerReady = false;
   private tonePromise: Promise<ToneLoadStatus> | null = null;
+  private toneGeneration = 0;
 
   /** Whether the active preset is currently playing through loaded samples. */
   isSamplerReady(): boolean {
@@ -549,7 +550,9 @@ export class AudioEngine {
 
   async ensureStarted(tonePreset: PlaybackTonePreset = "mellow-keys"): Promise<void> {
     await Tone.start();
-    await this.loadTone(tonePreset);
+    // loadTone builds the fallback synchronously; sample downloads happen in
+    // the background and must never hold up the first note.
+    void this.loadTone(tonePreset);
   }
 
   /**
@@ -563,6 +566,7 @@ export class AudioEngine {
     }
 
     this.disposeInstruments();
+    const generation = ++this.toneGeneration;
     this.activeTonePreset = tonePreset;
     this.samplerReady = false;
 
@@ -589,7 +593,7 @@ export class AudioEngine {
 
     this.tonePromise = Promise.all([reverb.ready, melody.loaded, harmony.loaded])
       .then<ToneLoadStatus>(() => {
-        if (this.activeTonePreset !== tonePreset) {
+        if (this.toneGeneration !== generation) {
           melody.sampler.dispose();
           harmony.sampler.dispose();
           return "fallback";
@@ -607,7 +611,7 @@ export class AudioEngine {
         // Offline or blocked CDN: keep the synth fallback already in place.
         melody.sampler.dispose();
         harmony.sampler.dispose();
-        this.samplerReady = false;
+        if (this.toneGeneration === generation) this.samplerReady = false;
         return "fallback";
       });
 

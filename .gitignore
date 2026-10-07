@@ -14,8 +14,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Internal planning docs (PRD + task breakdowns) and local tooling
-docs/
+# Local tooling
 .claude/
 
 # Working source images (the build uses the optimized copies in src/assets/)

@@ -15,14 +15,9 @@ import {
 import FloatingLines from "../FloatingLines";
 import Carousel, { type CarouselItem } from "./Carousel";
 import HarmonyDemo from "./HarmonyDemo";
-import type { AuthStatus } from "../../app/auth/AuthProvider";
 import "./Landing.css";
 
 type LandingProps = {
-  authStatus: AuthStatus;
-  userEmail: string | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
   onEnterWorkspace: () => void;
   onEnterDemo: () => void;
   prefersReducedMotion: boolean;
@@ -56,10 +51,6 @@ const FEATURES: CarouselItem[] = [
 ];
 
 export default function Landing({
-  authStatus,
-  userEmail,
-  onSignIn,
-  onSignOut,
   onEnterWorkspace,
   onEnterDemo,
   prefersReducedMotion,
@@ -109,15 +100,6 @@ export default function Landing({
           <span className="glass-nav-name">Harmony Auxiliary</span>
         </div>
         <div className="glass-nav-actions">
-          {authStatus === "authenticated" && userEmail ? (
-            <button type="button" className="ghost-button" onClick={onSignOut}>
-              Sign out
-            </button>
-          ) : authStatus === "anonymous" ? (
-            <button type="button" className="ghost-button" onClick={onSignIn}>
-              Sign in
-            </button>
-          ) : null}
           <button type="button" className="primary-button glass-nav-cta" onClick={onEnterWorkspace}>
             Open workspace
           </button>

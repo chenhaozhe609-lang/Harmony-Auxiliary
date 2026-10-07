@@ -694,7 +694,7 @@ button:disabled,
   opacity: 0.46;
 }
 
-/* Auth + account UI (Task 5 / T5.2) */
+/* Shared controls */
 .ghost-button {
   height: 38px;
   padding: 0 16px;
@@ -721,22 +721,6 @@ button:disabled,
   flex-wrap: wrap;
 }
 
-.account-cluster {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.account-email {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-}
-
 .demo-badge {
   padding: 3px 9px;
   border-radius: 999px;
@@ -747,62 +731,7 @@ button:disabled,
   letter-spacing: 0.02em;
 }
 
-.auth-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  /* Dark enough that the glass card reads even over the moving line field. */
-  background: color-mix(in oklch, black 70%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  animation: fade var(--dur-base) var(--ease-out) both;
-}
-
-/* Deep-smoke glass, unified with the landing's capsule nav (TASK6 §9.8):
-   translucent void + backdrop blur + ivory hairline + a faint top highlight,
-   so it sits beautifully over the FloatingLines field underneath. */
-.auth-card {
-  position: relative;
-  width: min(420px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 28px 26px 22px;
-  border: 1px solid color-mix(in oklch, var(--color-ivory) 16%, transparent);
-  border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--color-void) 46%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklch, var(--color-ivory) 14%, transparent),
-    var(--shadow-2);
-  -webkit-backdrop-filter: blur(28px) saturate(1.3);
-  backdrop-filter: blur(28px) saturate(1.3);
-  animation: emerge var(--dur-slow) var(--ease-out) both;
-}
-
-/* No backdrop-filter (or a low-end device where blur over live WebGL is too
-   costly): fall back to a more solid smoke so text stays legible. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .auth-card,
-  .projects-drawer {
-    background: color-mix(in oklch, var(--color-void) 94%, transparent);
-  }
-}
-
-.auth-card h2 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.auth-prompt-copy {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-}
-
-.auth-close {
+.dialog-close {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -817,106 +746,12 @@ button:disabled,
   cursor: pointer;
 }
 
-.auth-close:hover {
+.dialog-close:hover {
   background: var(--color-surface-muted);
   color: var(--color-text);
 }
 
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.auth-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: var(--color-text-muted);
-}
-
-.auth-form input {
-  height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  /* A more solid inner surface so the field reads against the glass card. */
-  background: color-mix(in oklch, var(--color-surface-raised) 88%, transparent);
-  color: var(--color-text);
-  font: inherit;
-}
-
-.auth-form label small {
-  font-weight: 500;
-  color: var(--color-text-muted);
-  opacity: 0.8;
-}
-
-.auth-form .primary-button {
-  margin-top: 4px;
-  width: 100%;
-}
-
-.auth-message {
-  margin: 0;
-  font-size: 0.84rem;
-}
-
-.auth-message[data-tone="error"] {
-  color: var(--color-danger);
-}
-
-.auth-message[data-tone="status"] {
-  color: var(--color-accent-strong);
-}
-
-.auth-toggle {
-  border: none;
-  background: transparent;
-  color: var(--color-accent-strong);
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
-}
-
-.auth-secondary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 2px;
-  padding-top: 12px;
-  border-top: 1px solid var(--color-hairline);
-}
-
-.auth-dismiss,
-.auth-demo-link {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: 0;
-}
-
-.auth-demo-link {
-  color: var(--color-accent-strong);
-  font-weight: 600;
-}
-
-.auth-privacy {
-  margin: 0;
-  font-size: 0.76rem;
-  line-height: 1.45;
-  color: var(--color-text-muted);
-}
-
-/* Cloud projects drawer (Task 5 / T5.3) */
+/* Local projects drawer */
 .projects-overlay {
   position: fixed;
   inset: 0;
@@ -929,7 +764,13 @@ button:disabled,
   animation: fade var(--dur-base) var(--ease-out) both;
 }
 
-/* Same deep-smoke glass as the auth card (TASK6 §9.8). */
+/* Project drawer surface */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .projects-overlay .projects-drawer {
+    background: color-mix(in oklch, var(--color-void) 94%, transparent);
+  }
+}
+
 .projects-drawer {
   width: min(420px, 100%);
   height: 100%;
@@ -960,7 +801,7 @@ button:disabled,
   font-size: 1.2rem;
 }
 
-.projects-drawer-header .auth-close {
+.projects-drawer-header .dialog-close {
   position: static;
 }
 

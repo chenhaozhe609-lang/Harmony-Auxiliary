@@ -1,9 +1,9 @@
-import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright/index.mjs";
+import { chromium } from "playwright";
 
 const BASE_URL = process.env.VERIFY_URL ?? "http://127.0.0.1:5181";
 
 const browser = await chromium.launch({
-  executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  ...(process.env.VERIFY_BROWSER_PATH ? { executablePath: process.env.VERIFY_BROWSER_PATH } : {}),
   headless: true,
 });
 
@@ -27,8 +27,7 @@ async function inspectViewport(viewport) {
   await page.goto(BASE_URL, { waitUntil: "networkidle" });
 
   // Enter the demo sandbox — it lands directly in the unified expert workspace.
-  await page.waitForSelector(".auth-overlay", { timeout: 6000 });
-  await page.locator(".auth-demo-link").click();
+  await page.getByRole("button", { name: "Try the demo", exact: true }).click();
   await page.waitForSelector(".app-shell .workspace-grid.is-expert", { timeout: 5000 });
   await page.waitForSelector(".melody-window .note", { timeout: 5000 });
 
@@ -86,7 +85,7 @@ async function inspectViewport(viewport) {
   r.step5HasExport = await present(page, ".guide-export-actions");
 
   // Close the wizard; the workspace (and its generated harmony) persists.
-  await page.locator(".guide-overlay .auth-close").click();
+  await page.locator(".guide-overlay .dialog-close").click();
   await page.waitForTimeout(150);
   r.guideClosedAfter = !(await present(page, ".guide-overlay"));
   r.workspacePersists = await present(page, ".harmony-window .chord-block");

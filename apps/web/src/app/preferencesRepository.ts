@@ -135,7 +135,11 @@ export function savePreferences(
     viewMode,
   };
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+  } catch {
+    // Preferences are optional; blocked storage must not stop music editing.
+  }
 }
 
 export function clearPreferences(): void {

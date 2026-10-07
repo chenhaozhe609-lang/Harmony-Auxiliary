@@ -1,16 +1,11 @@
 # pnpm blocks dependency build/lifecycle scripts by default for security. The
-# build runtime scaffolds this `allowBuilds` block and asks you to set each to
-# true/false; esbuild must run its install script (platform binary) and
-# midi-writer-js ships a build step, so both are approved.
+# esbuild needs its install script to set up the platform binary.
 allowBuilds:
   esbuild: true
-  midi-writer-js: true
 # Standard-pnpm equivalent, so a plain `pnpm install` (without the runtime
-# wrapper) also approves the same two packages.
+# wrapper) also approves the same package.
 onlyBuiltDependencies:
   - esbuild
-  - midi-writer-js
 
 packages:
-  - apps/*
-  - packages/*
+  - apps/web

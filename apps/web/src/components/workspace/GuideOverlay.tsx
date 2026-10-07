@@ -1,7 +1,6 @@
 import { useRef, type Dispatch } from "react";
 import type { AppAction } from "../../app/appState";
 import { useDialog } from "../../app/useDialog";
-import type { AuthStatus } from "../../app/auth/AuthProvider";
 import { candidateProgression } from "../../app/pianoRollLayout";
 import { GUIDE_STEPS } from "../../app/workspaceConstants";
 import type { AppState, HarmonyCandidate, ProjectSettings } from "../../music/types";
@@ -22,12 +21,9 @@ type GuideOverlayProps = {
   isGenerating: boolean;
   onGenerate: () => void;
   selectedCandidate: HarmonyCandidate | null;
-  isDemo: boolean;
-  authStatus: AuthStatus;
   projectsBusy: boolean;
   onCopyProgression: () => void;
   onExportMidi: () => void;
-  onRequestSignIn: () => void;
   onSaveNewProject: () => void;
 };
 
@@ -48,12 +44,9 @@ export function GuideOverlay({
   isGenerating,
   onGenerate,
   selectedCandidate,
-  isDemo,
-  authStatus,
   projectsBusy,
   onCopyProgression,
   onExportMidi,
-  onRequestSignIn,
   onSaveNewProject,
 }: GuideOverlayProps) {
   const guideStepKey = GUIDE_STEPS[guideStep];
@@ -70,7 +63,7 @@ export function GuideOverlay({
       ref={overlayRef}
     >
       <div className="guide-modal" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="auth-close" aria-label={t("auth.close")} onClick={onClose}>
+        <button type="button" className="dialog-close" aria-label={t("dialog.close")} onClick={onClose}>
           ×
         </button>
 
@@ -139,11 +132,7 @@ export function GuideOverlay({
                 </p>
               ) : null}
               <p className="guide-privacy-note">
-                {isDemo
-                  ? t("privacy.demoNote")
-                  : authStatus === "authenticated"
-                    ? t("privacy.accountNote")
-                    : t("privacy.localNote")}
+                {t("privacy.localNote")}
               </p>
               <div className="guide-export-actions">
                 <button type="button" className="secondary-button" onClick={onCopyProgression}>
@@ -152,25 +141,14 @@ export function GuideOverlay({
                 <button type="button" className="secondary-button" onClick={onExportMidi}>
                   {t("action.exportMidi")}
                 </button>
-                {isDemo ? (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={authStatus === "unconfigured"}
-                    onClick={onRequestSignIn}
-                  >
-                    {t("auth.signIn")}
-                  </button>
-                ) : authStatus === "authenticated" ? (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={!hasMelody || projectsBusy}
-                    onClick={onSaveNewProject}
-                  >
-                    {projectsBusy ? t("projects.saving") : t("projects.saveNew")}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={!hasMelody || projectsBusy}
+                  onClick={onSaveNewProject}
+                >
+                  {projectsBusy ? t("projects.saving") : t("projects.saveNew")}
+                </button>
               </div>
             </div>
           ) : null}

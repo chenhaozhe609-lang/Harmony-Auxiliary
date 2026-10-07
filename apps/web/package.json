@@ -7,14 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc -b"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.11",
-    "@supabase/supabase-js": "^2.108.2",
     "@tonejs/midi": "^2.0.28",
-    "midi-writer-js": "^3.1.1",
     "motion": "^12.40.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -28,6 +26,7 @@
     "@types/react-dom": "^19.1.6",
     "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^4.6.0",
+    "fake-indexeddb": "^6.2.5",
     "vite": "^7.0.0",
     "vitest": "^3.2.4"
   }

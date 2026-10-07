@@ -1,36 +1,34 @@
 # Harmony Auxiliary
 
-A local-first harmony assistant for music creation.
+免登录的本地和声创作工具，使用 React、Vite 和 TypeScript。所有项目数据保存在当前浏览器中。
 
-## Current Status
+## 保留功能
 
-The project currently contains:
+- 导入 MIDI、选择旋律轨道，或在钢琴卷帘中手动编辑音符。
+- 生成三个和声候选，试听、对比与替换和弦。
+- 导出 MIDI、复制和声进行。
+- 本地项目保存、打开、更新、重命名与删除。
+- 自动保存与刷新后的草稿恢复、中英文界面和操作引导。
 
-- `apps/web`: the Vite + React + TypeScript editor.
-- `apps/api`: a Vercel Function boundary for the future project/sync API.
-- `packages/*`: shared domain, API-contract and harmony-core boundaries.
-- Dependencies managed with [pnpm](https://pnpm.io) (`pnpm-lock.yaml` committed).
+首页、工作区和示例入口分别为 `/`、`/workspace` 和 `/demo`。全部无需账户、后端、数据库服务或环境变量。
 
-The Round 8 audit, task plan and architecture decisions are tracked in
-[`docs/round-8`](docs/round-8/README.md).
-
-## Intended Development Commands
+## 开发与验证
 
 ```bash
 pnpm install
 pnpm dev
-pnpm build
 pnpm test
+pnpm typecheck
+pnpm build
 ```
 
-## Environment and current migration state
+生产构建输出到 `apps/web/dist`，使用支持 SPA 路由回退的静态服务器部署。
+浏览器回归的运行方法见 [scripts/README.md](scripts/README.md)。
 
-The legacy Supabase integration remains in the web app until A4. Do not create
-or configure a new Supabase project: the Round 8 target is a local-first client
-with an API-owned PostgreSQL, authentication and controlled audio assets.
+## 数据和音频
 
-Copy `.env.example` to `.env` only when a locally hosted API needs a public
-base URL. Credentials belong exclusively in the API/deployment secret manager.
+项目与草稿保存在 IndexedDB，偏好设置保存在 localStorage。不同浏览器、设备或网站地址不共享项目。清空本地数据会删除当前浏览器的项目、草稿和设置；可通过 MIDI 导出保留副本。
 
-See [ADR-0001](docs/round-8/adr/ADR-0001-long-term-platform.md) for the
-accepted production boundary.
+采样音色从第三方来源加载，播放立即使用本地合成器，采样完成后再升级。编辑、生成、导出和项目保存无需云端服务。应用未实现 PWA 离线安装；首次打开仍需加载静态网页资源。
+
+本轮审计、修复和剩余问题见 [审计文档](docs/AUDIT.md)。`docs/Archived/round-8` 保留为历史材料，其云端认证与 API 建设计划已被本轮本地工具方向替代。

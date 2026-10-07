@@ -1,14 +1,16 @@
 import { useRef, useState } from "react";
 import { translate, type Language } from "../i18n";
-import type { CloudProject } from "../../services/projectsRepository";
+import type { LocalProject } from "../projectRepository";
 import { useDialog } from "../useDialog";
+import type { AppError } from "../../music/types";
 
 type ProjectsPanelProps = {
   language: Language;
-  projects: CloudProject[];
+  projects: LocalProject[];
   activeProjectId: string | null;
   loading: boolean;
   busy: boolean;
+  notice?: AppError;
   canSaveCurrent: boolean;
   onClose: () => void;
   onOpen: (id: string) => void;
@@ -25,6 +27,7 @@ export function ProjectsPanel({
   activeProjectId,
   loading,
   busy,
+  notice,
   canSaveCurrent,
   onClose,
   onOpen,
@@ -40,7 +43,7 @@ export function ProjectsPanel({
   const overlayRef = useRef<HTMLDivElement>(null);
   useDialog(true, onClose, overlayRef);
 
-  const startRename = (project: CloudProject) => {
+  const startRename = (project: LocalProject) => {
     setRenamingId(project.id);
     setDraftTitle(project.title);
   };
@@ -63,7 +66,7 @@ export function ProjectsPanel({
       <aside className="projects-drawer" onClick={(event) => event.stopPropagation()}>
         <header className="projects-drawer-header">
           <h2>{t("projects.title")}</h2>
-          <button type="button" className="auth-close" aria-label={t("projects.close")} onClick={onClose}>
+          <button type="button" className="dialog-close" aria-label={t("projects.close")} onClick={onClose}>
             ×
           </button>
         </header>
@@ -88,6 +91,12 @@ export function ProjectsPanel({
             </button>
           ) : null}
         </div>
+
+        {notice ? (
+          <p className="message-banner" data-tone={notice.tone ?? "error"} role={notice.tone === "status" ? "status" : "alert"}>
+            {notice.message}
+          </p>
+        ) : null}
 
         <div className="projects-list" aria-busy={loading}>
           {loading ? (
@@ -154,7 +163,7 @@ export function ProjectsPanel({
         </div>
 
         <footer className="projects-footer">
-          <p className="projects-privacy">{translate(language, "privacy.accountNote")}</p>
+          <p className="projects-privacy">{translate(language, "privacy.localNote")}</p>
           {projects.length > 0 ? (
             <button
               type="button"
@@ -162,7 +171,7 @@ export function ProjectsPanel({
               disabled={busy}
               onClick={onDeleteAll}
             >
-              {translate(language, "action.clearCloudData")}
+              {translate(language, "action.deleteAllProjects")}
             </button>
           ) : null}
         </footer>

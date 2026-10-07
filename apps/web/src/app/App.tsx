@@ -18,8 +18,6 @@ import {
   type WorkspaceViewMode,
 } from "./preferencesRepository";
 import { translate, type Language } from "./i18n";
-import { useAuth } from "./auth/AuthProvider";
-import { AuthPanel } from "./auth/AuthPanel";
 import { ProjectsPanel } from "./projects/ProjectsPanel";
 import {
   createProject,
@@ -28,19 +26,17 @@ import {
   listProjects,
   renameProject,
   updateProject,
-  type CloudProject,
-} from "../services/projectsRepository";
-import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
-import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
-import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
-import { parseMidiArrayBuffer } from "../music/midi/importMidi";
-import {
   clearAllProjectData,
   clearActiveAutosave,
   createProjectSnapshot,
   loadActiveAutosave,
   saveActiveAutosave,
+  type LocalProject,
 } from "./projectRepository";
+import { AudioEngine, isSampledTonePreset } from "../music/audio/audioEngine";
+import { demoMelody, longDemoMelody } from "../music/fixtures/demoMelodies";
+import { createMidiFileName, exportCandidateToMidi } from "../music/midi/exportMidi";
+import { parseMidiArrayBuffer } from "../music/midi/importMidi";
 import type {
   HarmonyCandidate,
   MidiImportResult,
@@ -97,19 +93,13 @@ function App() {
   const [state, dispatch] = useReducer(appReducer, undefined, () =>
     createInitialState(initialPreferences),
   );
-  const { status: authStatus, user, signOut } = useAuth();
   const [screen, setScreen] = useState<AppScreen>(initialRoute.screen);
   const [isDemo, setIsDemo] = useState(initialRoute.isDemo);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authIntent, setAuthIntent] = useState<"prompt" | "enter">("prompt");
-  const [landingPrompted, setLandingPrompted] = useState(false);
-  const [cloudProjects, setCloudProjects] = useState<CloudProject[]>([]);
+  const [projects, setProjects] = useState<LocalProject[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsBusy, setProjectsBusy] = useState(false);
-  const [migrationOffered, setMigrationOffered] = useState(false);
-  const [showMigratePrompt, setShowMigratePrompt] = useState(false);
   const [language, setLanguage] = useState<Language>(initialPreferences.language);
   // One unified workspace now (TASK6 §11 Phase B); persist a stable expert mode
   // so any older "guided" preference is migrated forward.
@@ -126,6 +116,8 @@ function App() {
     "loading",
   );
   const [recoveredSnapshot, setRecoveredSnapshot] = useState<StoredProjectSnapshot | null>(null);
+  const [autosaveReady, setAutosaveReady] = useState(false);
+  const [clearingLocalData, setClearingLocalData] = useState(false);
   const [lastAutosaveAt, setLastAutosaveAt] = useState<string | null>(null);
   const [currentMidiFile, setCurrentMidiFile] = useState<{
     file: File;
@@ -177,7 +169,7 @@ function App() {
     if (screen === "workspace" && isDemo && state.melody.length === 0) {
       dispatch({ type: "load-melody", melody: demoMelody });
     }
-  }, [screen, isDemo, state.melody.length]);
+  }, [screen, isDemo]);
 
   useEffect(() => {
     savePreferences(state.settings, language, viewMode);
@@ -218,6 +210,9 @@ function App() {
       })
       .catch(() => {
         // Recovery is best-effort; user-facing errors are reserved for direct actions.
+      })
+      .finally(() => {
+        if (!cancelled) setAutosaveReady(true);
       });
     return () => {
       cancelled = true;
@@ -225,13 +220,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (state.melody.length === 0) return;
+    if (!autosaveReady || recoveredSnapshot || clearingLocalData || screen !== "workspace") return;
 
     const timeout = window.setTimeout(() => {
-      saveActiveAutosave(createProjectSnapshot(state))
-        .then(() => setLastAutosaveAt(new Date().toLocaleTimeString()))
+      const save = state.melody.length > 0
+        ? saveActiveAutosave(createProjectSnapshot(state))
+        : clearActiveAutosave();
+      save
+        .then(() => {
+          setLastAutosaveAt(state.melody.length > 0 ? new Date().toLocaleTimeString() : null);
+          dispatch({ type: "clear-error", id: "autosave" });
+        })
         .catch(() => {
-          // Autosave failures should not interrupt editing or playback.
+          dispatch({ type: "set-error", id: "autosave", message: t("message.projectSaveFailure") });
         });
     }, 1000);
 
@@ -243,6 +244,10 @@ function App() {
     state.selectedCandidateId,
     state.selectedChordId,
     state.importState,
+    autosaveReady,
+    recoveredSnapshot,
+    clearingLocalData,
+    screen,
   ]);
 
   useEffect(() => {
@@ -269,39 +274,12 @@ function App() {
     melodyCenteredRef.current = true;
   }, [state.melody]);
 
-  // Soft gate: on the landing screen, prompt anonymous visitors once to sign in.
-  // The prompt is dismissible and never blocks the demo path.
-  useEffect(() => {
-    if (screen === "landing" && authStatus === "anonymous" && !landingPrompted) {
-      setAuthIntent("prompt");
-      setAuthOpen(true);
-      setLandingPrompted(true);
-    }
-  }, [screen, authStatus, landingPrompted]);
-
-  // Signing out (or losing the session) while inside the real workspace returns
-  // the user to the landing screen. Demo sessions stay put.
-  useEffect(() => {
-    if (screen === "workspace" && authStatus === "anonymous" && !isDemo) {
-      navigateApp({ screen: "landing", isDemo: false }, "replace");
-    }
-  }, [screen, authStatus, isDemo]);
-
-  const canSaveToCloud = authStatus === "authenticated";
-
   const enterWorkspace = () => {
-    // Unconfigured builds (no Supabase secrets) pass straight through for dev/CI.
-    if (authStatus === "authenticated" || authStatus === "unconfigured") {
-      setActiveStep(0);
-      navigateApp({ screen: "workspace", isDemo: false });
-      return;
-    }
-    setAuthIntent("enter");
-    setAuthOpen(true);
+    setActiveStep(0);
+    navigateApp({ screen: "workspace", isDemo: false });
   };
 
   const enterDemo = () => {
-    setAuthOpen(false);
     setActiveStep(0);
     navigateApp({ screen: "workspace", isDemo: true });
     if (state.melody.length === 0) {
@@ -309,32 +287,17 @@ function App() {
     }
   };
 
-  const handleAuthenticated = () => {
-    setAuthOpen(false);
-    if (authIntent === "enter") {
-      if (screen !== "workspace") setActiveStep(0);
-      navigateApp({ screen: "workspace", isDemo: false });
-    }
+  const notifyProjects = (messageKey: string, tone: "status" | "error") => {
+    dispatch({ type: "set-error", id: "projects", message: t(messageKey), tone });
+    window.setTimeout(() => dispatch({ type: "clear-error", id: "projects" }), 2200);
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigateApp({ screen: "landing", isDemo: false }, "replace");
-    setLandingPrompted(true);
-    setProjectsOpen(false);
-  };
-
-  const notifyCloud = (messageKey: string, tone: "status" | "error") => {
-    dispatch({ type: "set-error", id: "cloud", message: t(messageKey), tone });
-    window.setTimeout(() => dispatch({ type: "clear-error", id: "cloud" }), 2200);
-  };
-
-  const loadCloudProjects = async () => {
+  const loadProjects = async () => {
     setProjectsLoading(true);
     try {
-      setCloudProjects(await listProjects());
+      setProjects(await listProjects());
     } catch {
-      notifyCloud("message.cloudLoadFailure", "error");
+      notifyProjects("message.projectLoadFailure", "error");
     } finally {
       setProjectsLoading(false);
     }
@@ -348,12 +311,11 @@ function App() {
         state.importState.fileName ?? t("projects.defaultTitle"),
         createProjectSnapshot(state),
       );
-      setCloudProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+      setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
       setActiveProjectId(project.id);
-      setShowMigratePrompt(false);
-      notifyCloud("message.cloudSaveSuccess", "status");
+      notifyProjects("message.projectSaveSuccess", "status");
     } catch {
-      notifyCloud("message.cloudSaveFailure", "error");
+      notifyProjects("message.projectSaveFailure", "error");
     } finally {
       setProjectsBusy(false);
     }
@@ -364,35 +326,36 @@ function App() {
     setProjectsBusy(true);
     try {
       const project = await updateProject(activeProjectId, createProjectSnapshot(state));
-      setCloudProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
-      notifyCloud("message.cloudSaveSuccess", "status");
+      setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+      notifyProjects("message.projectSaveSuccess", "status");
     } catch {
-      notifyCloud("message.cloudSaveFailure", "error");
+      notifyProjects("message.projectSaveFailure", "error");
     } finally {
       setProjectsBusy(false);
     }
   };
 
   const handleOpenProject = (id: string) => {
-    const project = cloudProjects.find((item) => item.id === id);
+    const project = projects.find((item) => item.id === id);
     if (!project) return;
     resetPlayback();
     setSelectedNoteId(null);
     setCurrentMidiFile(null);
+    setRecoveredSnapshot(null);
     dispatch({ type: "restore-snapshot", snapshot: project.snapshot });
     setActiveProjectId(project.id);
     setActiveStep(project.snapshot.candidates.length > 0 ? 3 : 0);
     setProjectsOpen(false);
-    notifyCloud("message.cloudOpenSuccess", "status");
+    notifyProjects("message.projectOpenSuccess", "status");
   };
 
   const handleRenameProject = async (id: string, title: string) => {
     setProjectsBusy(true);
     try {
       const project = await renameProject(id, title);
-      setCloudProjects((prev) => prev.map((item) => (item.id === id ? project : item)));
+      setProjects((prev) => prev.map((item) => (item.id === id ? project : item)));
     } catch {
-      notifyCloud("message.cloudSaveFailure", "error");
+      notifyProjects("message.projectSaveFailure", "error");
     } finally {
       setProjectsBusy(false);
     }
@@ -402,44 +365,15 @@ function App() {
     setProjectsBusy(true);
     try {
       await deleteProject(id);
-      setCloudProjects((prev) => prev.filter((item) => item.id !== id));
+      setProjects((prev) => prev.filter((item) => item.id !== id));
       if (activeProjectId === id) setActiveProjectId(null);
-      notifyCloud("message.cloudDeleteSuccess", "status");
+      notifyProjects("message.projectDeleteSuccess", "status");
     } catch {
-      notifyCloud("message.cloudDeleteFailure", "error");
+      notifyProjects("message.projectDeleteFailure", "error");
     } finally {
       setProjectsBusy(false);
     }
   };
-
-  // Load the signed-in user's projects; clear cloud state on sign-out.
-  useEffect(() => {
-    if (authStatus === "authenticated") {
-      void loadCloudProjects();
-    } else {
-      setCloudProjects([]);
-      setActiveProjectId(null);
-      setProjectsOpen(false);
-      setMigrationOffered(false);
-      setShowMigratePrompt(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authStatus]);
-
-  // Offer a one-time migration when a signed-in user has unsaved local work.
-  useEffect(() => {
-    if (
-      authStatus === "authenticated" &&
-      !isDemo &&
-      screen === "workspace" &&
-      state.melody.length > 0 &&
-      !activeProjectId &&
-      !migrationOffered
-    ) {
-      setShowMigratePrompt(true);
-      setMigrationOffered(true);
-    }
-  }, [authStatus, isDemo, screen, state.melody.length, activeProjectId, migrationOffered]);
 
   const hasMelody = state.melody.length > 0;
   const showEditableGrid = hasMelody || state.settings.inputMode === "manual";
@@ -566,6 +500,7 @@ function App() {
 
   const handleLoadDemo = () => {
     resetPlayback();
+    setActiveProjectId(null);
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
     setActiveStep(0);
@@ -574,6 +509,7 @@ function App() {
 
   const handleLoadLongDemo = () => {
     resetPlayback();
+    setActiveProjectId(null);
     setCurrentMidiFile(null);
     setSelectedNoteId(null);
     setActiveStep(0);
@@ -689,8 +625,8 @@ function App() {
   };
 
   const handleClearLocalData = async () => {
-    // Local clear never touches cloud projects or the current session.
     if (!window.confirm(t("message.clearLocalConfirm"))) return;
+    setClearingLocalData(true);
     resetPlayback();
     try {
       await clearAllProjectData();
@@ -698,6 +634,10 @@ function App() {
       setRecoveredSnapshot(null);
       setCurrentMidiFile(null);
       setLastAutosaveAt(null);
+      setProjects([]);
+      setActiveProjectId(null);
+      setSelectedNoteId(null);
+      if (isDemo) navigateApp({ screen: "workspace", isDemo: false }, "replace");
       dispatch({ type: "reset-app", settings: defaultPreferences });
       dispatch({
         type: "set-error",
@@ -708,19 +648,21 @@ function App() {
       window.setTimeout(() => dispatch({ type: "clear-error", id: "local-data" }), 2200);
     } catch {
       dispatch({ type: "set-error", id: "local-data", message: t("message.clearFailure") });
+    } finally {
+      setClearingLocalData(false);
     }
   };
 
-  const handleClearCloudData = async () => {
-    if (!window.confirm(t("message.clearCloudConfirm"))) return;
+  const handleDeleteAllProjects = async () => {
+    if (!window.confirm(t("message.clearProjectsConfirm"))) return;
     setProjectsBusy(true);
     try {
       await deleteAllProjects();
-      setCloudProjects([]);
+      setProjects([]);
       setActiveProjectId(null);
-      notifyCloud("message.clearCloudSuccess", "status");
+      notifyProjects("message.clearProjectsSuccess", "status");
     } catch {
-      notifyCloud("message.clearCloudFailure", "error");
+      notifyProjects("message.clearProjectsFailure", "error");
     } finally {
       setProjectsBusy(false);
     }
@@ -732,6 +674,7 @@ function App() {
     arrayBuffer: ArrayBuffer,
   ) => {
     resetPlayback();
+    setActiveProjectId(null);
     setSelectedNoteId(null);
     setActiveStep(0);
     setCurrentMidiFile({ file, arrayBuffer });
@@ -1001,13 +944,18 @@ function App() {
     resetPlayback();
     setSelectedNoteId(null);
     setCurrentMidiFile(null);
+    setActiveProjectId(null);
     dispatch({ type: "restore-snapshot", snapshot: recoveredSnapshot });
     setRecoveredSnapshot(null);
   };
 
   const discardAutosave = async () => {
-    await clearActiveAutosave();
-    setRecoveredSnapshot(null);
+    try {
+      await clearActiveAutosave();
+      setRecoveredSnapshot(null);
+    } catch {
+      dispatch({ type: "set-error", id: "local-data", message: t("message.clearFailure") });
+    }
   };
 
   const pausePlayback = () => {
@@ -1126,28 +1074,11 @@ function App() {
 
   if (screen === "landing") {
     return (
-      <>
-        <Landing
-          authStatus={authStatus}
-          userEmail={user?.email ?? null}
-          onSignIn={() => {
-            setAuthIntent("prompt");
-            setAuthOpen(true);
-          }}
-          onSignOut={() => void handleSignOut()}
-          onEnterWorkspace={enterWorkspace}
-          onEnterDemo={enterDemo}
-          prefersReducedMotion={prefersReducedMotion}
-        />
-        {authOpen ? (
-          <AuthPanel
-            language={language}
-            onClose={() => setAuthOpen(false)}
-            onAuthenticated={handleAuthenticated}
-            onDemo={enterDemo}
-          />
-        ) : null}
-      </>
+      <Landing
+        onEnterWorkspace={enterWorkspace}
+        onEnterDemo={enterDemo}
+        prefersReducedMotion={prefersReducedMotion}
+      />
     );
   }
 
@@ -1196,14 +1127,10 @@ function App() {
         language={language}
         onSetLanguage={setLanguage}
         isDemo={isDemo}
-        authStatus={authStatus}
-        userEmail={user?.email ?? null}
-        onRequestSignIn={() => {
-          setAuthIntent("enter");
-          setAuthOpen(true);
+        onOpenProjects={() => {
+          setProjectsOpen(true);
+          void loadProjects();
         }}
-        onOpenProjects={() => setProjectsOpen(true)}
-        onSignOut={() => void handleSignOut()}
         guideOpen={guideOpen}
         onOpenGuide={() => setGuideOpen(true)}
         settings={state.settings}
@@ -1435,31 +1362,6 @@ function App() {
             </div>
           ) : null}
 
-          {showMigratePrompt ? (
-            <div className="recovery-banner" role="status">
-              <div>
-                <strong>{t("projects.migratePrompt")}</strong>
-              </div>
-              <div className="input-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={projectsBusy}
-                  onClick={() => void handleSaveNewProject()}
-                >
-                  {t("projects.migrateCta")}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setShowMigratePrompt(false)}
-                >
-                  {t("projects.migrateDismiss")}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {state.errors.length > 0 ? (
             <div
               className="message-banner"
@@ -1619,34 +1521,21 @@ function App() {
           isGenerating={isGenerating}
           onGenerate={handleGenerate}
           selectedCandidate={selectedCandidate}
-          isDemo={isDemo}
-          authStatus={authStatus}
           projectsBusy={projectsBusy}
           onCopyProgression={() => void handleCopyProgression()}
           onExportMidi={handleExportMidi}
-          onRequestSignIn={() => {
-            setAuthIntent("enter");
-            setAuthOpen(true);
-          }}
           onSaveNewProject={() => void handleSaveNewProject()}
-        />
-      ) : null}
-
-      {authOpen ? (
-        <AuthPanel
-          language={language}
-          onClose={() => setAuthOpen(false)}
-          onAuthenticated={handleAuthenticated}
         />
       ) : null}
 
       {projectsOpen ? (
         <ProjectsPanel
           language={language}
-          projects={cloudProjects}
+          projects={projects}
           activeProjectId={activeProjectId}
           loading={projectsLoading}
           busy={projectsBusy}
+          notice={state.errors.find((error) => error.id === "projects")}
           canSaveCurrent={hasMelody}
           onClose={() => setProjectsOpen(false)}
           onOpen={handleOpenProject}
@@ -1654,7 +1543,7 @@ function App() {
           onDelete={(id) => void handleDeleteProject(id)}
           onSaveNew={() => void handleSaveNewProject()}
           onUpdateCurrent={() => void handleUpdateCurrentProject()}
-          onDeleteAll={() => void handleClearCloudData()}
+          onDeleteAll={() => void handleDeleteAllProjects()}
         />
       ) : null}
     </main>

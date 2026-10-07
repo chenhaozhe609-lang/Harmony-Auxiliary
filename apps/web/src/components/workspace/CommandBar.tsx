@@ -1,6 +1,5 @@
 import type { Dispatch, Ref } from "react";
 import type { AppAction } from "../../app/appState";
-import type { AuthStatus } from "../../app/auth/AuthProvider";
 import type { Language } from "../../app/i18n";
 import type { AppState, HarmonyCandidate, ProjectSettings } from "../../music/types";
 import { SettingsFields } from "./SettingsFields";
@@ -12,11 +11,7 @@ type CommandBarProps = {
   language: Language;
   onSetLanguage: (language: Language) => void;
   isDemo: boolean;
-  authStatus: AuthStatus;
-  userEmail: string | null;
-  onRequestSignIn: () => void;
   onOpenProjects: () => void;
-  onSignOut: () => void;
   guideOpen: boolean;
   onOpenGuide: () => void;
   settings: ProjectSettings;
@@ -33,8 +28,7 @@ type CommandBarProps = {
   onSelectHarmonyStyle: (candidateId: string) => void;
 };
 
-// The top command bar (TASK6 §10.2): brand lockup, language toggle, account /
-// demo cluster, the on-demand guide trigger, project-settings tray, and Generate.
+// Main controls: language, local projects, guidance, settings, and generation.
 export function CommandBar({
   t,
   fileInputRef,
@@ -42,11 +36,7 @@ export function CommandBar({
   language,
   onSetLanguage,
   isDemo,
-  authStatus,
-  userEmail,
-  onRequestSignIn,
   onOpenProjects,
-  onSignOut,
   guideOpen,
   onOpenGuide,
   settings,
@@ -88,28 +78,10 @@ export function CommandBar({
             EN
           </button>
         </div>
-        {isDemo ? (
-          <div className="account-cluster" aria-label={t("auth.account")}>
-            <span className="demo-badge">{t("auth.demoBadge")}</span>
-            {authStatus !== "unconfigured" ? (
-              <button type="button" className="secondary-button" onClick={onRequestSignIn}>
-                {t("auth.signIn")}
-              </button>
-            ) : null}
-          </div>
-        ) : authStatus === "authenticated" && userEmail ? (
-          <div className="account-cluster" aria-label={t("auth.account")}>
-            <button type="button" className="secondary-button" onClick={onOpenProjects}>
-              {t("action.projects")}
-            </button>
-            <span className="account-email" title={userEmail}>
-              {userEmail}
-            </span>
-            <button type="button" className="secondary-button" onClick={onSignOut}>
-              {t("auth.signOut")}
-            </button>
-          </div>
-        ) : null}
+        {isDemo ? <span className="demo-badge">{t("workspace.demoBadge")}</span> : null}
+        <button type="button" className="secondary-button" onClick={onOpenProjects}>
+          {t("action.projects")}
+        </button>
         <button
           type="button"
           className="secondary-button"

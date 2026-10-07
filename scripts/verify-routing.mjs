@@ -1,9 +1,9 @@
-import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright/index.mjs";
+import { chromium } from "playwright";
 
 const BASE_URL = process.env.VERIFY_URL ?? "http://127.0.0.1:5181";
 
 const browser = await chromium.launch({
-  executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  ...(process.env.VERIFY_BROWSER_PATH ? { executablePath: process.env.VERIFY_BROWSER_PATH } : {}),
   headless: true,
 });
 
@@ -17,7 +17,7 @@ try {
 
   await page.goto(`${BASE_URL}/workspace`, { waitUntil: "networkidle" });
   const workspaceUrl = new URL(page.url());
-  const workspaceHasLanding = (await page.locator(".landing-v2").count()) > 0;
+  const workspaceVisible = (await page.locator(".workspace-grid").count()) > 0;
 
   await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
   const landingUrl = new URL(page.url());
@@ -29,10 +29,10 @@ try {
       hasWorkspace: demoHasWorkspace,
       hasNotes: demoHasNotes,
     },
-    workspaceAnonymousRedirect: {
+    workspace: {
       requested: "/workspace",
       finalPathname: workspaceUrl.pathname,
-      hasLanding: workspaceHasLanding,
+      hasWorkspace: workspaceVisible,
     },
     landing: {
       pathname: landingUrl.pathname,
@@ -45,8 +45,8 @@ try {
   if (result.demo.pathname !== "/demo" || !demoHasWorkspace || !demoHasNotes) {
     throw new Error("/demo did not open the demo workspace with notes.");
   }
-  if (result.workspaceAnonymousRedirect.finalPathname !== "/" || !workspaceHasLanding) {
-    throw new Error("Anonymous /workspace did not redirect back to landing.");
+  if (result.workspace.finalPathname !== "/workspace" || !workspaceVisible) {
+    throw new Error("/workspace did not open directly.");
   }
   if (result.landing.pathname !== "/" || !landingHasHero) {
     throw new Error("/ did not render the landing page.");

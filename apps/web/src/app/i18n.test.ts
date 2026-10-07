@@ -24,8 +24,8 @@ describe("i18n", () => {
     expect(translate("en", "totally.unknown.key")).toBe("totally.unknown.key");
   });
 
-  it("resolves representative Task 5 keys in both languages", () => {
-    for (const key of ["auth.signIn", "projects.title", "guide.input.title", "privacy.demoNote"]) {
+  it("resolves project and guide keys in both languages", () => {
+    for (const key of ["dialog.close", "projects.title", "guide.input.title", "privacy.localNote"]) {
       expect(translate("en", key)).not.toBe(key);
       expect(translate("zh", key)).not.toBe(key);
     }

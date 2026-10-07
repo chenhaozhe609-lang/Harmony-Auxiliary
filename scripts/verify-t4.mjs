@@ -1,9 +1,9 @@
-import { chromium } from "file:///C:/Users/LENOVO/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/.pnpm/playwright@1.61.1/node_modules/playwright/index.mjs";
+import { chromium } from "playwright";
 
 const BASE_URL = process.env.VERIFY_URL ?? "http://127.0.0.1:5181";
 
 const browser = await chromium.launch({
-  executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  ...(process.env.VERIFY_BROWSER_PATH ? { executablePath: process.env.VERIFY_BROWSER_PATH } : {}),
   headless: true,
 });
 
@@ -24,10 +24,8 @@ async function inspectViewport(viewport) {
   });
 
   await page.goto(BASE_URL, { waitUntil: "networkidle" });
-  // Task 5 soft gate: enter via the demo path (loads a melody). The workspace is
-  // a single unified expert stage now (TASK6 §11 Phase B) — no view toggle.
-  await page.waitForSelector(".auth-overlay");
-  await page.locator(".auth-demo-link").click();
+  // Open a prefilled workspace directly from the landing page.
+  await page.getByRole("button", { name: "Try the demo", exact: true }).click();
 
   // Generate harmony so both windows have content (demo melody is preloaded).
   await page.waitForSelector(".melody-window .note");

@@ -6,13 +6,14 @@
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev": "pnpm --filter @harmony/web dev",
-    "build": "pnpm --filter @harmony/web build && pnpm --filter @harmony/api typecheck",
+    "build": "pnpm --filter @harmony/web build",
     "preview": "pnpm --filter @harmony/web preview",
     "test": "pnpm --filter @harmony/web test",
-    "typecheck": "pnpm -r --if-present typecheck",
-    "test:contracts": "pnpm --filter @harmony/contracts test"
+    "typecheck": "pnpm --filter @harmony/web typecheck",
+    "test:browser": "node scripts/verify-local-workspace.mjs"
   },
   "devDependencies": {
+    "playwright": "1.61.1",
     "typescript": "^5.8.3"
   }
 }

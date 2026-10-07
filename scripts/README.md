@@ -1,28 +1,30 @@
-# Browser verification scripts
+# 浏览器验证
 
-These Playwright scripts drive a running dev server and assert on the real DOM.
-They are run manually (not part of `pnpm test`). Start a dev server first, then
-point a script at it:
+使用仓库的 Playwright 开发依赖。首次运行安装 Chromium：
 
 ```bash
-pnpm exec vite --port 5184 --host 127.0.0.1 &
-VERIFY_URL=http://127.0.0.1:5184 node scripts/verify-t5-4.mjs
+pnpm exec playwright install chromium
+pnpm --filter @harmony/web dev --host 127.0.0.1 --port 5181
 ```
 
-## Current scripts
+在另一个终端运行：
 
-- `verify-t5-2.mjs` — auth soft gate: landing prompt, workspace gate, demo entry.
-- `verify-t5-3.mjs` — live Supabase cloud round-trip (needs `.env`; create/list/update/rename/RLS/delete).
-- `verify-t5-4.mjs` — guided step flow + expert view toggle.
-- `verify-t5-5.mjs` — account/privacy copy (auth note, demo data-scope note).
-- `verify-t4.mjs` — Task 4 playback/piano-roll/window checks. Updated for the
-  Task 5 soft gate: it enters via the demo path and switches to the **Expert**
-  view, which restores the single-screen workspace the assertions expect.
+```bash
+pnpm test:browser
+node scripts/verify-routing.mjs
+node scripts/verify-t4.mjs
+node scripts/verify-t5-4.mjs
+```
 
-## Legacy scripts (retained, not maintained)
+可通过 `VERIFY_URL` 指定服务器地址，通过 `VERIFY_BROWSER_PATH` 使用已安装的 Chrome。
+Windows 后台启动服务须使用用户指定的 `C:\Users\LENOVO\.codex\bin\Start-CodexBackground.ps1`，并分别提供 stdout 和 stderr 日志路径，启动后在有限时间内检查就绪状态。
 
-`verify-t2-*.mjs` and `verify-t3-7.mjs` were point-in-time acceptance checks for
-Milestones 2–3. They query DOM (`.timeline-grid`, `.timeline-scroll`, the
-"Input actions" group) that the **Task 4** window-split redesign removed, so they
-were already stale before Task 5. They are kept for history; current coverage
-lives in the scripts above.
+## 当前验证
+
+- `verify-local-workspace.mjs`：桌面与手机入口、MIDI 导入/生成/导出、本地项目保存/更新/重命名/打开/删除、刷新恢复、清空数据、采样下载未完成时的首播，以及存储被禁用时的错误提示。
+- `verify-routing.mjs`：首页、免登录工作区和示例路由。
+- `verify-t4.mjs`：现有工作区布局、候选、试听与编辑阶段检查。
+- `verify-t5-4.mjs`：按需操作引导。
+
+登录、云端项目与账户隐私验证已删除。
+`verify-t2-*.mjs` 与 `verify-t3-7.mjs` 是早期界面的历史检查，保留供查阅，不属于当前验收。
