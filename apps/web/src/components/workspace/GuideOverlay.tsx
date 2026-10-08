@@ -3,7 +3,9 @@ import type { AppAction } from "../../app/appState";
 import { useDialog } from "../../app/useDialog";
 import { candidateProgression } from "../../app/pianoRollLayout";
 import { GUIDE_STEPS } from "../../app/workspaceConstants";
-import type { AppState, HarmonyCandidate, ProjectSettings } from "../../music/types";
+import type { HarmonyCandidate, ProjectSettings } from "../../music/types";
+import type { AppState } from "../../app/sessionTypes";
+
 import { SettingsFields } from "./SettingsFields";
 
 type GuideOverlayProps = {

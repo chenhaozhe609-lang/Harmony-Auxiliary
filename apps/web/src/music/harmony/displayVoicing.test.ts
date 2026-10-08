@@ -36,7 +36,7 @@ describe("makeDisplayVoicing", () => {
   it("keeps seventh chords visible across four display voices", () => {
     const voices = makeDisplayVoicing(placedChord("G7"));
 
-    expect(voices.map((voice) => voice.noteName)).toEqual(["G2", "G3", "B3", "D4"]);
+    expect(voices.map((voice) => voice.noteName)).toEqual(["G2", "G3", "B3", "F4"]);
   });
 });
 

@@ -2,14 +2,8 @@ import type { Dispatch } from "react";
 import type { AppAction } from "../../app/appState";
 import { KEY_OPTIONS, PLAYBACK_TONE_OPTIONS } from "../../app/workspaceConstants";
 import { pitchClassToName } from "../../music/theory/pitches";
-import type {
-  AppState,
-  HarmonyRhythmPattern,
-  Mode,
-  PitchClass,
-  PlaybackTonePreset,
-  ProjectSettings,
-} from "../../music/types";
+import type { HarmonyRhythmPattern, Mode, PitchClass, PlaybackTonePreset, ProjectSettings } from "../../music/types";
+import type { AppState } from "../../app/sessionTypes";
 
 type SettingsFieldsProps = {
   settings: ProjectSettings;

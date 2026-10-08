@@ -1,3 +1,5 @@
+import type { PlaybackProgress } from "../../app/playbackProgress";
+import { Playhead } from "./PlaybackIndicators";
 import type {
   CSSProperties,
   PointerEvent as ReactPointerEvent,
@@ -26,7 +28,7 @@ type PianoRollProps = {
   selectedNoteId: string | null;
   hasMelody: boolean;
   showEditableGrid: boolean;
-  playheadLeft: number;
+  progress: PlaybackProgress;
   onMelodyLanePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNotePointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
   onNotePointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -56,7 +58,7 @@ export function PianoRoll({
   selectedNoteId,
   hasMelody,
   showEditableGrid,
-  playheadLeft,
+  progress,
   onMelodyLanePointerDown,
   onNotePointerMove,
   onNotePointerUp,
@@ -148,11 +150,7 @@ export function PianoRoll({
                 ))}
               </div>
               {hasMelody ? (
-                <div
-                  className="playhead"
-                  aria-hidden="true"
-                  style={{ left: `${playheadLeft}px` }}
-                />
+                <Playhead progress={progress} metrics={timelineMetrics} />
               ) : null}
               {melody.map((note) => (
                 <button

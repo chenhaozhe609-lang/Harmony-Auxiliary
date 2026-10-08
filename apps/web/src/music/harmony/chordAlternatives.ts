@@ -1,3 +1,6 @@
+import { notesForPlacedChord, positionScore } from "./candidateScoring";
+import { STYLE_PROFILES, transitionScore } from "./transitions";
+import type { HarmonyCandidate } from "../types";
 import type { ChordDefinition, NoteEvent, PlacedChord, ProjectSettings, ScoredChord } from "../types";
 import { getStylePalette } from "../theory/tonalAdapter";
 import { scoreChordForSegment } from "./scoreChords";
@@ -12,18 +15,12 @@ function uniqueChords(chords: ChordDefinition[]): ChordDefinition[] {
   });
 }
 
-function notesForPlacedChord(melody: NoteEvent[], placedChord: PlacedChord): NoteEvent[] {
-  const endBeat = placedChord.startBeat + placedChord.durationBeats;
-  return melody.filter(
-    (note) => note.startBeat < endBeat && note.startBeat + note.durationBeats > placedChord.startBeat,
-  );
-}
-
 export function getChordAlternatives(
   melody: NoteEvent[],
   settings: ProjectSettings,
   placedChord: PlacedChord,
   limit = 6,
+  candidate?: HarmonyCandidate,
 ): ScoredChord[] {
   // Alternatives are drawn from the same Task 7 vocabulary the generator uses —
   // diatonic triads + sevenths, secondary dominants, and borrowed chords — so a
@@ -34,11 +31,19 @@ export function getChordAlternatives(
   ]);
   const segmentNotes = notesForPlacedChord(melody, placedChord);
 
+  const step = candidate?.chords.findIndex((placed) => placed.id === placedChord.id) ?? 0;
+  const profile = STYLE_PROFILES[candidate?.mode ?? "stable-classical"];
+  const previous = candidate?.chords[step - 1]?.chord;
+  const next = candidate?.chords[step + 1]?.chord;
+
   return palette
-    .map((chord) => ({
-      chord,
-      ...scoreChordForSegment(chord, segmentNotes, placedChord.startBeat),
-    }))
+    .map((chord) => {
+      const base = scoreChordForSegment(chord, segmentNotes, placedChord.startBeat);
+      return { chord, ...base, score: base.score
+        + positionScore(chord, step, candidate?.chords.length ?? 1, settings, profile)
+        + (previous ? transitionScore(previous, chord, profile) : 0)
+        + (next ? transitionScore(chord, next, profile) : 0) };
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }

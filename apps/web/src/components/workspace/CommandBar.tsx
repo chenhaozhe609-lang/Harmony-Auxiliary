@@ -1,7 +1,9 @@
 import type { Dispatch, Ref } from "react";
 import type { AppAction } from "../../app/appState";
 import type { Language } from "../../app/i18n";
-import type { AppState, HarmonyCandidate, ProjectSettings } from "../../music/types";
+import type { HarmonyCandidate, ProjectSettings } from "../../music/types";
+import type { AppState } from "../../app/sessionTypes";
+
 import { SettingsFields } from "./SettingsFields";
 
 type CommandBarProps = {

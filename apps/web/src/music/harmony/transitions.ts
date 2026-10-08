@@ -1,3 +1,4 @@
+import { makeChordVoicing } from "./voicing";
 // Transition costs, position/cadence terms, and the three style profiles that
 // turn one Viterbi engine into three distinct voices. Profiles differ only by a
 // palette flag and a few named weights — not by hardcoded chord loops. Function-
@@ -155,28 +156,9 @@ function commonToneCount(prev: ChordDefinition, cur: ChordDefinition): number {
   return cur.tones.filter((tone) => prev.tones.includes(tone)).length;
 }
 
-function chordToneToMidi(rootMidi: number, pitchClass: number): number {
-  let midi = rootMidi + ((pitchClass - (rootMidi % 12) + 12) % 12);
-  while (midi < rootMidi) midi += 12;
-  return midi;
-}
-
-function transitionVoicing(chord: ChordDefinition): number[] {
-  const bassPitch = chord.bass ?? chord.root;
-  const bass = 36 + bassPitch;
-  const upperRoot = 48 + chord.root;
-  const upper = chord.tones
-    .slice(0, 3)
-    .map((pitchClass) => chordToneToMidi(upperRoot, pitchClass))
-    .filter((midi, index, notes) => notes.indexOf(midi) === index)
-    .sort((a, b) => a - b);
-
-  return [bass, ...upper].slice(0, 4);
-}
-
 function totalVoiceMovement(prev: ChordDefinition, cur: ChordDefinition): number {
-  const prevVoicing = transitionVoicing(prev);
-  const curVoicing = transitionVoicing(cur);
+  const prevVoicing = makeChordVoicing(prev);
+  const curVoicing = makeChordVoicing(cur);
   const count = Math.min(prevVoicing.length, curVoicing.length);
   let total = 0;
   for (let index = 0; index < count; index += 1) {
@@ -186,8 +168,8 @@ function totalVoiceMovement(prev: ChordDefinition, cur: ChordDefinition): number
 }
 
 function parallelPerfects(prev: ChordDefinition, cur: ChordDefinition): number {
-  const prevVoicing = transitionVoicing(prev);
-  const curVoicing = transitionVoicing(cur);
+  const prevVoicing = makeChordVoicing(prev);
+  const curVoicing = makeChordVoicing(cur);
   const count = Math.min(prevVoicing.length, curVoicing.length);
   let parallels = 0;
 

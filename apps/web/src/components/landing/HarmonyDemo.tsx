@@ -4,7 +4,8 @@
 // (TASK6 §9.2)
 import { useEffect, useRef, useState } from "react";
 import { FiPlay, FiSquare } from "react-icons/fi";
-import { AudioEngine } from "../../music/audio/audioEngine";
+import { LazyAudioEngine } from "../../music/audio/lazyAudioEngine";
+import { createHarmonyGenerationTask } from "../../app/harmonyGenerationTask";
 import { demoMelody } from "../../music/fixtures/demoMelodies";
 import type { FunctionLabel, HarmonyCandidate, ProjectSettings } from "../../music/types";
 
@@ -31,14 +32,19 @@ const STYLE_LABELS = ["Classical", "Pop", "Color"];
 export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMotion: boolean }) {
   const [candidates, setCandidates] = useState<HarmonyCandidate[] | null>(null);
   const [styleIndex, setStyleIndex] = useState(0);
+  const [generationError, setGenerationError] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeBeat, setActiveBeat] = useState<number | null>(null);
-  const engineRef = useRef<AudioEngine | null>(null);
+  const generationRef = useRef<ReturnType<typeof createHarmonyGenerationTask> | null>(null);
+  const engineRef = useRef<LazyAudioEngine | null>(null);
 
   useEffect(() => {
     return () => {
-      engineRef.current?.stop();
+      generationRef.current?.cancel();
+      generationRef.current = null;
+      engineRef.current?.dispose();
+      engineRef.current = null;
     };
   }, []);
 
@@ -46,14 +52,20 @@ export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMo
 
   const handleGenerate = async () => {
     if (isGenerating) return;
+    setGenerationError(false);
     setIsGenerating(true);
     try {
-      const { generateHarmonyCandidates } = await import("../../music/harmony/generateCandidates");
-      const next = generateHarmonyCandidates(demoMelody, DEMO_SETTINGS);
+      handleStop();
+      const task = createHarmonyGenerationTask(demoMelody, DEMO_SETTINGS);
+      generationRef.current = task;
+      const { candidates: next } = await task.result;
+      if (generationRef.current !== task) return;
       setCandidates(next);
       setStyleIndex(0);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) setGenerationError(true);
     } finally {
-      setIsGenerating(false);
+      if (generationRef.current) { generationRef.current = null; setIsGenerating(false); }
     }
   };
 
@@ -70,7 +82,7 @@ export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMo
       return;
     }
     if (!engineRef.current) {
-      engineRef.current = new AudioEngine();
+      engineRef.current = new LazyAudioEngine();
     }
     setIsPlaying(true);
     try {
@@ -104,6 +116,7 @@ export default function HarmonyDemo({ prefersReducedMotion }: { prefersReducedMo
 
   return (
     <div className="harmony-demo">
+      {generationError ? <p role="alert">Unable to generate harmony. Please try again.</p> : null}
       <div className="harmony-demo-melody" aria-hidden="true">
         {demoMelody.map((note) => (
           <span

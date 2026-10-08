@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { translate, type Language } from "../i18n";
 import type { LocalProject } from "../projectRepository";
 import { useDialog } from "../useDialog";
-import type { AppError } from "../../music/types";
+import type { AppError } from "../sessionTypes";
+
 
 type ProjectsPanelProps = {
   language: Language;

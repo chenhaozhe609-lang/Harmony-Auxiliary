@@ -1,7 +1,7 @@
+import { positionScore, rescoreCandidate } from "./candidateScoring";
 import type {
   CandidateMode,
   ChordDefinition,
-  ChordExplanation,
   HarmonyCandidate,
   HarmonySegment,
   NoteEvent,
@@ -13,10 +13,6 @@ import { scoreChordForSegment } from "./scoreChords";
 import { legacyDensityToRhythm, segmentMelody } from "./segmentMelody";
 import {
   STYLE_PROFILES,
-  cadenceEmission,
-  colorEmission,
-  describeMotion,
-  loopAnchorEmission,
   transitionScore,
   type StyleProfile,
 } from "./transitions";
@@ -25,11 +21,12 @@ import { viterbi } from "./viterbi";
 
 const MODES: CandidateMode[] = ["stable-classical", "pop-songwriting", "color-tension"];
 
-type Emission = { score: number; explanation: ChordExplanation };
+type Emission = ReturnType<typeof scoreChordForSegment>;
 
 function buildCandidate(
   profile: StyleProfile,
   segments: HarmonySegment[],
+  melody: NoteEvent[],
   settings: ProjectSettings,
 ): HarmonyCandidate {
   const palette = getStylePalette(settings.keyTonic, settings.mode, {
@@ -48,9 +45,7 @@ function buildCandidate(
     const base = emissions[step][indexOf.get(chord.id) ?? 0].score;
     return (
       base +
-      cadenceEmission(step, count, chord, settings.keyTonic, profile) +
-      loopAnchorEmission(chord, settings.keyTonic, settings.mode, profile) +
-      colorEmission(chord, profile)
+      positionScore(chord, step, count, settings, profile)
     );
   };
 
@@ -71,38 +66,24 @@ function buildCandidate(
   const chords: PlacedChord[] = voiced.map((chord, step) => {
     const segment = segments[step];
     const base = emissions[step][indexOf.get(chord.id) ?? 0];
-    const previous = step > 0 ? voiced[step - 1] : null;
-    const { reason, motion } = describeMotion(previous, chord, step, count);
-
-    const explanation: ChordExplanation = {
-      ...base.explanation,
-      functionReason: `${base.explanation.functionReason} ${reason}`,
-      functionInfo: { functionLabel: chord.functionLabel, motion },
-    };
-
     return {
       id: `${segment.id}-${chord.id}-${step + 1}`,
       chord,
       startBeat: segment.startBeat,
       durationBeats: segment.durationBeats,
-      explanation,
+      explanation: base.explanation,
     };
   });
 
-  const score = path.reduce(
-    (total, chord, step) => total + emissions[step][indexOf.get(chord.id) ?? 0].score,
-    0,
-  );
-
-  return {
+  return rescoreCandidate({
     id: profile.mode,
     mode: profile.mode,
     title: profile.title,
     subtitle: profile.subtitle,
     chords,
-    score,
+    score: 0,
     summary: profile.summary,
-  };
+  }, melody, settings);
 }
 
 export function generateHarmonyCandidates(
@@ -117,5 +98,5 @@ export function generateHarmonyCandidates(
 
   if (segments.length === 0) return [];
 
-  return MODES.map((mode) => buildCandidate(STYLE_PROFILES[mode], segments, settings));
+  return MODES.map((mode) => buildCandidate(STYLE_PROFILES[mode], segments, melody, settings));
 }

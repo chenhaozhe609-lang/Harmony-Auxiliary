@@ -1,27 +1,11 @@
+import { makeChordVoicing } from "../harmony/voicing";
 import { Midi } from "@tonejs/midi";
-import type { HarmonyCandidate, NoteEvent, PlacedChord, ProjectSettings } from "../types";
+import type { HarmonyCandidate, NoteEvent, ProjectSettings } from "../types";
 
 const PPQ = 480;
 
 function beatToTicks(beat: number): number {
   return Math.max(0, Math.round(beat * PPQ));
-}
-
-function chordToneToMidi(rootMidi: number, pitchClass: number): number {
-  let midi = rootMidi + ((pitchClass - (rootMidi % 12) + 12) % 12);
-  while (midi < rootMidi) midi += 12;
-  return midi;
-}
-
-function chordVoicing(chord: PlacedChord): number[] {
-  const bassPitch = chord.chord.bass ?? chord.chord.root;
-  const bass = 36 + bassPitch;
-  const upperRoot = 48 + chord.chord.root;
-  const upperTones = chord.chord.tones
-    .slice(0, 4)
-    .map((pitchClass) => chordToneToMidi(upperRoot, pitchClass));
-
-  return [bass, ...upperTones].filter((midi, index, notes) => notes.indexOf(midi) === index);
 }
 
 export function exportCandidateToMidi(
@@ -53,7 +37,7 @@ export function exportCandidateToMidi(
   harmonyTrack.name = "Harmony";
   harmonyTrack.channel = 1;
   for (const placedChord of candidate.chords) {
-    for (const midiNote of chordVoicing(placedChord)) {
+    for (const midiNote of makeChordVoicing(placedChord.chord)) {
       harmonyTrack.addNote({
         midi: midiNote,
         ticks: beatToTicks(placedChord.startBeat),

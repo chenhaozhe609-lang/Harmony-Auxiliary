@@ -1,14 +1,8 @@
-import type {
-  AppState,
-  HarmonyCandidate,
-  HarmonyRhythmPattern,
-  InputMode,
-  MidiImportState,
-  NoteEvent,
-  PitchClass,
-  ProjectSettings,
-  StoredProjectSnapshot,
-} from "../music/types";
+import { rescoreCandidate } from "../music/harmony/candidateScoring";
+import type { HarmonyCandidate, HarmonyRhythmPattern, InputMode, NoteEvent, PitchClass, ProjectSettings } from "../music/types";
+import type { AppState, MidiImportState } from "./sessionTypes";
+import type { StoredProjectSnapshot } from "./projectTypes";
+
 import { defaultPreferences } from "./preferencesRepository";
 
 export type AppAction =
@@ -31,6 +25,7 @@ export type AppAction =
       melody: NoteEvent[];
       settings?: Partial<ProjectSettings>;
     }
+  | { type: "set-generated-candidates"; candidates: HarmonyCandidate[]; melody: NoteEvent[]; settings: ProjectSettings }
   | { type: "set-candidates"; candidates: HarmonyCandidate[] }
   | { type: "select-candidate"; candidateId: string }
   | { type: "select-chord"; chordId: string }
@@ -209,6 +204,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         importState: action.importState,
         errors: [],
       });
+    case "set-generated-candidates":
+      if (state.melody !== action.melody || state.settings !== action.settings) return state;
+      return appReducer(state, { type: "set-candidates", candidates: action.candidates });
     case "set-candidates": {
       const firstCandidate = action.candidates[0] ?? null;
       const firstChord = firstCandidate?.chords[0] ?? null;
@@ -238,12 +236,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         candidates: state.candidates.map((candidate) =>
           candidate.id === action.candidateId
-            ? {
+            ? rescoreCandidate({
                 ...candidate,
                 chords: candidate.chords.map((placedChord) =>
                   placedChord.id === action.chordId ? action.replacement : placedChord,
                 ),
-              }
+              }, state.melody, state.settings)
             : candidate,
         ),
         selectedCandidateId: action.candidateId,
@@ -303,7 +301,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         settings: normalizeSettings(action.snapshot.settings),
         melody: action.snapshot.melody,
-        candidates: action.snapshot.candidates,
+        candidates: action.snapshot.harmonyStatus === "outdated"
+          ? action.snapshot.candidates
+          : action.snapshot.candidates.map((candidate) =>
+              rescoreCandidate(candidate, action.snapshot.melody, action.snapshot.settings),
+            ),
         selectedCandidateId: action.snapshot.selectedCandidateId,
         selectedChordId: action.snapshot.selectedChordId,
         harmonyStatus:

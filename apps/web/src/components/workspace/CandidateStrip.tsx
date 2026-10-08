@@ -1,5 +1,7 @@
 import { candidateProgression } from "../../app/pianoRollLayout";
-import type { AppState, HarmonyCandidate } from "../../music/types";
+import type { HarmonyCandidate } from "../../music/types";
+import type { AppState } from "../../app/sessionTypes";
+
 
 type CandidateStripProps = {
   t: (key: string) => string;

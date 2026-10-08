@@ -3,7 +3,7 @@
 //   (carousel) → act (CTA).
 // English-only copy, monochrome black + ivory, scroll-snapped screens, and a
 // single WebGL field (FloatingLines) that pauses when scrolled offscreen.
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   FiBookOpen,
   FiDownload,
@@ -12,7 +12,7 @@ import {
   FiLayers,
   FiUploadCloud,
 } from "react-icons/fi";
-import FloatingLines from "../FloatingLines";
+const FloatingLines = lazy(() => import("../FloatingLines"));
 import Carousel, { type CarouselItem } from "./Carousel";
 import HarmonyDemo from "./HarmonyDemo";
 import "./Landing.css";
@@ -113,7 +113,7 @@ export default function Landing({
         aria-label="Harmony Auxiliary"
       >
         <div className="hero-field" aria-hidden="true">
-          <FloatingLines
+          <Suspense fallback={null}><FloatingLines
             linesGradient={["#f3eee3", "#d7d1c5", "#a7a298"]}
             enabledWaves={["top", "middle", "bottom"]}
             lineCount={[6, 9, 12]}
@@ -125,7 +125,7 @@ export default function Landing({
             bendStrength={-0.5}
             mixBlendMode="screen"
             paused={!heroVisible}
-          />
+          /></Suspense>
         </div>
         <div className="hero-copy">
           <span className="landing-kicker">MIDI in · Harmony out</span>

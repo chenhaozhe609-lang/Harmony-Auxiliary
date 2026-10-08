@@ -15,7 +15,8 @@ import {
   updateProject,
 } from "./projectRepository";
 import { demoMelody } from "../music/fixtures/demoMelodies";
-import type { AppState } from "../music/types";
+import type { AppState } from "./sessionTypes";
+
 
 describe("createProjectSnapshot", () => {
   it("stores parsed project data and MIDI metadata without the original file blob", () => {

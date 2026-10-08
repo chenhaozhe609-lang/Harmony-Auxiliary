@@ -1,3 +1,7 @@
+import { useSyncExternalStore } from "react";
+import type { PlaybackProgress } from "../../app/playbackProgress";
+import { createTimelineGridMetrics } from "../../app/timelineGrid";
+import { Playhead } from "./PlaybackIndicators";
 import type { Ref, UIEvent as ReactUIEvent } from "react";
 import {
   HARMONY_VOICE_ROWS,
@@ -13,10 +17,11 @@ type HarmonyLaneProps = {
   onScroll: (event: ReactUIEvent<HTMLDivElement>) => void;
   harmonyIsOutdated: boolean;
   hasMelody: boolean;
-  playheadLeft: number;
+  progress: PlaybackProgress;
+  timelineMetrics: ReturnType<typeof createTimelineGridMetrics>;
   selectedCandidate: HarmonyCandidate | null;
   selectedChord: PlacedChord | null;
-  activePlaybackChordId: string | null;
+  harmonyIsReady: boolean;
   isGenerating: boolean;
   onSelectChord: (chordId: string) => void;
 };
@@ -29,13 +34,19 @@ export function HarmonyLane({
   onScroll,
   harmonyIsOutdated,
   hasMelody,
-  playheadLeft,
+  progress,
+  timelineMetrics,
   selectedCandidate,
   selectedChord,
-  activePlaybackChordId,
+  harmonyIsReady,
   isGenerating,
   onSelectChord,
 }: HarmonyLaneProps) {
+  const activeChord = () => harmonyIsReady ? selectedCandidate?.chords.find((placed) => {
+    const beat = progress.getSnapshot();
+    return beat >= placed.startBeat && beat < placed.startBeat + placed.durationBeats;
+  })?.id ?? null : null;
+  const activePlaybackChordId = useSyncExternalStore(progress.subscribe, activeChord, activeChord);
   return (
     <div
       className="timeline-window harmony-window"
@@ -53,7 +64,7 @@ export function HarmonyLane({
           </div>
         </div>
         {hasMelody ? (
-          <div className="playhead" aria-hidden="true" style={{ left: `${playheadLeft}px` }} />
+          <Playhead progress={progress} metrics={timelineMetrics} />
         ) : null}
         {selectedCandidate && selectedChord ? (
           <>

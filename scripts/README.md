@@ -28,3 +28,13 @@ Windows 后台启动服务须使用用户指定的 `C:\Users\LENOVO\.codex\bin\S
 
 登录、云端项目与账户隐私验证已删除。
 `verify-t2-*.mjs` 与 `verify-t3-7.mjs` 是早期界面的历史检查，保留供查阅，不属于当前验收。
+
+## 本次审计回归
+
+`verify-audit.mjs` 面向生产预览，请先执行 `pnpm build`，再在 5181 端口启动 `pnpm --filter @harmony/web preview --host 127.0.0.1 --port 5181`（Windows 后台启动仍必须使用上述启动器）。随后运行：
+
+```bash
+node scripts/verify-audit.mjs
+```
+
+验证入口分包、浏览器历史中的会话保留、播放期间工作区/编辑器渲染次数、输入变化后生成取消和重试、1024 音符 Worker 生成，以及真实音频解码、共享采样下载、刷新复用和清空缓存。测试使用有效 WAV 响应替代外部音频，避免依赖第三方 CDN 可用性。脚本会打印本机生成时延并把工作区截图保存到 系统临时目录下的 `harmony-audit/workspace.png`（可通过 `VERIFY_ARTIFACT_DIR` 指定目录）；这些测量不代表所有设备的性能。

@@ -1,4 +1,6 @@
-import type { AppState, StoredProjectSnapshot } from "../music/types";
+import type { AppState } from "./sessionTypes";
+import type { StoredProjectSnapshot } from "./projectTypes";
+
 
 const DB_NAME = "harmony-auxiliary-db";
 const DB_VERSION = 1;

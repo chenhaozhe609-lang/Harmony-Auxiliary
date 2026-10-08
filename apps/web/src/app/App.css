@@ -2594,6 +2594,16 @@ button:disabled,
   flex-shrink: 0;
 }
 
+.audio-credits {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-underline-offset: 3px;
+}
+
+.audio-credits:hover {
+  color: var(--color-text);
+}
+
 /* Compact in the expert toolbar so the phase toggle never steals roll height. */
 .app-shell.expert .phase-nav-button {
   height: 28px;

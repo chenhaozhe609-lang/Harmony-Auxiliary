@@ -1,4 +1,7 @@
-import type { AppState } from "../../music/types";
+import type { PlaybackProgress } from "../../app/playbackProgress";
+import { BeatReadout } from "./PlaybackIndicators";
+import type { AppState } from "../../app/sessionTypes";
+
 
 type TransportProps = {
   t: (key: string) => string;
@@ -7,7 +10,7 @@ type TransportProps = {
   melodyMuted: boolean;
   harmonyMuted: boolean;
   harmonyIsReady: boolean;
-  currentBeat: number;
+  progress: PlaybackProgress;
   onPlayFromStart: () => void;
   onPlayFromCurrentMeasure: () => void;
   onPlayPause: () => void;
@@ -24,7 +27,7 @@ export function Transport({
   melodyMuted,
   harmonyMuted,
   harmonyIsReady,
-  currentBeat,
+  progress,
   onPlayFromStart,
   onPlayFromCurrentMeasure,
   onPlayPause,
@@ -78,10 +81,7 @@ export function Transport({
           {t("transport.harmony")}
         </button>
       </div>
-      <span className="beat-readout" aria-live="off">
-        {currentBeat.toFixed(1)}
-        <small>{t("timeline.beat")}</small>
-      </span>
+      <BeatReadout progress={progress} label={t("timeline.beat")} />
     </div>
   );
 }

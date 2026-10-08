@@ -165,23 +165,7 @@ export type HarmonyCandidate = {
   summary: string;
 };
 
-export type PlaybackState = {
-  status: "stopped" | "starting" | "playing" | "paused";
-  currentBeat: number;
-  melodyMuted: boolean;
-  harmonyMuted: boolean;
-};
-
 export type HarmonyStatus = "empty" | "ready" | "outdated";
-
-export type MidiImportState = {
-  status: "idle" | "ready" | "error";
-  fileName: string | null;
-  selectedTrackIndex: number | null;
-  fileSize?: number;
-  lastModified?: number;
-  tracks?: MidiTrackSummary[];
-};
 
 export type MidiTrackSummary = {
   index: number;
@@ -201,43 +185,4 @@ export type MidiImportResult = {
     numerator: number;
     denominator: number;
   };
-};
-
-export type AppError = {
-  id: string;
-  message: string;
-  tone?: "error" | "status";
-};
-
-export type StoredProjectSnapshot = {
-  schemaVersion: 1;
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-  settings: ProjectSettings;
-  melody: NoteEvent[];
-  candidates: HarmonyCandidate[];
-  selectedCandidateId: string | null;
-  selectedChordId: string | null;
-  harmonyStatus?: HarmonyStatus;
-  sourceImport?: {
-    fileName: string;
-    fileSize: number;
-    lastModified: number;
-    selectedTrackIndex: number | null;
-    storedBlobId?: string;
-  };
-};
-
-export type AppState = {
-  settings: ProjectSettings;
-  melody: NoteEvent[];
-  candidates: HarmonyCandidate[];
-  selectedCandidateId: string | null;
-  selectedChordId: string | null;
-  harmonyStatus: HarmonyStatus;
-  playback: PlaybackState;
-  importState: MidiImportState;
-  errors: AppError[];
 };
